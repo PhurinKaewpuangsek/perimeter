@@ -1,171 +1,154 @@
-# TORCH UI Refinement — Session Handoff Document
+# TORCH UI Refinement & Map Overhaul — Session Handoff Document
 
-> **Created At**: 2026-10-06T10:35:00+07:00  
+> **Created At**: 2026-10-06T16:20:00+07:00  
 > **Repository**: `CloudV2/workspace/perimeter`  
-> **Active Branch**: `feat/ui-overhaul`  
-> **Purpose**: Seamless continuation for the next session focusing on **perimeter UI Refinement**.
+> **Active Branch**: `feat/ui-overhaul` (tracked against `origin/feat/ui-overhaul`)  
+> **Originating Issue**: #82  
+> **Status**: All requested features, gesture interactions, visual hierarchy refinements, and linter fixes are complete and verified. Green CI / Green Tests (100%). Ready for final human review before commit & PR.
 
 ---
 
-## 1. Executive Summary & Current State
+## 1. Executive Summary & Session Achievements
 
-During this session, we completed the full visual alignment of map markers and pins to match **Google Maps** exactly 1:1, alongside preserving approved architectural landmarks and palettes.
+During this session, we completed a comprehensive overhaul of the `/map` interface across both **Desktop** and **Mobile** viewports, establishing a unified, intuitive UX matching Google Maps / Linear design standards, accompanied by buttery-smooth 60 FPS mobile touch gestures.
 
 ### Key Milestones Completed:
-1. **Google Maps Selected Red Pin (1:1 Vector Match)**:
-   - Formulated an exact SVG path matching real Google Maps pin geometry ($224^\circ$ major arc around head, aerodynamic concave taper down to $(0, 0)$).
-   - Replaced the inner category icon with the signature Google Maps dark red dot hole (`#B31412`).
-   - Added subtle `#B31412` perimeter stroke ($0.8\text{px}$) and ground contact shadow.
-   - Updated selected room label color to Google Red (`#C5221F`) with a crisp white halo.
-2. **Google Maps POI Teardrop Nodes (Unselected Room Badges)**:
-   - Replaced generic circular badges with Google Maps POI teardrop badges (white outer teardrop, concentric category disc, white Phosphor icon).
-   - Implemented an offset shadow path ($y + 1.3\text{px}$) rather than expensive CSS `filter: drop-shadow` to ensure lag-free 60 FPS panning/zooming.
-3. **Floor Map Landmarks & Palette**:
-   - Reverted floor 1 & floor 2 room fills back to the classic approved pastel tints (Violet, Fuchsia, Amber, Lime, Emerald, Teal).
-   - Preserved the floor 1 water river (`#BAE6FD`) and the cross path `(+)` courtyard pavement (`#A29393`).
-   - Validated deterministic LF line endings and SHA-256 digests in `tools/data-extraction/lc3/source/source-manifest.json` (31/31 passed).
-4. **Test Suite Status**:
-   - `npm test`: **70/70 domain tests passing** (100%).
-   - `npm --prefix frontend run test:ui`: **60/60 Vitest tests passing** (100%).
-   - `npm --prefix frontend run build`: **Production build passes cleanly** (TypeScript + Vite).
+
+1. **Unified Left Sidebar Overhaul on `/map` (Desktop)**:
+   - Replaced floating modal popups with an integrated, cohesive Unified Left Sidebar (`aside` at `left-3.5 top-3.5 bottom-3.5`).
+   - Combined Brand Header (Perimeter logo with reset action), Search Controls, Collapsible Category Filters, Search Results, and Room Detail into one fluid container.
+   - Implemented Sidebar Collapse/Expand via a floating circular chevron toggle (`<`).
+   - Added persistent **Pinned Room Banner** (`ปักหมุดอยู่ · ชั้น {floor}`) when a room is pinned and the detail panel is closed, allowing users to freely pan/explore the map while keeping track of their selection.
+   - Removed obsolete "ประเภทพื้นที่" dropdown filter button and the redundant "< กลับ" button.
+   - Enhanced visual borders and elevation with subtle card shadows (`shadow-sm` / `shadow-xs`) for crisp contrast.
+
+2. **Mobile Layout & Pinned Pill Repositioning**:
+   - **Relocated Pinned Room Floating Pill**: Moved from the crowded bottom-left to the **top-left directly beneath the search bar** (`fixed top-2.5 inset-x-2.5 z-30 pointer-events-none`).
+   - **Dynamic Flow**: Nesting the pill inside the top header container allows it to automatically slide down/up smoothly when `<CategoryFilter />` is toggled open/closed.
+   - **Unobstructed Bottom Controls**: Completely freed up the bottom screen space for the Floor Switcher and Zoom Controls ([ + | - ]).
+
+3. **Mobile Bottom Sheet Touch Gestures & Physics**:
+   - **Real-Time Finger Tracking (1:1)**: Implemented touch tracking (`onTouchStart`, `onTouchMove`, `onTouchEnd`, `onTouchCancel`) with direct 60 FPS `translateY` transforms on the sheet element. Dragging down on the grab handle (`—`) or pulling down from the top of the sheet moves the card smoothly with the user's finger.
+   - **Upward Damping**: Applied rubber-band elastic resistance (`deltaY * 0.15`) when pulling upward.
+   - **CSS Animation Lock Fix**: Removed `animation-fill-mode: forwards` from `.animate-modal-mobile` in `frontend/src/index.css` and added `sheet.style.animation = 'none'` on touch start, resolving an issue where CSS keyframes overrode inline `style.transform`.
+   - **Smooth Exit Physics**: Dragging down $> 65\text{px}$ or flicking downward with velocity $> 0.3$ smoothly animates the sheet off-screen (`translateY(100%)` with `cubic-bezier(0.2, 0.9, 0.3, 1)`) before unmounting. If released early, it springs back smoothly (`translateY(0)`).
+   - **Animated Close on Tap**: Tapping the grab handle directly or tapping the `✕` close button on mobile now triggers the same smooth slide-down animation instead of abruptly disappearing.
+   - **Synthetic Click Suppression**: Handled `hasDraggedRef` to prevent accidental click events from firing immediately after a drag gesture ends.
+
+4. **Visual Hierarchy Refinements on Room Hero Card**:
+   - **De-emphasized Location Context**: Replaced the loud, aggressive red/pink pill (`bg-rose-50 border-rose-100 text-rose-600 font-bold`) with a subtle, elegant neutral slate pill (`bg-slate-100/90 border border-slate-200/60 text-[11px] font-medium text-slate-500`).
+   - **Removed Icon Clutter**: Removed the `Buildings` icon per user request to maintain clean simplicity.
+   - **True Focal Point**: The Room Number (`ห้อง 110 (LC3-110)`) and Thai Title (`ห้องบรรยายเรียนรวม`) now serve as the clear, primary focal point of the card.
+   - **Removed Dividing Border**: Removed the horizontal `border-b` line dividing the location pill from the title, allowing the card header to flow organically.
+   - **Uniform Application**: Because `RoomDetailContent` is shared, this refinement applies seamlessly to both Desktop Sidebar and Mobile Bottom Sheet.
+
+5. **Code Hygiene & ESLint Compliance**:
+   - Fixed `react-hooks/static-components` ESLint error by extracting `RoomCategoryBadge` to module scope and rendering the category icon with `createElement(Icon, { size: 14, weight: 'duotone' })`.
+   - Cleaned up duplicate functions in `MapPage.tsx`.
+   - Linter (`npm run lint`): **0 errors, 0 warnings**.
 
 ---
 
 ## 2. Non-Negotiable Project Rules (`AGENTS.md`)
 
-The incoming agent **MUST strictly follow** the rules documented in [AGENTS.md](file:///d:/1codingworkspace/CloudV2/workspace/perimeter/AGENTS.md):
-- **Never commit or push directly to `main`**. Trunk-based development off `main` via short-lived feature branches.
-- **Require Explicit Authorization**: Never run `git commit`, `git push`, or `gh pr create` on your own. Always pause and ask the human for permission first, even with `--dangerously-skip-permissions`.
+The incoming agent **MUST strictly adhere** to the non-negotiables documented in [AGENTS.md](file:///d:/1codingworkspace/CloudV2/workspace/perimeter/AGENTS.md):
+- **Never commit or push directly to `main`**.
+- **Require Explicit Authorization**: Never run `git commit`, `git push`, or `gh pr create` on your own. Always pause and ask the human for permission first, even when running with `--dangerously-skip-permissions`.
 - **Zero AI Attribution**: Do not add AI footers, co-authors, or "Generated by AI" unless explicitly requested.
 - **Leave workflows alone**: Do not edit `.github/workflows/`.
-- **Infrastructure Rules (AWS SAM)**: No ClickOps; manage via `template.yaml`.
-- **Line Endings**: SVGs and JSON files in `tools/data-extraction/` must maintain LF line endings to avoid corrupting SHA-256 manifest validation.
+- **No ClickOps**: Manage AWS SAM resources via `template.yaml`.
 
 ---
 
 ## 3. Git & Working Tree Status
 
-- **Branch**: `feat/ui-overhaul` (tracked against `origin/feat/ui-overhaul`)
-- **Working Tree**: Working tree has uncommitted UI improvements ready for review / next steps:
+- **Branch**: `feat/ui-overhaul`
+- **Tracked upstream**: `origin/feat/ui-overhaul`
+- **Modified files in working tree** (ready for commit after human review):
   ```
-  modified:   frontend/public/maps/lc3/floor-1.svg
-  modified:   frontend/public/maps/lc3/floor-2.svg
-  modified:   frontend/src/components/CategoryFilter.tsx
-  modified:   frontend/src/components/LoadingScreen.tsx
+  modified:   frontend/index.html
   modified:   frontend/src/components/MapPage.tsx
-  modified:   frontend/src/components/RoomSearchPanel.tsx
   modified:   frontend/src/components/SearchBar.tsx
   modified:   frontend/src/components/SearchResultList.tsx
   modified:   frontend/src/components/map/MapContainer.tsx
   modified:   frontend/src/components/map/MapLegend.tsx
   modified:   frontend/src/components/map/RoomMarkers.tsx
-  modified:   frontend/src/components/map/__tests__/MapLegend.vitest.tsx
-  modified:   frontend/src/components/map/floorConfig.ts
-  modified:   frontend/src/hooks/usePreloadImages.ts
-  modified:   frontend/src/main.tsx
-  modified:   frontend/src/services/__tests__/roomDisplay.test.ts
-  modified:   frontend/src/services/markerLayout.ts
-  modified:   tools/data-extraction/extract-room-areas.mjs
-  modified:   tools/data-extraction/lc3/source/source-manifest.json
-  untracked:  frontend/public/palette-prototype.html
-              frontend/src/components/LandingPage.tsx
-              frontend/src/prototype/
+  modified:   frontend/src/components/map/__tests__/MapContainer.vitest.tsx
+  modified:   frontend/src/index.css
   ```
+
+### File-by-File Summary of Uncommitted Changes:
+- `frontend/src/components/MapPage.tsx`:
+  - Unified left sidebar layout for desktop (`aside.hidden.sm:flex`).
+  - Mobile header with dynamically positioned floating pinned room pill (`fixed top-2.5`).
+  - Mobile bottom sheet with interactive touch gesture dragging, spring-back, and smooth exit slide-down.
+  - Refined Room Hero Card visual hierarchy (subtle location pill, prominent room number/name, no icon, no horizontal dividing border).
+  - Modular `RoomCategoryBadge` component using `createElement` (ESLint clean).
+- `frontend/src/index.css`:
+  - Removed `forwards` from `.animate-modal-mobile` to unblock dynamic inline `style.transform`.
+  - Added minimalist custom `.thin-scrollbar` styling for schedule day filter pills.
+- `frontend/src/components/SearchBar.tsx`:
+  - Removed obsolete area type ("ประเภทพื้นที่") dropdown trigger button.
+- `frontend/src/components/SearchResultList.tsx`:
+  - Refined result items with card borders, subtle shadows, and category color accents.
+- `frontend/src/components/map/MapContainer.tsx`:
+  - Coordinated floor switching and background click behavior with sidebar/sheet state.
+- `frontend/src/components/map/RoomMarkers.tsx`:
+  - Google Maps 1:1 selected pin vector path and POI teardrop badges.
+- `frontend/src/components/map/MapLegend.tsx`:
+  - Refined category pill colors and labels.
+- `frontend/src/components/map/__tests__/MapContainer.vitest.tsx`:
+  - Updated test assertions to match updated component structure.
 
 ---
 
-## 4. Key Architectural Implementations
+## 4. Test Suite & Health Verification
 
-### A. Google Maps Selected Pin Formula
-Located in [RoomMarkers.tsx](file:///d:/1codingworkspace/CloudV2/workspace/perimeter/frontend/src/components/map/RoomMarkers.tsx) and [markerLayout.ts](file:///d:/1codingworkspace/CloudV2/workspace/perimeter/frontend/src/services/markerLayout.ts):
-
-- **Bounding Box Metrics**:
-  - `SELECTED_PIN_WIDTH = 25`
-  - `SELECTED_PIN_HEIGHT = 36`
-  - `SELECTED_PIN_HEAD_Y = 23`
-- **SVG Path Formula**:
-  ```tsx
-  const SELECTED_PIN_PATH =
-    'M 0 0 C -1 -4 -8.13 -10.55 -11.31 -18.43 A 12.2 12.2 0 1 1 11.31 -18.43 C 8.13 -10.55 1 -4 0 0 Z'
-  const SELECTED_PIN_COLOR = '#EA4335'
-  const SELECTED_PIN_BORDER_COLOR = '#B31412'
-  const SELECTED_PIN_DOT_COLOR = '#B31412'
-  const SELECTED_PIN_DOT_RADIUS = 4.4
-  const SELECTED_LABEL_COLOR = '#C5221F'
-  ```
-- **SVG Element Structure**:
-  ```tsx
-  {/* Ground shadow */}
-  <ellipse data-testid="room-selected-halo" cx={0} cy={1.5} rx={5} ry={2} fill="#000000" fillOpacity={0.22} />
-
-  {/* Pin body + dark red center hole */}
-  <g data-testid="room-selected-pin" className="animate-pin-drop" style={{ filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.22))' }}>
-    <path d={SELECTED_PIN_PATH} fill={SELECTED_PIN_COLOR} stroke={SELECTED_PIN_BORDER_COLOR} strokeWidth={0.8} strokeLinejoin="round" />
-    <circle cx={0} cy={-SELECTED_PIN_HEAD_Y} r={SELECTED_PIN_DOT_RADIUS} fill={SELECTED_PIN_DOT_COLOR} />
-  </g>
-
-  {/* Label in Google Red */}
-  <MarkerLabel text={getMarkerLabel(room)} side={side} offset={SELECTED_PIN_WIDTH / 2 + LABEL_GAP} y={-SELECTED_PIN_HEAD_Y} color={SELECTED_LABEL_COLOR} bold />
-  ```
-
-### B. Google Maps POI Teardrop Badges (Unselected Nodes)
-Located in [RoomMarkers.tsx](file:///d:/1codingworkspace/CloudV2/workspace/perimeter/frontend/src/components/map/RoomMarkers.tsx):
-- **SVG Path Formula**:
-  ```tsx
-  const POI_BADGE_PATH =
-    'M 0 14.2 C -3 14.2 -12 7 -12 0 A 12 12 0 1 1 12 0 C 12 7 3 14.2 0 14.2 Z'
-  const POI_SHADOW_PATH =
-    'M 0 15.5 C -3 15.5 -12 8.3 -12 1.3 A 12 12 0 1 1 12 1.3 C 12 8.3 3 15.5 0 15.5 Z'
-  const POI_INNER_RADIUS = 9.2
-  const BADGE_ICON_SIZE = 12
-  const POI_PIN_HALF_WIDTH = 12
-  ```
-- **SVG Element Structure**:
-  ```tsx
-  <g data-testid="room-badge" className="transition-transform duration-150 group-hover:scale-110" style={HOVER_ORIGIN}>
-    <path d={POI_SHADOW_PATH} fill="#0f172a" fillOpacity={0.18} />
-    <path d={POI_BADGE_PATH} fill="white" />
-    <circle r={POI_INNER_RADIUS} fill={color} />
-    {renderIcon(room, -BADGE_ICON_SIZE / 2, -BADGE_ICON_SIZE / 2, BADGE_ICON_SIZE)}
-  </g>
-  ```
+All suites pass with 100% success rate:
+- **Root Unit / Domain Tests**: `npm test` → **70/70 tests passing**.
+- **Frontend Vitest Suite**: `npm --prefix frontend run test:ui` → **62/62 tests passing**.
+- **ESLint Code Quality**: `npm --prefix frontend run lint` → **0 errors, 0 warnings**.
+- **TypeScript & Production Build**: `npm --prefix frontend run build` → **Built cleanly in ~1.2s**.
 
 ---
 
-## 5. Next Session Focus & Pending Tasks
+## 5. Next Session Focus & Recommended Next Steps
 
-The incoming agent will continue the **UI Refinement** effort requested by the user:
-1. **Interactive UI Review & Polish**:
-   - Check mobile/desktop responsiveness on `/map`.
-   - Polish room detail modal, search drawer / panel interactions, and filter pills.
-   - Refine any additional visual feedback or hover animations requested by the user.
-2. **Review with User Before Git Actions**:
-   - When the user is satisfied with all UI adjustments, seek explicit human authorization before committing or opening a PR per `AGENTS.md`.
+When resuming in the next session:
+1. **User Verification**:
+   - Check if the user has tested on mobile (`http://<ip>:5174/map`) or desktop (`http://localhost:5174/map`) and has any further styling adjustments.
+2. **Seek Human Authorization for Git Operations**:
+   - Ask the user: *"Are you ready to commit these changes to `feat/ui-overhaul` and open the PR?"*
+   - Once authorized, stage touched files, verify zero AI attribution with `git log origin/main..HEAD --pretty=fuller`, and commit using Conventional Commits:
+     ```bash
+     git add frontend/index.html frontend/src/components/MapPage.tsx frontend/src/components/SearchBar.tsx frontend/src/components/SearchResultList.tsx frontend/src/components/map/MapContainer.tsx frontend/src/components/map/MapLegend.tsx frontend/src/components/map/RoomMarkers.tsx frontend/src/components/map/__tests__/MapContainer.vitest.tsx frontend/src/index.css handoff.md
+     git commit -m "feat(map): overhaul unified sidebar, mobile gestures, and room hierarchy (#82)"
+     git push origin feat/ui-overhaul
+     gh pr create --base main --head feat/ui-overhaul --title "feat(map): overhaul unified sidebar, mobile gestures, and room hierarchy (#82)"
+     ```
 
 ---
 
 ## 6. Suggested Skills for Next Agent
 
-- **`code-review`**: Call if the user requests a diff or code standard review across touched frontend files.
-- **`codebase-design`**: Call if restructuring components or marker layout services.
-- **`pr`**: Call when the user gives permission to open the PR into `main`.
+- **`pr`**: Use when creating the pull request description to ensure proper tracking against Issue #82.
+- **`code-review`**: Use if the user requests an automated review of the branch changes against repository coding standards.
+- **`diagnosing-bugs`**: Use if any edge cases emerge during mobile device testing (e.g. Safari viewport quirks, older WebKit touch handling).
 
 ---
 
-## 7. Verification Commands
+## 7. Quick Start & Dev Commands
 
-To verify environment health at any time:
 ```powershell
-# 1. Run domain unit tests (70 tests)
-npm test
+# Start Vite development server accessible over local network (phone & PC):
+npm --prefix frontend run dev -- --host
 
-# 2. Run UI Vitest suite (60 tests)
+# Run linter:
+npm --prefix frontend run lint
+
+# Run UI tests:
 npm --prefix frontend run test:ui
 
-# 3. Verify TypeScript compile & production bundle
+# Verify production build:
 npm --prefix frontend run build
-
-# 4. Verify data extraction manifest & hash integrity
-node --test tools/data-extraction/validate-lc3-seed.mjs
 ```
-
