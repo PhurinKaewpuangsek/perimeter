@@ -1,14 +1,40 @@
 /**
- * AdminPage — desktop-only split-panel admin UI for issue #81.
+ * AdminPage — Overhauled unified admin console under the Perimeter brand.
+ * Route: /admin (security by obscurity for V2).
  *
- * Layout: left panel (room list / edit form + schedule list) | right panel (map, admin mode).
- * Route: /admin   — no link from public /map (security by obscurity for V2).
- *
- * State machine for left panel:
- *   'list'   → searchable room list (default)
- *   'room'   → room edit form + schedule list for selected room
+ * Refined design features:
+ * 1. Perimeter Brand Theme: Soft slate pill with pulsing rose dot matching
+ *    the Perimeter logo palette.
+ * 2. Uncluttered Room List: Removed redundant room code boxes; clear typographic
+ *    hierarchy with room numbers, Thai titles, and category badges.
+ * 3. Functional Horizontal Scrollbars: Category and Day filter strips now feature
+ *    visible thin scrollbars (.thin-scrollbar) and mouse-wheel horizontal scrolling.
+ * 4. Ergonomic Room Edit Header: Prominent room title, category, and persistent
+ *    back button; removed unused "ดูบนแผนที่" button.
+ * 5. Bottom-Left Collapsed Pill: Repositioned floating pinned room pill to bottom-left
+ *    (bottom-6 left-6) for unobstructed map exploration.
  */
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo, useRef, createElement } from 'react'
+import { Link } from 'react-router-dom'
+import {
+  CaretLeft,
+  CaretRight,
+  X,
+  MapPin,
+  Calendar,
+  Clock,
+  Users,
+  Check,
+  PencilSimple,
+  Trash,
+  Plus,
+  Warning,
+  FloppyDisk,
+  MagnifyingGlass,
+  ArrowSquareOut,
+  Door,
+  Sparkle,
+} from '@phosphor-icons/react'
 import { useRooms } from '../hooks/useRooms'
 import { useSchedules } from '../hooks/useSchedules'
 import { usePreloadImages } from '../hooks/usePreloadImages'
@@ -24,56 +50,224 @@ import {
   updateSchedule,
   deleteSchedule,
 } from '../services/adminService'
+import {
+  getCategoryLabel,
+  getLandmarkText,
+  CATEGORY_COLORS,
+  DEFAULT_CATEGORY_COLOR,
+} from '../services/roomDisplay'
+import { CATEGORY_FILTERS } from '../services/filterRooms'
+import { getCategoryIcon } from './categoryIcon'
+import perimeterLogoNoBg from '../assets/perimeter_logo_negative_nobg.png'
 
 // ---------------------------------------------------------------------------
-// Sub-components
+// Constants & Day Color Configurations (mirrors /map standard)
 // ---------------------------------------------------------------------------
 
 const FLOOR_PLAN_ASSETS = FLOOR_CONFIGS.map((c) => c.asset)
 
-// Simple search box
-function SearchBox({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+interface DayConfig {
+  order: number
+  th: string
+  shortTh: string
+  color: string
+  dotColor: string
+  bgLight: string
+}
+
+const DAY_CONFIG: Record<string, DayConfig> = {
+  MON: { order: 1, th: 'วันจันทร์', shortTh: 'จันทร์', color: 'text-amber-800', dotColor: 'bg-amber-500', bgLight: 'bg-amber-50 border-amber-200' },
+  MONDAY: { order: 1, th: 'วันจันทร์', shortTh: 'จันทร์', color: 'text-amber-800', dotColor: 'bg-amber-500', bgLight: 'bg-amber-50 border-amber-200' },
+  TUE: { order: 2, th: 'วันอังคาร', shortTh: 'อังคาร', color: 'text-pink-800', dotColor: 'bg-pink-500', bgLight: 'bg-pink-50 border-pink-200' },
+  TUESDAY: { order: 2, th: 'วันอังคาร', shortTh: 'อังคาร', color: 'text-pink-800', dotColor: 'bg-pink-500', bgLight: 'bg-pink-50 border-pink-200' },
+  WED: { order: 3, th: 'วันพุธ', shortTh: 'พุธ', color: 'text-emerald-800', dotColor: 'bg-emerald-500', bgLight: 'bg-emerald-50 border-emerald-200' },
+  WEDNESDAY: { order: 3, th: 'วันพุธ', shortTh: 'พุธ', color: 'text-emerald-800', dotColor: 'bg-emerald-500', bgLight: 'bg-emerald-50 border-emerald-200' },
+  THU: { order: 4, th: 'วันพฤหัสบดี', shortTh: 'พฤหัสฯ', color: 'text-orange-800', dotColor: 'bg-orange-500', bgLight: 'bg-orange-50 border-orange-200' },
+  THURSDAY: { order: 4, th: 'วันพฤหัสบดี', shortTh: 'พฤหัสฯ', color: 'text-orange-800', dotColor: 'bg-orange-500', bgLight: 'bg-orange-50 border-orange-200' },
+  FRI: { order: 5, th: 'วันศุกร์', shortTh: 'ศุกร์', color: 'text-sky-800', dotColor: 'bg-sky-500', bgLight: 'bg-sky-50 border-sky-200' },
+  FRIDAY: { order: 5, th: 'วันศุกร์', shortTh: 'ศุกร์', color: 'text-sky-800', dotColor: 'bg-sky-500', bgLight: 'bg-sky-50 border-sky-200' },
+  SAT: { order: 6, th: 'วันเสาร์', shortTh: 'เสาร์', color: 'text-purple-800', dotColor: 'bg-purple-500', bgLight: 'bg-purple-50 border-purple-200' },
+  SATURDAY: { order: 6, th: 'วันเสาร์', shortTh: 'เสาร์', color: 'text-purple-800', dotColor: 'bg-purple-500', bgLight: 'bg-purple-50 border-purple-200' },
+  SUN: { order: 7, th: 'วันอาทิตย์', shortTh: 'อาทิตย์', color: 'text-rose-800', dotColor: 'bg-rose-500', bgLight: 'bg-rose-50 border-rose-200' },
+  SUNDAY: { order: 7, th: 'วันอาทิตย์', shortTh: 'อาทิตย์', color: 'text-rose-800', dotColor: 'bg-rose-500', bgLight: 'bg-rose-50 border-rose-200' },
+}
+
+function getDayInfo(rawDay: string): DayConfig {
+  const upper = (rawDay || '').toUpperCase().trim()
   return (
-    <input
-      type="search"
-      placeholder="ค้นหาห้อง..."
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-    />
+    DAY_CONFIG[upper] ?? {
+      order: 99,
+      th: rawDay || 'ไม่ระบุวัน',
+      shortTh: rawDay || 'ไม่ระบุ',
+      color: 'text-slate-800',
+      dotColor: 'bg-slate-400',
+      bgLight: 'bg-slate-50 border-slate-200',
+    }
   )
 }
 
-// Room list item row
+function RoomCategoryBadge({ category, nameThai }: { category: string; nameThai?: string }) {
+  const label = getCategoryLabel(category)
+  const color = CATEGORY_COLORS[category] ?? DEFAULT_CATEGORY_COLOR
+  const Icon = getCategoryIcon(category, nameThai)
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${color.bg} ${color.text} border ${color.border} shadow-2xs`}
+    >
+      {createElement(Icon, { size: 13, weight: 'duotone' })}
+      <span>{label}</span>
+    </span>
+  )
+}
+
+function EventTypeBadge({ type }: { type?: string }) {
+  const lower = (type || '').toLowerCase()
+  if (lower === 'lab') {
+    return (
+      <span className="inline-flex items-center rounded-md bg-lime-50 px-2 py-0.5 text-[10px] font-medium text-lime-700 border border-lime-200/70">
+        แลป
+      </span>
+    )
+  }
+  if (lower === 'exam') {
+    return (
+      <span className="inline-flex items-center rounded-md bg-rose-50 px-2 py-0.5 text-[10px] font-medium text-rose-700 border border-rose-200/70">
+        สอบ
+      </span>
+    )
+  }
+  return (
+    <span className="inline-flex items-center rounded-md bg-violet-50 px-2 py-0.5 text-[10px] font-medium text-violet-700 border border-violet-200/70">
+      บรรยาย
+    </span>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Search Box Subcomponent
+// ---------------------------------------------------------------------------
+
+function AdminSearchBox({
+  value,
+  onChange,
+  placeholder = 'ค้นหาห้อง...',
+}: {
+  value: string
+  onChange: (v: string) => void
+  placeholder?: string
+}) {
+  return (
+    <div className="relative flex items-center w-full">
+      <div className="pointer-events-none absolute left-3 flex items-center text-slate-400">
+        <MagnifyingGlass size={16} weight="bold" />
+      </div>
+      <input
+        type="text"
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full rounded-xl border border-slate-200/90 bg-white py-2 pl-9 pr-8 text-xs text-slate-900 placeholder-slate-400 focus:border-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900/10 shadow-2xs transition-all [&::-webkit-search-cancel-button]:hidden"
+      />
+      {value && (
+        <button
+          type="button"
+          onClick={() => onChange('')}
+          className="absolute right-2.5 flex h-4 w-4 items-center justify-center rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
+          aria-label="ล้างคำค้นหา"
+        >
+          <X size={12} weight="bold" />
+        </button>
+      )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Room List Item Row (Uncluttered, crisp hierarchy)
+// ---------------------------------------------------------------------------
+
 function RoomListItem({
   room,
+  scheduleCount,
+  isSelected,
   onSelect,
 }: {
   room: Room
+  scheduleCount: number
+  isSelected: boolean
   onSelect: (roomId: string) => void
 }) {
+  const roomDisplayName = room.roomNumber ? `ห้อง ${room.roomNumber}` : room.nameThai || room.code
+  const hasDistinctThaiName = room.nameThai && room.nameThai !== roomDisplayName
+
   return (
     <button
       type="button"
       onClick={() => onSelect(room.id)}
-      className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-slate-100 active:bg-slate-200 transition-colors cursor-pointer"
+      className={`group flex w-full flex-col gap-1.5 rounded-2xl border p-3.5 text-left transition-all cursor-pointer ${
+        isSelected
+          ? 'border-slate-900 bg-slate-50/90 shadow-xs ring-1 ring-slate-900/10'
+          : 'border-slate-200/90 bg-white hover:border-slate-300 hover:bg-slate-50/60 shadow-2xs'
+      }`}
     >
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium text-slate-900">{room.nameThai || '(ไม่มีชื่อ)'}</p>
-        <p className="text-xs text-slate-500">{room.code} · ชั้น {room.floor}</p>
+      {/* Header Row: Room Title + Floor Badge + Caret */}
+      <div className="flex items-center justify-between w-full">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="truncate text-xs font-bold text-slate-900 group-hover:text-rose-600 transition-colors">
+            {roomDisplayName}
+          </span>
+          <span className="shrink-0 rounded-md bg-slate-100 border border-slate-200/60 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500">
+            ชั้น {room.floor}
+          </span>
+          {room.code && room.roomNumber && room.code !== room.roomNumber && (
+            <span className="shrink-0 font-mono text-[11px] text-slate-400">
+              ({room.code})
+            </span>
+          )}
+        </div>
+        <CaretRight
+          size={14}
+          weight="bold"
+          className="shrink-0 text-slate-300 group-hover:text-slate-700 group-hover:translate-x-0.5 transition-all ml-1"
+        />
+      </div>
+
+      {/* Optional distinct Thai Subtitle */}
+      {hasDistinctThaiName && (
+        <p className="truncate text-xs text-slate-500 font-normal">
+          {room.nameThai}
+        </p>
+      )}
+
+      {/* Badges Row: Category + Capacity + Schedule Count */}
+      <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+        <RoomCategoryBadge category={room.category} nameThai={room.nameThai} />
+        {room.capacity !== undefined && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-slate-50 border border-slate-200/60 px-2 py-0.5 text-[10px] font-medium text-slate-500">
+            <Users size={11} />
+            {room.capacity} คน
+          </span>
+        )}
+        {scheduleCount > 0 && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-slate-50 border border-slate-200/60 px-2 py-0.5 text-[10px] font-medium text-slate-500">
+            <Calendar size={11} />
+            {scheduleCount} คาบ
+          </span>
+        )}
       </div>
     </button>
   )
 }
 
 // ---------------------------------------------------------------------------
-// Schedule row inside the room edit view
+// Schedule Row Subcomponent (with inline editor)
 // ---------------------------------------------------------------------------
 
 interface ScheduleRowProps {
   slot: ScheduleSlot & { schedule_slot: string }
   onDelete: () => Promise<void>
-  onEdit: (updated: Partial<Pick<ScheduleSlot, 'dayOfWeek' | 'startTime' | 'eventCode' | 'endTime' | 'eventName' | 'eventType'>>) => void
+  onEdit: (updated: Partial<Pick<ScheduleSlot, 'dayOfWeek' | 'startTime' | 'eventCode' | 'endTime' | 'eventName' | 'eventType'>>) => Promise<void>
 }
 
 function ScheduleRow({ slot, onDelete, onEdit }: ScheduleRowProps) {
@@ -87,14 +281,18 @@ function ScheduleRow({ slot, onDelete, onEdit }: ScheduleRowProps) {
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
+  const dayInfo = getDayInfo(slot.dayOfWeek)
+
   async function handleDelete() {
+    if (!window.confirm(`ยืนยันการลบตาราง ${slot.eventCode} (${slot.dayOfWeek} ${slot.startTime})?`)) {
+      return
+    }
     setSaving(true)
     setErr(null)
     try {
       await onDelete()
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'เกิดข้อผิดพลาด')
-    } finally {
       setSaving(false)
     }
   }
@@ -114,77 +312,91 @@ function ScheduleRow({ slot, onDelete, onEdit }: ScheduleRowProps) {
 
   if (editing) {
     return (
-      <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 space-y-2">
-        {err && <p className="text-xs text-red-600">{err}</p>}
-        <div className="grid grid-cols-2 gap-2">
+      <div className="rounded-2xl border border-slate-300 bg-slate-50/70 p-3.5 space-y-3 shadow-2xs">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-bold text-slate-900">แก้ไขข้อมูลตาราง</span>
+          <button
+            type="button"
+            onClick={() => setEditing(false)}
+            className="text-slate-400 hover:text-slate-600 cursor-pointer"
+          >
+            <X size={14} weight="bold" />
+          </button>
+        </div>
+        {err && <p className="text-xs text-rose-600 bg-rose-50 p-2 rounded-lg border border-rose-200">{err}</p>}
+        <div className="grid grid-cols-2 gap-2.5">
           <div>
-            <label className="block text-xs font-medium text-slate-700 mb-1">วัน</label>
+            <label className="block text-[11px] font-semibold text-slate-700 mb-1">วัน</label>
             <select
               value={dayOfWeek}
               onChange={(e) => setDayOfWeek(e.target.value)}
-              className="w-full rounded border border-slate-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full rounded-xl border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900/10"
             >
-              {['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'].map(d => <option key={d} value={d}>{d}</option>)}
+              {['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'].map((d) => (
+                <option key={d} value={d}>
+                  {getDayInfo(d).th} ({d})
+                </option>
+              ))}
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-700 mb-1">เริ่ม</label>
-            <input
-              type="text"
-              value={startTime}
-              onChange={(e) => setStartTime(e.target.value)}
-              placeholder="HH:MM"
-              className="w-full rounded border border-slate-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-700 mb-1">รหัสวิชา</label>
+            <label className="block text-[11px] font-semibold text-slate-700 mb-1">รหัสวิชา</label>
             <input
               type="text"
               value={eventCode}
               onChange={(e) => setEventCode(e.target.value)}
-              className="w-full rounded border border-slate-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full rounded-xl border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-slate-900/10"
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-700 mb-1">ชื่อวิชา</label>
+            <label className="block text-[11px] font-semibold text-slate-700 mb-1">เวลาเริ่ม (HH:MM)</label>
             <input
               type="text"
-              value={eventName}
-              onChange={(e) => setEventName(e.target.value)}
-              className="w-full rounded border border-slate-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+              value={startTime}
+              onChange={(e) => setStartTime(e.target.value)}
+              placeholder="09:00"
+              className="w-full rounded-xl border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-slate-900/10"
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-700 mb-1">สิ้นสุด</label>
+            <label className="block text-[11px] font-semibold text-slate-700 mb-1">เวลาสิ้นสุด (HH:MM)</label>
             <input
               type="text"
               value={endTime}
               onChange={(e) => setEndTime(e.target.value)}
-              placeholder="HH:MM"
-              className="w-full rounded border border-slate-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+              placeholder="12:00"
+              className="w-full rounded-xl border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-slate-900/10"
             />
           </div>
           <div className="col-span-2">
-            <label className="block text-xs font-medium text-slate-700 mb-1">ประเภท</label>
+            <label className="block text-[11px] font-semibold text-slate-700 mb-1">ชื่อวิชา</label>
+            <input
+              type="text"
+              value={eventName}
+              onChange={(e) => setEventName(e.target.value)}
+              className="w-full rounded-xl border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900/10"
+            />
+          </div>
+          <div className="col-span-2">
+            <label className="block text-[11px] font-semibold text-slate-700 mb-1">ประเภท</label>
             <select
               value={eventType}
               onChange={(e) => setEventType(e.target.value)}
-              className="w-full rounded border border-slate-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full rounded-xl border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900/10"
             >
-              <option value="lecture">lecture</option>
-              <option value="lab">lab</option>
-              <option value="exam">exam</option>
-              <option value="other">other</option>
+              <option value="lecture">บรรยาย (Lecture)</option>
+              <option value="lab">ปฏิบัติการ (Lab)</option>
+              <option value="exam">การสอบ (Exam)</option>
+              <option value="other">อื่นๆ (Other)</option>
             </select>
           </div>
         </div>
-        <div className="flex gap-2 justify-end">
+        <div className="flex gap-2 justify-end pt-1">
           <button
             type="button"
             onClick={() => setEditing(false)}
             disabled={saving}
-            className="rounded px-3 py-1 text-xs text-slate-600 border border-slate-200 hover:bg-slate-50 cursor-pointer disabled:opacity-50"
+            className="rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-600 border border-slate-200 bg-white hover:bg-slate-50 cursor-pointer disabled:opacity-50"
           >
             ยกเลิก
           </button>
@@ -192,9 +404,9 @@ function ScheduleRow({ slot, onDelete, onEdit }: ScheduleRowProps) {
             type="button"
             onClick={handleSave}
             disabled={saving}
-            className="rounded bg-blue-600 px-3 py-1 text-xs text-white hover:bg-blue-700 cursor-pointer disabled:opacity-50"
+            className="rounded-xl bg-slate-900 px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-slate-800 cursor-pointer disabled:opacity-50"
           >
-            {saving ? 'กำลังบันทึก...' : 'บันทึก'}
+            {saving ? 'กำลังบันทึก...' : 'บันทึกการแก้ไข'}
           </button>
         </div>
       </div>
@@ -202,42 +414,65 @@ function ScheduleRow({ slot, onDelete, onEdit }: ScheduleRowProps) {
   }
 
   return (
-    <div className="flex items-center gap-2 rounded-lg border border-slate-100 px-3 py-2 text-xs">
+    <div className="group flex items-center justify-between gap-2 rounded-2xl border border-slate-200/90 bg-white p-3 shadow-2xs hover:border-slate-300 transition-all">
       <div className="min-w-0 flex-1">
-        <span className="font-mono text-slate-500">{slot.dayOfWeek} {slot.startTime}–{slot.endTime}</span>
-        {' '}
-        <span className="font-medium text-slate-800">{slot.eventCode}</span>
-        {slot.eventName && <span className="text-slate-600"> · {slot.eventName}</span>}
+        <div className="flex items-center gap-2">
+          <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold ${dayInfo.bgLight} ${dayInfo.color}`}>
+            <span className={`h-1.5 w-1.5 rounded-full ${dayInfo.dotColor}`} />
+            {dayInfo.shortTh}
+          </span>
+          <span className="inline-flex items-center gap-1 text-[11px] font-mono font-medium text-slate-500">
+            <Clock size={12} />
+            {slot.startTime}–{slot.endTime}
+          </span>
+          <EventTypeBadge type={slot.eventType} />
+        </div>
+        <div className="mt-1">
+          <span className="font-mono text-xs font-bold text-slate-900">{slot.eventCode}</span>
+          {slot.eventName && (
+            <span className="text-xs text-slate-600 ml-1.5 truncate">
+              · {slot.eventName}
+            </span>
+          )}
+        </div>
       </div>
-      <button
-        type="button"
-        onClick={() => setEditing(true)}
-        className="shrink-0 rounded px-2 py-0.5 text-xs text-blue-600 hover:bg-blue-50 cursor-pointer"
-      >
-        แก้ไข
-      </button>
-      <button
-        type="button"
-        onClick={handleDelete}
-        disabled={saving}
-        className="shrink-0 rounded px-2 py-0.5 text-xs text-red-600 hover:bg-red-50 cursor-pointer disabled:opacity-50"
-      >
-        ลบ
-      </button>
+
+      <div className="flex items-center gap-1 shrink-0 opacity-80 group-hover:opacity-100 transition-opacity">
+        <button
+          type="button"
+          onClick={() => setEditing(true)}
+          className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 cursor-pointer transition-colors"
+          title="แก้ไขตาราง"
+          aria-label="แก้ไขตาราง"
+        >
+          <PencilSimple size={14} />
+        </button>
+        <button
+          type="button"
+          onClick={handleDelete}
+          disabled={saving}
+          className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer transition-colors disabled:opacity-50"
+          title="ลบตาราง"
+          aria-label="ลบตาราง"
+        >
+          <Trash size={14} />
+        </button>
+      </div>
     </div>
   )
 }
 
 // ---------------------------------------------------------------------------
-// Create schedule inline form
+// Create Schedule Form Subcomponent
 // ---------------------------------------------------------------------------
 
 interface CreateScheduleFormProps {
   roomCode: string
   onCreated: () => void
+  onCancel: () => void
 }
 
-function CreateScheduleForm({ roomCode, onCreated }: CreateScheduleFormProps) {
+function CreateScheduleForm({ roomCode, onCreated, onCancel }: CreateScheduleFormProps) {
   const [dayOfWeek, setDayOfWeek] = useState('MON')
   const [startTime, setStartTime] = useState('')
   const [endTime, setEndTime] = useState('')
@@ -261,15 +496,9 @@ function CreateScheduleForm({ roomCode, onCreated }: CreateScheduleFormProps) {
         event_name: eventName,
         event_type: eventType,
       })
-      // Reset form
-      setStartTime('')
-      setEndTime('')
-      setEventCode('')
-      setEventName('')
-      setEventType('lecture')
       onCreated()
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'เกิดข้อผิดพลาด')
+      setErr(e instanceof Error ? e.message : 'เกิดข้อผิดพลาดในการสร้างตาราง')
     } finally {
       setSaving(false)
     }
@@ -278,89 +507,124 @@ function CreateScheduleForm({ roomCode, onCreated }: CreateScheduleFormProps) {
   const DAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN']
 
   return (
-    <form onSubmit={handleSubmit} className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-3">
-      <h4 className="text-xs font-semibold text-slate-700 uppercase tracking-wide">เพิ่มตารางสอนใหม่</h4>
-      {err && <p className="text-xs text-red-600">{err}</p>}
-      <div className="grid grid-cols-2 gap-2">
+    <form onSubmit={handleSubmit} className="rounded-2xl border border-slate-300 bg-slate-50/70 p-3.5 space-y-3 shadow-xs">
+      <div className="flex items-center justify-between">
+        <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+          <Plus size={14} weight="bold" />
+          เพิ่มตารางสอนใหม่
+        </h4>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="text-slate-400 hover:text-slate-600 cursor-pointer"
+        >
+          <X size={14} weight="bold" />
+        </button>
+      </div>
+
+      {err && <p className="text-xs text-rose-600 bg-rose-50 p-2 rounded-lg border border-rose-200">{err}</p>}
+
+      <div className="grid grid-cols-2 gap-2.5">
         <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1">วัน <span className="text-red-500">*</span></label>
+          <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+            วัน <span className="text-rose-500">*</span>
+          </label>
           <select
             value={dayOfWeek}
             onChange={(e) => setDayOfWeek(e.target.value)}
-            className="w-full rounded border border-slate-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-xl border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900/10"
           >
-            {DAYS.map((d) => <option key={d} value={d}>{d}</option>)}
+            {DAYS.map((d) => (
+              <option key={d} value={d}>
+                {getDayInfo(d).th} ({d})
+              </option>
+            ))}
           </select>
         </div>
         <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1">รหัสวิชา <span className="text-red-500">*</span></label>
+          <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+            รหัสวิชา <span className="text-rose-500">*</span>
+          </label>
           <input
             type="text"
             value={eventCode}
             onChange={(e) => setEventCode(e.target.value)}
             placeholder="CS333"
             required
-            className="w-full rounded border border-slate-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-xl border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-slate-900/10"
           />
         </div>
         <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1">เริ่ม <span className="text-red-500">*</span></label>
+          <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+            เวลาเริ่ม <span className="text-rose-500">*</span>
+          </label>
           <input
             type="text"
             value={startTime}
             onChange={(e) => setStartTime(e.target.value)}
             placeholder="09:00"
             required
-            className="w-full rounded border border-slate-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-xl border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-slate-900/10"
           />
         </div>
         <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1">สิ้นสุด</label>
+          <label className="block text-[11px] font-semibold text-slate-700 mb-1">เวลาสิ้นสุด</label>
           <input
             type="text"
             value={endTime}
             onChange={(e) => setEndTime(e.target.value)}
             placeholder="12:00"
-            className="w-full rounded border border-slate-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-xl border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-slate-900/10"
           />
         </div>
-        <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1">ชื่อวิชา</label>
+        <div className="col-span-2">
+          <label className="block text-[11px] font-semibold text-slate-700 mb-1">ชื่อวิชา</label>
           <input
             type="text"
             value={eventName}
             onChange={(e) => setEventName(e.target.value)}
             placeholder="Computer Networks"
-            className="w-full rounded border border-slate-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-xl border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900/10"
           />
         </div>
-        <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1">ประเภท</label>
+        <div className="col-span-2">
+          <label className="block text-[11px] font-semibold text-slate-700 mb-1">ประเภท</label>
           <select
             value={eventType}
             onChange={(e) => setEventType(e.target.value)}
-            className="w-full rounded border border-slate-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-xl border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900/10"
           >
-            <option value="lecture">lecture</option>
-            <option value="lab">lab</option>
-            <option value="exam">exam</option>
-            <option value="other">other</option>
+            <option value="lecture">บรรยาย (Lecture)</option>
+            <option value="lab">ปฏิบัติการ (Lab)</option>
+            <option value="exam">การสอบ (Exam)</option>
+            <option value="other">อื่นๆ (Other)</option>
           </select>
         </div>
       </div>
-      <button
-        type="submit"
-        disabled={saving}
-        className="w-full rounded bg-blue-600 py-1.5 text-xs font-medium text-white hover:bg-blue-700 cursor-pointer disabled:opacity-50"
-      >
-        {saving ? 'กำลังเพิ่ม...' : '+ เพิ่มตารางสอน'}
-      </button>
+
+      <div className="flex gap-2 justify-end pt-1">
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={saving}
+          className="rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-600 border border-slate-200 bg-white hover:bg-slate-50 cursor-pointer disabled:opacity-50"
+        >
+          ยกเลิก
+        </button>
+        <button
+          type="submit"
+          disabled={saving}
+          className="rounded-xl bg-slate-900 px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-slate-800 cursor-pointer disabled:opacity-50"
+        >
+          {saving ? 'กำลังเพิ่ม...' : '+ บันทึกตารางสอน'}
+        </button>
+      </div>
     </form>
   )
 }
 
 // ---------------------------------------------------------------------------
-// Room edit panel (left panel when room is selected)
+// Room Edit Panel (Left Panel when room is selected)
 // ---------------------------------------------------------------------------
 
 interface RoomEditPanelProps {
@@ -368,9 +632,7 @@ interface RoomEditPanelProps {
   schedules: ScheduleSlot[]
   onBack: () => void
   onRoomDeleted: () => void
-  /** Called when room details change so the parent can reload */
   onRoomMutated: () => void
-  /** Called when schedules change so the parent can reload */
   onSchedulesMutated: () => void
 }
 
@@ -391,15 +653,31 @@ function RoomEditPanel({
   const [saveOk, setSaveOk] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [isAddingSchedule, setIsAddingSchedule] = useState(false)
+  const [selectedDayFilter, setSelectedDayFilter] = useState<string>('all')
 
-  // Build typed schedule slots with their DynamoDB composite key for this room
-  const roomSchedules = schedules
-    .filter((s) => s.roomCode === room.code)
-    .map((s) => ({
-      ...s,
-      // Recompose schedule_slot from normalised fields (mirrors Lambda key format)
-      schedule_slot: `${s.dayOfWeek}#${s.startTime}#${s.eventCode}`,
-    }))
+  // Filter schedule slots for this room
+  const roomSchedules = useMemo(() => {
+    return schedules
+      .filter((s) => s.roomCode === room.code)
+      .map((s) => ({
+        ...s,
+        schedule_slot: `${s.dayOfWeek}#${s.startTime}#${s.eventCode}`,
+      }))
+  }, [schedules, room.code])
+
+  // Filtered schedules for day pill selection
+  const displayedSchedules = useMemo(() => {
+    if (selectedDayFilter === 'all') return roomSchedules
+    return roomSchedules.filter((s) => s.dayOfWeek.toUpperCase() === selectedDayFilter.toUpperCase())
+  }, [roomSchedules, selectedDayFilter])
+
+  // Unique days that exist in this room's schedules
+  const availableDays = useMemo(() => {
+    const set = new Set<string>()
+    roomSchedules.forEach((s) => set.add(s.dayOfWeek.toUpperCase()))
+    return Array.from(set).sort((a, b) => getDayInfo(a).order - getDayInfo(b).order)
+  }, [roomSchedules])
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
@@ -414,8 +692,9 @@ function RoomEditPanel({
       })
       setSaveOk(true)
       onRoomMutated()
+      setTimeout(() => setSaveOk(false), 4000)
     } catch (e) {
-      setSaveErr(e instanceof Error ? e.message : 'เกิดข้อผิดพลาด')
+      setSaveErr(e instanceof Error ? e.message : 'เกิดข้อผิดพลาดในการบันทึก')
     } finally {
       setSaving(false)
     }
@@ -427,7 +706,7 @@ function RoomEditPanel({
       await deleteRoom(room.id)
       onRoomDeleted()
     } catch (e) {
-      setSaveErr(e instanceof Error ? e.message : 'ลบไม่สำเร็จ')
+      setSaveErr(e instanceof Error ? e.message : 'ลบห้องไม่สำเร็จ')
     } finally {
       setDeleting(false)
       setConfirmDelete(false)
@@ -454,50 +733,86 @@ function RoomEditPanel({
     onSchedulesMutated()
   }
 
+  const landmarkText =
+    room.landmarks && room.landmarks.length > 0
+      ? room.landmarks.map((l) => getLandmarkText(l)).join(' · ')
+      : ''
+  const roomDisplayName = room.roomNumber ? `ห้อง ${room.roomNumber}` : room.nameThai || room.code
+
   return (
-    <div className="flex flex-col gap-4">
-      {/* Back button */}
-      <button
-        type="button"
-        onClick={onBack}
-        className="flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-800 cursor-pointer self-start"
-      >
-        ← กลับไปรายการ
-      </button>
+    <div className="space-y-4">
+      {/* Room Hero Header with Persistent Back Button */}
+      <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-xs space-y-3">
+        {/* Back Button & Floor */}
+        <div className="flex items-center justify-between">
+          <button
+            type="button"
+            onClick={onBack}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200/90 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 hover:text-slate-900 transition-all cursor-pointer"
+          >
+            <CaretLeft size={14} weight="bold" />
+            <span>กลับไปรายการห้อง</span>
+          </button>
+          <span className="rounded-md bg-slate-100 border border-slate-200/60 px-2.5 py-0.5 text-[11px] font-medium text-slate-500">
+            อาคาร LC3 · ชั้น {room.floor}
+          </span>
+        </div>
 
-      {/* Room header */}
-      <div>
-        <p className="text-xs font-medium uppercase tracking-wide text-blue-600">
-          {room.code} · ชั้น {room.floor}
-        </p>
-        <h2 className="mt-0.5 text-lg font-semibold text-slate-900">{room.nameThai || '(ไม่มีชื่อ)'}</h2>
+        {/* Room Title */}
+        <div>
+          <div className="flex items-baseline gap-2">
+            <h2 className="text-xl font-bold text-slate-900 tracking-tight">{roomDisplayName}</h2>
+            <span className="font-mono text-xs text-slate-400 font-semibold">({room.code})</span>
+          </div>
+          {room.nameThai && room.nameThai !== roomDisplayName && (
+            <p className="mt-0.5 text-xs font-medium text-slate-500">{room.nameThai}</p>
+          )}
+        </div>
+
+        {/* Category & Landmark */}
+        <div className="flex flex-wrap items-center gap-2">
+          <RoomCategoryBadge category={room.category} nameThai={room.nameThai} />
+          {room.capacity !== undefined && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 border border-slate-200/60 px-2.5 py-0.5 text-[11px] font-semibold text-slate-600">
+              <Users size={12} weight="regular" />
+              ความจุ {room.capacity} ที่นั่ง
+            </span>
+          )}
+        </div>
+
+        {landmarkText && (
+          <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-2.5 flex items-start gap-2 text-xs text-slate-600">
+            <MapPin size={15} weight="fill" className="text-rose-500 shrink-0 mt-0.5" />
+            <span className="leading-snug">{landmarkText}</span>
+          </div>
+        )}
       </div>
 
-      {/* Current saved data */}
-      <div className="rounded-lg bg-slate-50 border border-slate-200 p-3 space-y-1">
-        <p className="text-xs text-slate-500 mb-2">ข้อมูลปัจจุบันในระบบ:</p>
-        <p className="text-sm font-medium text-slate-900">ชื่อ: {room.nameThai || '(ไม่มีชื่อ)'}</p>
-        <p className="text-sm text-slate-700">ความจุ: {room.capacity !== undefined ? `${room.capacity} คน` : 'ไม่ได้ระบุ'}</p>
-      </div>
+      {/* Section 1: Room Details Form */}
+      <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-xs space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wide">
+            แก้ไขข้อมูลห้อง
+          </h3>
+          <span className="text-[11px] text-slate-400">ID: {room.id}</span>
+        </div>
 
-      {/* Room edit form */}
-      <section>
-        <h3 className="mb-2 text-sm font-semibold text-slate-700">แก้ไขข้อมูลห้อง</h3>
         <form onSubmit={handleSave} className="space-y-3">
           {saveErr && (
-            <p className="rounded-lg bg-red-50 p-2 text-xs text-red-600 border border-red-200">
+            <div className="rounded-xl bg-rose-50 border border-rose-200 p-2.5 text-xs text-rose-700">
               {saveErr}
-            </p>
+            </div>
           )}
           {saveOk && (
-            <p className="rounded-lg bg-green-50 p-2 text-xs text-green-700 border border-green-200">
-              บันทึกสำเร็จ
-            </p>
+            <div className="flex items-center gap-1.5 rounded-xl bg-emerald-50 border border-emerald-200 p-2.5 text-xs font-semibold text-emerald-700">
+              <Check size={15} weight="bold" />
+              <span>บันทึกข้อมูลห้องสำเร็จเรียบร้อย</span>
+            </div>
           )}
 
           <div>
-            <label htmlFor="admin-room-name" className="block text-xs font-medium text-slate-700 mb-1">
-              ชื่อห้อง (name_th)
+            <label htmlFor="admin-room-name" className="block text-xs font-semibold text-slate-700 mb-1">
+              ชื่อห้องภาษาไทย (name_th)
             </label>
             <input
               id="admin-room-name"
@@ -507,89 +822,144 @@ function RoomEditPanel({
                 setNameInput(e.target.value)
                 setSaveOk(false)
               }}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+              placeholder="เช่น ห้องบรรยายเรียนรวม"
+              className="w-full rounded-xl border border-slate-200/90 bg-white px-3 py-2 text-xs text-slate-900 placeholder-slate-400 focus:border-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900/10 shadow-2xs transition-all"
               disabled={saving}
             />
           </div>
 
           <div>
-            <label htmlFor="admin-room-capacity" className="block text-xs font-medium text-slate-700 mb-1">
-              ความจุ (คน)
+            <label htmlFor="admin-room-capacity" className="block text-xs font-semibold text-slate-700 mb-1">
+              ความจุที่นั่ง (คน)
             </label>
-            <input
-              id="admin-room-capacity"
-              type="number"
-              min="0"
-              value={capacityInput}
-              onChange={(e) => {
-                setCapacityInput(e.target.value)
-                setSaveOk(false)
-              }}
-              placeholder="ไม่ระบุ"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-              disabled={saving}
-            />
+            <div className="relative flex items-center">
+              <div className="pointer-events-none absolute left-3 flex items-center text-slate-400">
+                <Users size={15} />
+              </div>
+              <input
+                id="admin-room-capacity"
+                type="number"
+                min="0"
+                value={capacityInput}
+                onChange={(e) => {
+                  setCapacityInput(e.target.value)
+                  setSaveOk(false)
+                }}
+                placeholder="ไม่ระบุความจุ"
+                className="w-full rounded-xl border border-slate-200/90 bg-white py-2 pl-9 pr-3 text-xs text-slate-900 placeholder-slate-400 focus:border-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900/10 shadow-2xs transition-all"
+                disabled={saving}
+              />
+            </div>
           </div>
 
           <button
             type="submit"
             disabled={saving}
-            className="w-full rounded-lg bg-blue-600 py-2 text-sm font-medium text-white hover:bg-blue-700 cursor-pointer disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-slate-900 py-2.5 text-xs font-semibold text-white shadow-xs hover:bg-slate-800 active:scale-[0.98] transition-all cursor-pointer disabled:opacity-50"
           >
-            {saving ? 'กำลังบันทึก...' : 'บันทึกข้อมูลห้อง'}
+            <FloppyDisk size={15} weight="bold" />
+            <span>{saving ? 'กำลังบันทึกข้อมูล...' : 'บันทึกข้อมูลห้อง'}</span>
           </button>
         </form>
-      </section>
+      </div>
 
-      {/* Delete room */}
-      <section className="border-t border-red-100 pt-4">
-        <h3 className="mb-2 text-sm font-semibold text-red-700">Danger Zone</h3>
-        {!confirmDelete ? (
-          <button
-            type="button"
-            onClick={() => setConfirmDelete(true)}
-            className="rounded-lg border border-red-300 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100 cursor-pointer"
+      {/* Section 2: Room Schedule Management */}
+      <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-xs space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wide">
+              ตารางการใช้ห้อง
+            </h3>
+            <p className="text-[11px] text-slate-500">มีทั้งหมด {roomSchedules.length} คาบ</p>
+          </div>
+
+          {!isAddingSchedule && (
+            <button
+              type="button"
+              onClick={() => setIsAddingSchedule(true)}
+              className="inline-flex items-center gap-1 rounded-xl bg-slate-100 border border-slate-200/80 px-2.5 py-1.5 text-xs font-semibold text-slate-800 hover:bg-slate-200 transition-colors cursor-pointer"
+            >
+              <Plus size={14} weight="bold" />
+              <span>เพิ่มตาราง</span>
+            </button>
+          )}
+        </div>
+
+        {/* Add schedule inline form */}
+        {isAddingSchedule && (
+          <CreateScheduleForm
+            roomCode={room.code}
+            onCreated={() => {
+              setIsAddingSchedule(false)
+              onSchedulesMutated()
+            }}
+            onCancel={() => setIsAddingSchedule(false)}
+          />
+        )}
+
+        {/* Day filter pills for room (with visible thin-scrollbar and mouse-wheel horizontal scrolling) */}
+        {availableDays.length > 1 && (
+          <div
+            className="flex items-center gap-1.5 overflow-x-auto thin-scrollbar pb-2 pt-0.5"
+            onWheel={(e) => {
+              if (e.deltaY !== 0) {
+                e.currentTarget.scrollLeft += e.deltaY
+              }
+            }}
           >
-            ลบห้องนี้…
-          </button>
-        ) : (
-          <div className="rounded-lg border border-red-200 bg-red-50 p-3 space-y-2">
-            <p className="text-sm text-red-800 font-medium">
-              ยืนยันการลบห้อง <span className="font-mono">{room.code}</span> ?
-            </p>
-            <p className="text-xs text-red-600">การกระทำนี้ไม่สามารถย้อนกลับได้</p>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setConfirmDelete(false)}
-                disabled={deleting}
-                className="rounded px-3 py-1.5 text-xs border border-slate-200 text-slate-600 hover:bg-slate-50 cursor-pointer disabled:opacity-50"
-              >
-                ยกเลิก
-              </button>
-              <button
-                type="button"
-                onClick={handleDelete}
-                disabled={deleting}
-                className="rounded bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 cursor-pointer disabled:opacity-50"
-              >
-                {deleting ? 'กำลังลบ...' : 'ยืนยันลบ'}
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => setSelectedDayFilter('all')}
+              className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition-all cursor-pointer shrink-0 ${
+                selectedDayFilter === 'all'
+                  ? 'bg-slate-900 text-white shadow-2xs'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              ทั้งหมด ({roomSchedules.length})
+            </button>
+            {availableDays.map((d) => {
+              const info = getDayInfo(d)
+              const count = roomSchedules.filter((s) => s.dayOfWeek.toUpperCase() === d).length
+              const isActive = selectedDayFilter.toUpperCase() === d
+              return (
+                <button
+                  key={d}
+                  type="button"
+                  onClick={() => setSelectedDayFilter(d)}
+                  className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold transition-all cursor-pointer shrink-0 ${
+                    isActive
+                      ? 'bg-slate-900 text-white shadow-2xs'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  <span className={`h-1.5 w-1.5 rounded-full ${info.dotColor}`} />
+                  <span>
+                    {info.shortTh} ({count})
+                  </span>
+                </button>
+              )
+            })}
           </div>
         )}
-      </section>
 
-      {/* Schedule list */}
-      <section>
-        <h3 className="mb-2 text-sm font-semibold text-slate-700">
-          ตารางการใช้ห้อง ({roomSchedules.length})
-        </h3>
-        {roomSchedules.length === 0 ? (
-          <p className="text-xs text-slate-400">ยังไม่มีตารางสอนสำหรับห้องนี้</p>
+        {/* Schedules list */}
+        {displayedSchedules.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-slate-200 p-6 text-center">
+            <p className="text-xs text-slate-400">ยังไม่มีตารางสอนสำหรับห้องนี้</p>
+            {!isAddingSchedule && (
+              <button
+                type="button"
+                onClick={() => setIsAddingSchedule(true)}
+                className="mt-2 text-xs font-semibold text-slate-700 hover:underline cursor-pointer"
+              >
+                + เพิ่มตารางสอนแรก
+              </button>
+            )}
+          </div>
         ) : (
-          <div className="space-y-1.5">
-            {roomSchedules.map((slot) => (
+          <div className="space-y-2">
+            {displayedSchedules.map((slot) => (
               <ScheduleRow
                 key={slot.schedule_slot}
                 slot={slot}
@@ -599,78 +969,51 @@ function RoomEditPanel({
             ))}
           </div>
         )}
-      </section>
-
-      {/* Create schedule form */}
-      <CreateScheduleForm roomCode={room.code} onCreated={onSchedulesMutated} />
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// All-schedules secondary view
-// ---------------------------------------------------------------------------
-
-function AllSchedulesView({ 
-  schedules, 
-  rooms, 
-  onSelectRoom 
-}: { 
-  schedules: ScheduleSlot[]
-  rooms: Room[]
-  onSelectRoom: (roomId: string) => void 
-}) {
-  const [search, setSearch] = useState('')
-  const filtered = schedules.filter(
-    (s) =>
-      s.roomCode.toLowerCase().includes(search.toLowerCase()) ||
-      s.eventCode.toLowerCase().includes(search.toLowerCase()) ||
-      s.eventName.toLowerCase().includes(search.toLowerCase()),
-  )
-
-  return (
-    <div className="flex h-full flex-col gap-3">
-      <h2 className="text-base font-semibold text-slate-800 shrink-0">ตารางทั้งหมด ({schedules.length})</h2>
-      <div className="shrink-0">
-        <SearchBox value={search} onChange={setSearch} />
       </div>
-      <div className="flex-1 overflow-auto rounded-lg border border-slate-200 bg-white">
-        <table className="min-w-full divide-y divide-slate-200">
-          <thead className="bg-slate-50 sticky top-0 z-10">
-            <tr>
-              <th scope="col" className="px-3 py-2 text-left text-xs font-semibold text-slate-900">รหัสวิชา</th>
-              <th scope="col" className="px-3 py-2 text-left text-xs font-semibold text-slate-900">ชื่อวิชา</th>
-              <th scope="col" className="px-3 py-2 text-left text-xs font-semibold text-slate-900">วัน/เวลา</th>
-              <th scope="col" className="px-3 py-2 text-left text-xs font-semibold text-slate-900">ห้อง</th>
-              <th scope="col" className="relative px-3 py-2"><span className="sr-only">จัดการ</span></th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-200 bg-white">
-            {filtered.map((s, i) => {
-              const room = rooms.find((r) => r.code === s.roomCode)
-              return (
-                <tr key={`${s.roomCode}-${s.dayOfWeek}-${s.startTime}-${s.eventCode}-${i}`} className="hover:bg-slate-50 transition-colors">
-                  <td className="whitespace-nowrap px-3 py-2 text-xs font-medium text-slate-900">{s.eventCode}</td>
-                  <td className="whitespace-nowrap px-3 py-2 text-xs text-slate-600">{s.eventName || '-'}</td>
-                  <td className="whitespace-nowrap px-3 py-2 text-xs text-slate-500">{s.dayOfWeek} {s.startTime}-{s.endTime}</td>
-                  <td className="whitespace-nowrap px-3 py-2 text-xs text-slate-900 font-mono">{s.roomCode}</td>
-                  <td className="whitespace-nowrap px-3 py-2 text-right text-xs font-medium">
-                    <button
-                      type="button"
-                      onClick={() => room && onSelectRoom(room.id)}
-                      disabled={!room}
-                      className="text-blue-600 hover:text-blue-900 disabled:opacity-50 cursor-pointer"
-                    >
-                      จัดการ →
-                    </button>
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-        {filtered.length === 0 && (
-          <p className="p-4 text-center text-xs text-slate-400">ไม่พบตารางที่ตรงกับการค้นหา</p>
+
+      {/* Section 3: Danger Zone */}
+      <div className="rounded-2xl border border-rose-200/80 bg-rose-50/40 p-4 shadow-xs space-y-3">
+        <div className="flex items-center gap-2 text-rose-800">
+          <Warning size={16} weight="bold" />
+          <h3 className="text-xs font-bold uppercase tracking-wide">Danger Zone</h3>
+        </div>
+        <p className="text-xs text-slate-600">
+          การลบห้องจะลบข้อมูลออกจากระบบผังอาคารและฐานข้อมูลอย่างถาวร
+        </p>
+
+        {!confirmDelete ? (
+          <button
+            type="button"
+            onClick={() => setConfirmDelete(true)}
+            className="rounded-xl border border-rose-300 bg-white px-3.5 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-50 shadow-2xs cursor-pointer transition-colors"
+          >
+            ลบห้องนี้…
+          </button>
+        ) : (
+          <div className="rounded-xl border border-rose-200 bg-white p-3 space-y-2 shadow-xs">
+            <p className="text-xs font-bold text-rose-800">
+              ยืนยันการลบห้อง <span className="font-mono">{room.code}</span>?
+            </p>
+            <p className="text-[11px] text-rose-600">ข้อมูลที่ถูกลบไม่สามารถกู้คืนได้</p>
+            <div className="flex gap-2 justify-end pt-1">
+              <button
+                type="button"
+                onClick={() => setConfirmDelete(false)}
+                disabled={deleting}
+                className="rounded-xl px-3 py-1 text-xs font-medium text-slate-600 border border-slate-200 hover:bg-slate-50 cursor-pointer disabled:opacity-50"
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={deleting}
+                className="rounded-xl bg-rose-600 px-3 py-1 text-xs font-semibold text-white hover:bg-rose-700 cursor-pointer disabled:opacity-50"
+              >
+                {deleting ? 'กำลังลบ...' : 'ยืนยันลบ'}
+              </button>
+            </div>
+          </div>
         )}
       </div>
     </div>
@@ -678,7 +1021,167 @@ function AllSchedulesView({
 }
 
 // ---------------------------------------------------------------------------
-// Main AdminPage
+// All Schedules Explorer View
+// ---------------------------------------------------------------------------
+
+function AllSchedulesView({
+  schedules,
+  rooms,
+  onSelectRoom,
+}: {
+  schedules: ScheduleSlot[]
+  rooms: Room[]
+  onSelectRoom: (roomId: string) => void
+}) {
+  const [search, setSearch] = useState('')
+  const [dayFilter, setDayFilter] = useState('all')
+
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase().trim()
+    return schedules.filter((s) => {
+      const matchSearch =
+        !q ||
+        s.roomCode.toLowerCase().includes(q) ||
+        s.eventCode.toLowerCase().includes(q) ||
+        s.eventName.toLowerCase().includes(q)
+
+      const matchDay = dayFilter === 'all' || s.dayOfWeek.toUpperCase() === dayFilter.toUpperCase()
+
+      return matchSearch && matchDay
+    })
+  }, [schedules, search, dayFilter])
+
+  const DAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN']
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+          สำรวจตารางเวลาทั้งหมด ({filtered.length} / {schedules.length})
+        </h2>
+      </div>
+
+      <AdminSearchBox
+        value={search}
+        onChange={setSearch}
+        placeholder="ค้นหารหัสวิชา, ชื่อวิชา, หรือห้อง เช่น CS333..."
+      />
+
+      {/* Day quick-filters (with visible thin-scrollbar and mouse-wheel horizontal scrolling) */}
+      <div
+        className="flex items-center gap-1.5 overflow-x-auto thin-scrollbar pb-2 pt-0.5"
+        onWheel={(e) => {
+          if (e.deltaY !== 0) {
+            e.currentTarget.scrollLeft += e.deltaY
+          }
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => setDayFilter('all')}
+          className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition-all cursor-pointer shrink-0 ${
+            dayFilter === 'all'
+              ? 'bg-slate-900 text-white shadow-2xs'
+              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+          }`}
+        >
+          ทั้งหมด
+        </button>
+        {DAYS.map((d) => {
+          const info = getDayInfo(d)
+          const count = schedules.filter((s) => s.dayOfWeek.toUpperCase() === d).length
+          if (count === 0) return null
+          const isActive = dayFilter === d
+          return (
+            <button
+              key={d}
+              type="button"
+              onClick={() => setDayFilter(d)}
+              className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold transition-all cursor-pointer shrink-0 ${
+                isActive
+                  ? 'bg-slate-900 text-white shadow-2xs'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              <span className={`h-1.5 w-1.5 rounded-full ${info.dotColor}`} />
+              <span>
+                {info.shortTh} ({count})
+              </span>
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Card list of schedules */}
+      <div className="space-y-2">
+        {filtered.map((s, idx) => {
+          const room = rooms.find((r) => r.code === s.roomCode)
+          const dayInfo = getDayInfo(s.dayOfWeek)
+          return (
+            <div
+              key={`${s.roomCode}-${s.dayOfWeek}-${s.startTime}-${s.eventCode}-${idx}`}
+              className="group rounded-2xl border border-slate-200/90 bg-white p-3 shadow-2xs hover:border-slate-300 transition-all flex items-center justify-between gap-3"
+            >
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold ${dayInfo.bgLight} ${dayInfo.color}`}
+                  >
+                    <span className={`h-1.5 w-1.5 rounded-full ${dayInfo.dotColor}`} />
+                    {dayInfo.shortTh}
+                  </span>
+                  <span className="inline-flex items-center gap-1 text-[11px] font-mono font-medium text-slate-500">
+                    <Clock size={12} />
+                    {s.startTime}–{s.endTime}
+                  </span>
+                  <EventTypeBadge type={s.eventType} />
+                </div>
+                <div className="mt-1">
+                  <span className="font-mono text-xs font-bold text-slate-900">{s.eventCode}</span>
+                  {s.eventName && (
+                    <span className="text-xs text-slate-600 ml-1.5 truncate">
+                      · {s.eventName}
+                    </span>
+                  )}
+                </div>
+                <div className="mt-1 text-[11px] text-slate-500 flex items-center gap-1">
+                  <Door size={12} />
+                  <span>
+                    ห้อง <strong className="text-slate-700">{s.roomCode}</strong>
+                    {room?.floor && ` · ชั้น ${room.floor}`}
+                    {room?.nameThai && ` (${room.nameThai})`}
+                  </span>
+                </div>
+              </div>
+
+              <div className="shrink-0">
+                <button
+                  type="button"
+                  onClick={() => room && onSelectRoom(room.id)}
+                  disabled={!room}
+                  className="inline-flex items-center gap-1 rounded-xl bg-slate-100 hover:bg-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-800 transition-colors cursor-pointer disabled:opacity-40"
+                  title="เปิดหน้าแก้ไขห้องนี้"
+                >
+                  <span>จัดการ</span>
+                  <CaretRight size={13} weight="bold" />
+                </button>
+              </div>
+            </div>
+          )
+        })}
+
+        {filtered.length === 0 && (
+          <div className="rounded-xl border border-dashed border-slate-200 p-8 text-center">
+            <p className="text-xs text-slate-400">ไม่พบตารางที่ตรงกับเงื่อนไขการค้นหา</p>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Main AdminPage Component
 // ---------------------------------------------------------------------------
 
 type LeftPanelMode = 'list' | 'room'
@@ -699,16 +1202,36 @@ export default function AdminPage() {
   const [currentFloor, setCurrentFloor] = useState(1)
   const [searchQuery, setSearchQuery] = useState('')
   const [leftTab, setLeftTab] = useState<LeftTab>('rooms')
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
+  const [floorFilter, setFloorFilter] = useState<'all' | '1' | '2'>('all')
+  const [categoryFilterKey, setCategoryFilterKey] = useState<string>('all')
 
-  const selectedRoom = rooms.find((r) => r.id === selectedRoomId) ?? null
+  const sidebarScrollRef = useRef<HTMLDivElement>(null)
+
+  const selectedRoom = useMemo(() => {
+    return rooms.find((r) => r.id === selectedRoomId) ?? null
+  }, [rooms, selectedRoomId])
+
+  // Count schedules per room
+  const scheduleCountByRoom = useMemo(() => {
+    const map = new Map<string, number>()
+    schedules.forEach((s) => {
+      map.set(s.roomCode, (map.get(s.roomCode) ?? 0) + 1)
+    })
+    return map
+  }, [schedules])
 
   const handleAdminSelectRoom = useCallback(
     (roomId: string) => {
       setSelectedRoomId(roomId)
       setPanelMode('room')
+      setIsSidebarCollapsed(false)
       const room = rooms.find((r) => r.id === roomId)
       if (room && room.floor !== currentFloor) {
         setCurrentFloor(room.floor)
+      }
+      if (sidebarScrollRef.current) {
+        sidebarScrollRef.current.scrollTop = 0
       }
     },
     [rooms, currentFloor],
@@ -717,6 +1240,9 @@ export default function AdminPage() {
   function handleBack() {
     setPanelMode('list')
     setSelectedRoomId(null)
+    if (sidebarScrollRef.current) {
+      sidebarScrollRef.current.scrollTop = 0
+    }
   }
 
   function handleRoomDeleted() {
@@ -725,123 +1251,332 @@ export default function AdminPage() {
     reloadRooms(true)
   }
 
-  const filteredRooms = rooms.filter((r) => {
-    const q = searchQuery.toLowerCase()
-    return (
-      r.code.toLowerCase().includes(q) ||
-      r.nameThai.toLowerCase().includes(q) ||
-      r.roomNumber.toLowerCase().includes(q)
-    )
-  })
+  // Filtered rooms logic
+  const filteredRooms = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim()
+    const activeCategory = CATEGORY_FILTERS.find((c) => c.key === categoryFilterKey)
+
+    return rooms.filter((r) => {
+      // 1. Search query
+      const matchSearch =
+        !q ||
+        r.code.toLowerCase().includes(q) ||
+        r.nameThai.toLowerCase().includes(q) ||
+        r.roomNumber.toLowerCase().includes(q)
+
+      // 2. Floor filter
+      const matchFloor = floorFilter === 'all' || String(r.floor) === floorFilter
+
+      // 3. Category filter
+      let matchCat = true
+      if (activeCategory && activeCategory.matchCategories.length > 0) {
+        matchCat = activeCategory.matchCategories.includes(r.category)
+      }
+
+      return matchSearch && matchFloor && matchCat
+    })
+  }, [rooms, searchQuery, floorFilter, categoryFilterKey])
+
+  const floor1Count = useMemo(() => rooms.filter((r) => r.floor === 1).length, [rooms])
+  const floor2Count = useMemo(() => rooms.filter((r) => r.floor === 2).length, [rooms])
 
   if (roomsError) {
-    return (
-      <LoadingScreen
-        error={roomsError}
-        onRetry={reloadRooms}
-      />
-    )
+    return <LoadingScreen error={roomsError} onRetry={reloadRooms} />
   }
   if (roomsLoading || !floorPlansReady) return <LoadingScreen />
 
   return (
-    <div className="flex h-[100dvh] w-screen overflow-hidden bg-slate-100 font-sans">
+    <main className="relative h-[100dvh] w-screen overflow-hidden bg-slate-100 font-sans select-none">
       {/* ------------------------------------------------------------------ */}
-      {/* Left panel                                                          */}
+      {/* Background Interactive Floor Plan Workspace                        */}
       {/* ------------------------------------------------------------------ */}
-      <aside className="flex w-[380px] shrink-0 flex-col overflow-hidden border-r border-slate-200 bg-white shadow-sm">
-        {/* Header */}
-        <div className="shrink-0 border-b border-slate-100 px-4 py-3">
-          <div className="flex items-center justify-between">
-            <h1 className="text-sm font-bold text-slate-900 tracking-wide">TORCH Admin</h1>
-            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
-              Admin Mode
-            </span>
-          </div>
-          {/* Tab switcher */}
-          <div className="mt-2 flex gap-1 rounded-lg bg-slate-100 p-1">
-            <button
-              type="button"
-              onClick={() => { setLeftTab('rooms'); setPanelMode('list'); setSelectedRoomId(null) }}
-              className={`flex-1 rounded-md py-1 text-xs font-medium transition-colors cursor-pointer ${
-                leftTab === 'rooms'
-                  ? 'bg-white text-slate-900 shadow-sm'
-                  : 'text-slate-500 hover:text-slate-700'
-              }`}
-            >
-              ห้อง
-            </button>
-            <button
-              type="button"
-              onClick={() => setLeftTab('schedules')}
-              className={`flex-1 rounded-md py-1 text-xs font-medium transition-colors cursor-pointer ${
-                leftTab === 'schedules'
-                  ? 'bg-white text-slate-900 shadow-sm'
-                  : 'text-slate-500 hover:text-slate-700'
-              }`}
-            >
-              ตารางทั้งหมด
-            </button>
-          </div>
-        </div>
+      <MapContainer
+        rooms={rooms}
+        currentFloor={currentFloor}
+        onFloorChange={setCurrentFloor}
+        selectedRoomId={selectedRoomId}
+        onSelectRoom={handleAdminSelectRoom}
+        onClearSelection={() => {
+          // Keep selection stable in admin mode unless back button is explicitly clicked
+        }}
+        mode="admin"
+      />
 
-        {/* Panel content */}
-        <div className="flex-1 overflow-y-auto p-4">
-          {leftTab === 'schedules' ? (
-            schedulesLoading ? (
-              <p className="text-xs text-slate-400">กำลังโหลดตาราง...</p>
-            ) : schedulesError ? (
-              <p className="text-xs text-red-500">โหลดตารางไม่สำเร็จ</p>
-            ) : (
-              <AllSchedulesView schedules={schedules} rooms={rooms} onSelectRoom={handleAdminSelectRoom} />
-            )
-          ) : panelMode === 'list' ? (
-            /* Room list */
-            <div className="flex flex-col gap-3">
-              <h2 className="text-base font-semibold text-slate-800">ห้องทั้งหมด ({rooms.length})</h2>
-              <SearchBox value={searchQuery} onChange={setSearchQuery} />
-              <div className="space-y-0.5">
-                {filteredRooms.map((room) => (
-                  <RoomListItem key={room.id} room={room} onSelect={handleAdminSelectRoom} />
-                ))}
-                {filteredRooms.length === 0 && (
-                  <p className="text-xs text-slate-400">ไม่พบห้องที่ตรงกับการค้นหา</p>
-                )}
-              </div>
-            </div>
-          ) : selectedRoom ? (
-            /* Room edit panel */
-            <RoomEditPanel
-              key={selectedRoom.id}
-              room={selectedRoom}
-              schedules={schedules}
-              onBack={handleBack}
-              onRoomDeleted={handleRoomDeleted}
-              onRoomMutated={() => reloadRooms(true)}
-              onSchedulesMutated={() => reloadSchedules(true)}
+      {/* ------------------------------------------------------------------ */}
+      {/* Floating Collapsible Left Sidebar (Docked Panel standard)          */}
+      {/* ------------------------------------------------------------------ */}
+      <aside
+        className={`pointer-events-none absolute top-0 left-0 bottom-0 z-30 w-full sm:w-[440px] md:w-[460px] transition-transform duration-300 ease-in-out ${
+          isSidebarCollapsed ? '-translate-x-full' : 'translate-x-0'
+        }`}
+      >
+        <div className="relative pointer-events-auto flex flex-col h-full bg-white shadow-2xl border-r border-slate-200/90">
+          {/* Collapse / Expand Toggle Tab on right border of sidebar */}
+          <button
+            type="button"
+            onClick={() => setIsSidebarCollapsed((prev) => !prev)}
+            aria-label={isSidebarCollapsed ? 'ขยายแผงจัดการ' : 'ซ่อนแผงจัดการ'}
+            title={isSidebarCollapsed ? 'ขยายแผงจัดการ' : 'ซ่อนแผงจัดการ'}
+            className="absolute top-3.5 -right-8 z-30 flex h-8 w-8 items-center justify-center rounded-r-xl bg-white border-y border-r border-slate-200 text-slate-500 shadow-md hover:bg-slate-50 hover:text-slate-900 active:scale-95 transition-all cursor-pointer"
+          >
+            <CaretLeft
+              size={16}
+              weight="bold"
+              className={`transition-transform duration-300 ${isSidebarCollapsed ? 'rotate-180' : ''}`}
             />
-          ) : null}
+          </button>
+
+          {/* Header Bar with Perimeter Logo & Subtle Admin Badge */}
+          <div className="flex shrink-0 items-center justify-between px-4 py-3 border-b border-slate-200/80 bg-white">
+            <div className="flex items-center gap-2">
+              <img
+                src={perimeterLogoNoBg}
+                alt="Perimeter"
+                className="h-10 sm:h-11 w-auto object-contain cursor-pointer hover:opacity-90 transition-opacity drop-shadow-xs"
+                onClick={() => {
+                  setPanelMode('list')
+                  setSelectedRoomId(null)
+                  setLeftTab('rooms')
+                }}
+                title="คลิกเพื่อรีเซ็ตหน้าจอ"
+              />
+            </div>
+
+            <div className="flex items-center gap-2.5">
+              <span className="text-xs font-extrabold tracking-tight text-rose-600 select-none">
+                Admin Console
+              </span>
+              <Link
+                to="/map"
+                title="ไปยังหน้าแผนที่ผู้ใช้ทั่วไป (Public Map)"
+                className="flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition-colors"
+              >
+                <ArrowSquareOut size={16} weight="bold" />
+              </Link>
+            </div>
+          </div>
+
+          {/* View Tab Switcher: ห้องและพื้นที่ vs ตารางเวลาทั้งหมด */}
+          <div className="p-3 border-b border-slate-200/80 bg-slate-50/60">
+            <div className="flex gap-1 rounded-xl bg-slate-200/60 p-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setLeftTab('rooms')
+                  setPanelMode('list')
+                  setSelectedRoomId(null)
+                }}
+                className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-semibold transition-all cursor-pointer ${
+                  leftTab === 'rooms'
+                    ? 'bg-white text-slate-900 shadow-xs'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <Door size={14} weight="duotone" />
+                <span>ห้องและพื้นที่</span>
+                <span className="ml-0.5 rounded-full bg-slate-100 px-1.5 py-0.2 text-[10px] text-slate-600">
+                  {rooms.length}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setLeftTab('schedules')}
+                className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-semibold transition-all cursor-pointer ${
+                  leftTab === 'schedules'
+                    ? 'bg-white text-slate-900 shadow-xs'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <Calendar size={14} weight="duotone" />
+                <span>ตารางเวลาทั้งหมด</span>
+                <span className="ml-0.5 rounded-full bg-slate-100 px-1.5 py-0.2 text-[10px] text-slate-600">
+                  {schedules.length}
+                </span>
+              </button>
+            </div>
+          </div>
+
+          {/* Main Sidebar Scrollable Content */}
+          <div ref={sidebarScrollRef} className="flex-1 overflow-y-auto thin-scrollbar p-4 space-y-4">
+            {leftTab === 'schedules' ? (
+              schedulesLoading ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center text-slate-400">
+                  <div className="h-6 w-6 border-2 border-slate-900 border-t-transparent rounded-full animate-spin mb-2" />
+                  <p className="text-xs">กำลังโหลดตารางสอน...</p>
+                </div>
+              ) : schedulesError ? (
+                <div className="rounded-xl bg-rose-50 border border-rose-200 p-3 text-xs text-rose-700">
+                  โหลดตารางไม่สำเร็จ: {schedulesError.message}
+                </div>
+              ) : (
+                <AllSchedulesView
+                  schedules={schedules}
+                  rooms={rooms}
+                  onSelectRoom={(roomId) => {
+                    handleAdminSelectRoom(roomId)
+                    setLeftTab('rooms')
+                  }}
+                />
+              )
+            ) : panelMode === 'room' && selectedRoom ? (
+              <RoomEditPanel
+                key={selectedRoom.id}
+                room={selectedRoom}
+                schedules={schedules}
+                onBack={handleBack}
+                onRoomDeleted={handleRoomDeleted}
+                onRoomMutated={() => reloadRooms(true)}
+                onSchedulesMutated={() => reloadSchedules(true)}
+              />
+            ) : (
+              /* ROOM LIST MODE */
+              <div className="space-y-3.5">
+                {/* Search Bar */}
+                <AdminSearchBox
+                  value={searchQuery}
+                  onChange={setSearchQuery}
+                  placeholder="ค้นหาด้วยเลขห้อง, ชื่อ หรือรหัส เช่น 110, ELEC..."
+                />
+
+                {/* Floor Filter Quick Pills (syncs with map floor) */}
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setFloorFilter('all')}
+                    className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition-all cursor-pointer ${
+                      floorFilter === 'all'
+                        ? 'bg-slate-900 text-white shadow-2xs'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    ทั้งหมด ({rooms.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFloorFilter('1')
+                      if (currentFloor !== 1) setCurrentFloor(1)
+                    }}
+                    className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition-all cursor-pointer ${
+                      floorFilter === '1'
+                        ? 'bg-slate-900 text-white shadow-2xs'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    ชั้น 1 ({floor1Count})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFloorFilter('2')
+                      if (currentFloor !== 2) setCurrentFloor(2)
+                    }}
+                    className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition-all cursor-pointer ${
+                      floorFilter === '2'
+                        ? 'bg-slate-900 text-white shadow-2xs'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    ชั้น 2 ({floor2Count})
+                  </button>
+                </div>
+
+                {/* Category Filters Pills Horizontal Strip (with visible thin-scrollbar and mouse-wheel horizontal scrolling) */}
+                <div
+                  className="flex items-center gap-1.5 overflow-x-auto thin-scrollbar pb-2 pt-0.5"
+                  onWheel={(e) => {
+                    if (e.deltaY !== 0) {
+                      e.currentTarget.scrollLeft += e.deltaY
+                    }
+                  }}
+                >
+                  {CATEGORY_FILTERS.map((cat) => {
+                    const isActive = categoryFilterKey === cat.key
+                    return (
+                      <button
+                        key={cat.key}
+                        type="button"
+                        onClick={() => setCategoryFilterKey(cat.key)}
+                        className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold transition-all cursor-pointer shrink-0 border ${
+                          isActive
+                            ? 'bg-slate-900 text-white border-slate-900 shadow-2xs'
+                            : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+                        }`}
+                      >
+                        {cat.label}
+                      </button>
+                    )
+                  })}
+                </div>
+
+                {/* Count indicator */}
+                <div className="flex items-center justify-between text-[11px] text-slate-400 font-medium px-0.5">
+                  <span>แสดง {filteredRooms.length} ห้อง</span>
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery('')}
+                      className="text-slate-700 font-semibold hover:underline cursor-pointer"
+                    >
+                      ล้างคำค้น
+                    </button>
+                  )}
+                </div>
+
+                {/* Rooms List */}
+                <div className="space-y-2">
+                  {filteredRooms.map((room) => (
+                    <RoomListItem
+                      key={room.id}
+                      room={room}
+                      scheduleCount={scheduleCountByRoom.get(room.code) ?? 0}
+                      isSelected={room.id === selectedRoomId}
+                      onSelect={handleAdminSelectRoom}
+                    />
+                  ))}
+
+                  {filteredRooms.length === 0 && (
+                    <div className="flex flex-col items-center justify-center py-10 text-center">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-400 mb-2">
+                        <Sparkle size={20} />
+                      </div>
+                      <p className="text-xs font-semibold text-slate-700">ไม่พบห้องที่ตรงกับการค้นหา</p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        ลองเปลี่ยนคำค้นหา หรือรีเซ็ตตัวกรองชั้นและหมวดหมู่
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </aside>
 
-      {/* ------------------------------------------------------------------ */}
-      {/* Right panel — Map (admin mode: clicking a marker selects for edit) */}
-      {/* ------------------------------------------------------------------ */}
-      <div className="relative flex-1 overflow-hidden">
-        <MapContainer
-          rooms={rooms}
-          currentFloor={currentFloor}
-          onFloorChange={setCurrentFloor}
-          selectedRoomId={selectedRoomId}
-          onSelectRoom={handleAdminSelectRoom}
-          onClearSelection={() => {
-            if (panelMode === 'room') {
-              handleBack()
-            }
-          }}
-          mode="admin"
-        />
-      </div>
-    </div>
+      {/* Floating Pinned Room Pill when sidebar is collapsed (positioned at bottom-left) */}
+      {isSidebarCollapsed && selectedRoom && (
+        <div className="absolute bottom-6 left-6 z-20 flex items-center gap-3 rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-md px-3.5 py-2.5 shadow-xl animate-in fade-in slide-in-from-bottom-2 duration-200">
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-900 text-white shadow-xs">
+            <Door size={16} weight="duotone" />
+          </div>
+          <div className="min-w-0 pr-2">
+            <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              กำลังเลือก · ชั้น {selectedRoom.floor}
+            </span>
+            <span className="block truncate text-xs font-bold text-slate-900">
+              {selectedRoom.roomNumber ? `ห้อง ${selectedRoom.roomNumber}` : selectedRoom.nameThai || selectedRoom.code}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsSidebarCollapsed(false)}
+            className="rounded-xl bg-slate-900 px-3 py-1.5 text-xs font-bold text-white hover:bg-slate-800 transition-colors cursor-pointer shadow-xs active:scale-95"
+          >
+            เปิดแผงแก้ไข
+          </button>
+        </div>
+      )}
+    </main>
   )
 }

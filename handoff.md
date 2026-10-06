@@ -27,25 +27,16 @@ During this session, we completed a comprehensive overhaul of the `/map` interfa
    - **Dynamic Flow**: Nesting the pill inside the top header container allows it to automatically slide down/up smoothly when `<CategoryFilter />` is toggled open/closed.
    - **Unobstructed Bottom Controls**: Completely freed up the bottom screen space for the Floor Switcher and Zoom Controls ([ + | - ]).
 
-3. **Mobile Bottom Sheet Touch Gestures & Physics**:
-   - **Real-Time Finger Tracking (1:1)**: Implemented touch tracking (`onTouchStart`, `onTouchMove`, `onTouchEnd`, `onTouchCancel`) with direct 60 FPS `translateY` transforms on the sheet element. Dragging down on the grab handle (`—`) or pulling down from the top of the sheet moves the card smoothly with the user's finger.
-   - **Upward Damping**: Applied rubber-band elastic resistance (`deltaY * 0.15`) when pulling upward.
-   - **CSS Animation Lock Fix**: Removed `animation-fill-mode: forwards` from `.animate-modal-mobile` in `frontend/src/index.css` and added `sheet.style.animation = 'none'` on touch start, resolving an issue where CSS keyframes overrode inline `style.transform`.
-   - **Smooth Exit Physics**: Dragging down $> 65\text{px}$ or flicking downward with velocity $> 0.3$ smoothly animates the sheet off-screen (`translateY(100%)` with `cubic-bezier(0.2, 0.9, 0.3, 1)`) before unmounting. If released early, it springs back smoothly (`translateY(0)`).
-   - **Animated Close on Tap**: Tapping the grab handle directly or tapping the `✕` close button on mobile now triggers the same smooth slide-down animation instead of abruptly disappearing.
-   - **Synthetic Click Suppression**: Handled `hasDraggedRef` to prevent accidental click events from firing immediately after a drag gesture ends.
-
-4. **Visual Hierarchy Refinements on Room Hero Card**:
-   - **De-emphasized Location Context**: Replaced the loud, aggressive red/pink pill (`bg-rose-50 border-rose-100 text-rose-600 font-bold`) with a subtle, elegant neutral slate pill (`bg-slate-100/90 border border-slate-200/60 text-[11px] font-medium text-slate-500`).
-   - **Removed Icon Clutter**: Removed the `Buildings` icon per user request to maintain clean simplicity.
-   - **True Focal Point**: The Room Number (`ห้อง 110 (LC3-110)`) and Thai Title (`ห้องบรรยายเรียนรวม`) now serve as the clear, primary focal point of the card.
-   - **Removed Dividing Border**: Removed the horizontal `border-b` line dividing the location pill from the title, allowing the card header to flow organically.
-   - **Uniform Application**: Because `RoomDetailContent` is shared, this refinement applies seamlessly to both Desktop Sidebar and Mobile Bottom Sheet.
-
-5. **Code Hygiene & ESLint Compliance**:
-   - Fixed `react-hooks/static-components` ESLint error by extracting `RoomCategoryBadge` to module scope and rendering the category icon with `createElement(Icon, { size: 14, weight: 'duotone' })`.
-   - Cleaned up duplicate functions in `MapPage.tsx`.
-   - Linter (`npm run lint`): **0 errors, 0 warnings**.
+3. **Admin Page UI Overhaul (`/admin`)**:
+   - **Perimeter Theme Alignment**: Replaced legacy "TORCH Admin" branding and crude yellow tag with official Perimeter logo, plain bold brand-red `Admin Console` text (`text-rose-600 font-extrabold`) matching the logo palette, and quick jump icon to the public map (`/map`).
+   - **Search Box Duplicate X Fix**: Replaced native search input with `type="text"` and hidden WebKit cancel buttons, eliminating the duplicate `X` clear icon bug.
+   - **Collapsible Sidebar Layout**: Replaced the rigid, squished split-panel layout with the unified docked/floating sidebar (`w-full sm:w-[440px] md:w-[460px]`) and `<` chevron collapse toggle.
+   - **Repositioned Pinned Room Pill**: Moved the floating pinned room pill when sidebar is collapsed to the **bottom-left corner (`bottom-6 left-6`)**, leaving the top workspace completely unobstructed.
+   - **Un-cluttered Room List Items**: Eliminated redundant duplicate room number boxes (`[1F 119/1] ห้อง 119/1`), presenting a clean, crisp card layout with clear room title, floor badge, Thai subtitle, category chip, and schedule count.
+   - **Interactive Horizontal Scrolling**: Restored full scrollability to Category and Day filter strips using visible `.thin-scrollbar` tracks and `onWheel` mouse-wheel horizontal scrolling handlers.
+   - **Streamlined Room Edit & Form Ergonomics**: Removed redundant display overlap and unused "ดูบนแผนที่" button; persistent top back button and room info; clean form inputs with instant feedback and Danger Zone protection.
+   - **Full Schedule Management & Explorer**: Standard day color dots (`DAY_CONFIG`), event type badges (`บรรยาย`, `แลป`, `สอบ`), inline editing, and All-Schedules Explorer.
+   - **Dedicated Vitest Suite**: Added `src/components/__tests__/AdminPage.vitest.tsx` covering branding, floor filtering, edit mode, and schedules exploration (66/66 tests passing).
 
 ---
 
@@ -64,41 +55,12 @@ The incoming agent **MUST strictly adhere** to the non-negotiables documented in
 
 - **Branch**: `feat/ui-overhaul`
 - **Tracked upstream**: `origin/feat/ui-overhaul`
-- **Modified files in working tree** (ready for commit after human review):
+- **Modified files in working tree**:
   ```
-  modified:   frontend/index.html
-  modified:   frontend/src/components/MapPage.tsx
-  modified:   frontend/src/components/SearchBar.tsx
-  modified:   frontend/src/components/SearchResultList.tsx
-  modified:   frontend/src/components/map/MapContainer.tsx
-  modified:   frontend/src/components/map/MapLegend.tsx
-  modified:   frontend/src/components/map/RoomMarkers.tsx
-  modified:   frontend/src/components/map/__tests__/MapContainer.vitest.tsx
-  modified:   frontend/src/index.css
+  modified:   frontend/src/components/AdminPage.tsx
+  untracked:  frontend/src/components/__tests__/AdminPage.vitest.tsx
+  modified:   handoff.md
   ```
-
-### File-by-File Summary of Uncommitted Changes:
-- `frontend/src/components/MapPage.tsx`:
-  - Unified left sidebar layout for desktop (`aside.hidden.sm:flex`).
-  - Mobile header with dynamically positioned floating pinned room pill (`fixed top-2.5`).
-  - Mobile bottom sheet with interactive touch gesture dragging, spring-back, and smooth exit slide-down.
-  - Refined Room Hero Card visual hierarchy (subtle location pill, prominent room number/name, no icon, no horizontal dividing border).
-  - Modular `RoomCategoryBadge` component using `createElement` (ESLint clean).
-- `frontend/src/index.css`:
-  - Removed `forwards` from `.animate-modal-mobile` to unblock dynamic inline `style.transform`.
-  - Added minimalist custom `.thin-scrollbar` styling for schedule day filter pills.
-- `frontend/src/components/SearchBar.tsx`:
-  - Removed obsolete area type ("ประเภทพื้นที่") dropdown trigger button.
-- `frontend/src/components/SearchResultList.tsx`:
-  - Refined result items with card borders, subtle shadows, and category color accents.
-- `frontend/src/components/map/MapContainer.tsx`:
-  - Coordinated floor switching and background click behavior with sidebar/sheet state.
-- `frontend/src/components/map/RoomMarkers.tsx`:
-  - Google Maps 1:1 selected pin vector path and POI teardrop badges.
-- `frontend/src/components/map/MapLegend.tsx`:
-  - Refined category pill colors and labels.
-- `frontend/src/components/map/__tests__/MapContainer.vitest.tsx`:
-  - Updated test assertions to match updated component structure.
 
 ---
 
@@ -106,9 +68,9 @@ The incoming agent **MUST strictly adhere** to the non-negotiables documented in
 
 All suites pass with 100% success rate:
 - **Root Unit / Domain Tests**: `npm test` → **70/70 tests passing**.
-- **Frontend Vitest Suite**: `npm --prefix frontend run test:ui` → **62/62 tests passing**.
+- **Frontend Vitest Suite**: `npm --prefix frontend run test:ui` → **66/66 tests passing**.
 - **ESLint Code Quality**: `npm --prefix frontend run lint` → **0 errors, 0 warnings**.
-- **TypeScript & Production Build**: `npm --prefix frontend run build` → **Built cleanly in ~1.2s**.
+- **TypeScript & Production Build**: `npm --prefix frontend run build` → **Built cleanly in ~1.3s**.
 
 ---
 
