@@ -23,13 +23,13 @@ function MapLegend({ entries }: MapLegendProps) {
 
   return (
     <div className="absolute bottom-6 left-4 z-10 sm:bottom-6 sm:left-6">
-      <div className="rounded-2xl bg-white/95 shadow-2xl backdrop-blur-md border border-slate-100/80">
+      <div className="rounded-2xl bg-white shadow-lg border border-slate-200/80">
         <button
           type="button"
           aria-expanded={isOpen}
           aria-controls="map-legend-items"
           onClick={() => setIsOpen((open) => !open)}
-          className="flex w-full items-center gap-2 rounded-2xl px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-600 transition-all duration-150 cursor-pointer"
+          className="flex w-full items-center gap-2 rounded-2xl px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-all duration-150 cursor-pointer"
         >
           <Palette size={18} weight="bold" aria-hidden="true" />
           <span>ประเภทพื้นที่</span>
@@ -47,7 +47,7 @@ function MapLegend({ entries }: MapLegendProps) {
 
         <ul id="map-legend-items" hidden={!isOpen} className="px-3 pb-2.5 pt-0.5 space-y-1.5">
           {entries.map((entry) => (
-            <li key={entry.fill} className="flex items-center gap-2 text-xs text-slate-600">
+            <li key={`${entry.fill}-${entry.label}`} className="flex items-center gap-2 text-xs text-slate-600">
               <span
                 data-testid={`legend-swatch-${entry.fill}`}
                 aria-hidden="true"

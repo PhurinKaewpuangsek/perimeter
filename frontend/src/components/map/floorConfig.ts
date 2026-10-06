@@ -14,11 +14,14 @@ export interface FloorConfig {
   legend: LegendEntry[]
 }
 
-/** The artwork's department colour key, as printed in the original floor-1 legend. */
-const COMMON_AREA: LegendEntry = { fill: '#F5CAAB', label: 'พื้นที่ส่วนกลาง' }
-const MATH_STAT: LegendEntry = { fill: '#BFD8EB', label: 'ภาควิชาคณิตศาสตร์และสถิติ' }
-const ENV_SCIENCE: LegendEntry = { fill: '#CBE6D8', label: 'ภาควิชาวิทยาศาสตร์สิ่งแวดล้อม' }
-const PHYSICS: LegendEntry = { fill: '#F0E3EB', label: 'ภาควิชาฟิสิกส์' }
+/** The artwork's room category colour key matching the floor plan fills. */
+const LECTURE_ROOM: LegendEntry = { fill: '#EDE9FE', label: 'ห้องบรรยาย' }
+const SEMINAR_ROOM: LegendEntry = { fill: '#FAE8FF', label: 'ห้องสัมมนา' }
+const OFFICE: LegendEntry = { fill: '#FEF3C7', label: 'ห้องพักอาจารย์ / สำนักงาน' }
+const LABORATORY: LegendEntry = { fill: '#ECFCCB', label: 'ห้องปฏิบัติการ' }
+const RESEARCH_ROOM: LegendEntry = { fill: '#D1FAE5', label: 'ห้องวิจัย' }
+const MEETING_ROOM: LegendEntry = { fill: '#CCFBF1', label: 'ห้องประชุม' }
+const FACILITY: LegendEntry = { fill: '#EFEEEE', label: 'สิ่งอำนวยความสะดวก' }
 
 export const FLOOR_CONFIGS: FloorConfig[] = [
   {
@@ -27,7 +30,7 @@ export const FLOOR_CONFIGS: FloorConfig[] = [
     asset: '/maps/lc3/floor-1.svg',
     width: 1217,
     height: 742,
-    legend: [COMMON_AREA, MATH_STAT, ENV_SCIENCE, PHYSICS],
+    legend: [LECTURE_ROOM, SEMINAR_ROOM, OFFICE, LABORATORY, RESEARCH_ROOM, FACILITY],
   },
   {
     floor: 2,
@@ -35,7 +38,7 @@ export const FLOOR_CONFIGS: FloorConfig[] = [
     asset: '/maps/lc3/floor-2.svg',
     width: 1070,
     height: 528,
-    legend: [COMMON_AREA, MATH_STAT, ENV_SCIENCE],
+    legend: [LECTURE_ROOM, SEMINAR_ROOM, OFFICE, LABORATORY, MEETING_ROOM, FACILITY],
   },
 ]
 

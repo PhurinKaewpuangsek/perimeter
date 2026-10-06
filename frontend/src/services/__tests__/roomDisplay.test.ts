@@ -138,7 +138,7 @@ describe('getCategoryPinColor', () => {
       const { hue, sat } = hueSat(hex)
       if (sat < 0.4) continue
       assert.ok(!(hue >= 200 && hue <= 250), `${category} pin ${hex} is blue`)
-      assert.ok(!(hue <= 15 || hue >= 345), `${category} pin ${hex} is red`)
+      assert.ok(!(hue <= 20 || hue >= 340), `${category} pin ${hex} is red`)
     }
   })
 })

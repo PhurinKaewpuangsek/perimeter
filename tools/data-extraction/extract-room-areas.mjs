@@ -22,10 +22,13 @@ const SEED_PATH = join(REPO_ROOT, 'tools', 'data-extraction', 'lc3', 'lc3-locati
 const OUT_PATH = join(REPO_ROOT, 'frontend', 'src', 'components', 'map', 'roomAreaGeometry.ts');
 
 /**
- * The four Figma fills used for room interiors. #B3FCFF (corridors) and #A29393
+ * The fills used for room interiors. #B3FCFF / #BAE6FD (river) and #A29393
  * (courtyard / void) are deliberately excluded — they are structure, not rooms.
  */
-const ROOM_FILLS = ['#F5CAAB', '#BFD8EB', '#CBE6D8', '#F0E3EB'];
+const ROOM_FILLS = [
+  '#EDE9FE', '#FAE8FF', '#CCFBF1', '#D1FAE5', '#ECFCCB', '#FEF3C7',
+  '#F5CAAB', '#BFD8EB', '#CBE6D8', '#F0E3EB'
+];
 
 const FLOORS = [
   { floor: 1, path: join(REPO_ROOT, 'frontend', 'public', 'maps', 'lc3', 'floor-1.svg') },

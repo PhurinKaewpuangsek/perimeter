@@ -185,4 +185,49 @@ describe('MapContainer', () => {
     expect(onClearSelection).toHaveBeenCalledTimes(1)
   })
 
+  it('positions floating controls at standard bottom when room is pinned but detail sheet is closed', () => {
+    render(
+      <MapContainer
+        rooms={rooms}
+        currentFloor={1}
+        onFloorChange={vi.fn()}
+        selectedRoomId="LC3-F1-R101"
+        isDetailOpen={false}
+        onSelectRoom={vi.fn()}
+      />
+    )
+
+    const floorSwitcher = screen.getByRole('group', { name: 'Floor switcher' })
+    const zoomControls = screen.getByRole('group', { name: 'Zoom controls' })
+    const recenterBtn = screen.getByRole('button', { name: /จัดกึ่งกลางแผนที่/i })
+
+    expect(floorSwitcher.className).toContain('bottom-6')
+    expect(floorSwitcher.className).not.toContain('bottom-[calc(55dvh+1rem)]')
+    expect(zoomControls.className).toContain('bottom-20')
+    expect(zoomControls.className).not.toContain('bottom-[calc(55dvh+4.5rem)]')
+    expect(recenterBtn.className).toContain('bottom-[11.25rem]')
+    expect(recenterBtn.className).not.toContain('bottom-[calc(55dvh+10.75rem)]')
+  })
+
+  it('offsets floating controls upwards when room is pinned and detail sheet is open', () => {
+    render(
+      <MapContainer
+        rooms={rooms}
+        currentFloor={1}
+        onFloorChange={vi.fn()}
+        selectedRoomId="LC3-F1-R101"
+        isDetailOpen={true}
+        onSelectRoom={vi.fn()}
+      />
+    )
+
+    const floorSwitcher = screen.getByRole('group', { name: 'Floor switcher' })
+    const zoomControls = screen.getByRole('group', { name: 'Zoom controls' })
+    const recenterBtn = screen.getByRole('button', { name: /จัดกึ่งกลางแผนที่/i })
+
+    expect(floorSwitcher.className).toContain('bottom-[calc(55dvh+1rem)]')
+    expect(zoomControls.className).toContain('bottom-[calc(55dvh+4.5rem)]')
+    expect(recenterBtn.className).toContain('bottom-[calc(55dvh+10.75rem)]')
+  })
 })
+
