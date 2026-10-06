@@ -25,7 +25,7 @@ export default function SearchBar({
   onToggleFilter,
 }: SearchBarProps) {
   return (
-    <div className="flex items-center gap-2 rounded-2xl bg-slate-100/70 px-3.5 py-2.5">
+    <div className="flex items-center gap-2 rounded-2xl bg-slate-100/70 border border-slate-200/80 px-3.5 py-2.5 shadow-2xs">
       <MagnifyingGlass size={20} className="shrink-0 text-slate-400" aria-hidden="true" />
       <input
         ref={inputRef}

@@ -160,7 +160,7 @@ export default function SearchResultList({
               <button
                 type="button"
                 onClick={() => onSelectRoom(room.id)}
-                className="group flex w-full flex-col items-start gap-1 rounded-2xl border border-slate-100 bg-white p-3 text-left shadow-2xs hover:border-slate-300 hover:shadow-xs transition-all cursor-pointer active:scale-[0.99]"
+                className="group flex w-full flex-col items-start gap-1 rounded-2xl border border-slate-200/90 bg-white p-3 text-left shadow-2xs hover:border-slate-300 hover:shadow-xs transition-all cursor-pointer active:scale-[0.99]"
               >
                 {/* Header Row: Room Code + Floor + View CTA */}
                 <div className="flex items-center justify-between w-full">
@@ -196,7 +196,7 @@ export default function SearchResultList({
                       return (
                         <div
                           key={idx}
-                          className="flex items-center justify-between rounded-lg bg-slate-50 border border-slate-100 px-2.5 py-1 text-xs"
+                          className="flex items-center justify-between rounded-lg bg-slate-50 border border-slate-200/70 px-2.5 py-1 text-xs"
                         >
                           <div className="flex items-center gap-1.5 truncate">
                             <span className="font-bold font-mono text-slate-900 text-[11px]">
