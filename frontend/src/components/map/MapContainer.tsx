@@ -23,6 +23,7 @@ export interface MapContainerProps {
    *                      No visual difference; the prop exists so callers can document intent.
    */
   mode?: 'public' | 'admin'
+  initialScale?: number
 }
 
 const PADDING_X = 300
@@ -35,6 +36,7 @@ function MapContainer({
   selectedRoomId,
   onSelectRoom,
   onClearSelection,
+  initialScale = 1,
 }: MapContainerProps) {
   const floorConfig = getFloorConfig(currentFloor)
   const transformRef = useRef<ReactZoomPanPinchRef | null>(null)
@@ -80,7 +82,7 @@ function MapContainer({
         type="button"
         aria-label="จัดกึ่งกลางแผนที่"
         onClick={() => transformRef.current?.resetTransform(650, 'easeOutCubic')}
-        className="absolute bottom-[11.25rem] right-4 z-10 flex h-11 w-11 items-center justify-center rounded-2xl bg-white/95 text-slate-700 shadow-2xl backdrop-blur-md border border-slate-100/80 hover:bg-slate-50 hover:text-blue-600 hover:-translate-y-0.5 hover:shadow-xl active:translate-y-0 transition-all duration-200 cursor-pointer sm:bottom-[11.25rem] sm:right-6"
+        className="absolute bottom-[11.25rem] right-4 z-10 flex h-11 w-11 items-center justify-center rounded-2xl bg-white/95 text-slate-700 shadow-2xl backdrop-blur-md border border-slate-100/80 hover:bg-slate-50 hover:text-slate-900 hover:-translate-y-0.5 hover:shadow-xl active:translate-y-0 transition-all duration-200 cursor-pointer sm:bottom-[11.25rem] sm:right-6"
       >
         <Crosshair size={22} weight="bold" aria-hidden="true" />
       </button>
@@ -95,7 +97,7 @@ function MapContainer({
           type="button"
           aria-label="ขยายแผนที่"
           onClick={() => transformRef.current?.zoomIn(0.4, 250, 'easeOutCubic')}
-          className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-600 hover:bg-slate-100 hover:text-blue-600 active:bg-slate-200 active:text-blue-700 transition-all duration-150 cursor-pointer"
+          className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-600 hover:bg-slate-100 hover:text-slate-900 active:bg-slate-200 active:text-slate-950 transition-all duration-150 cursor-pointer"
         >
           <Plus size={18} weight="bold" aria-hidden="true" />
         </button>
@@ -104,7 +106,7 @@ function MapContainer({
           type="button"
           aria-label="ย่อแผนที่"
           onClick={() => transformRef.current?.zoomOut(0.4, 250, 'easeOutCubic')}
-          className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-600 hover:bg-slate-100 hover:text-blue-600 active:bg-slate-200 active:text-blue-700 transition-all duration-150 cursor-pointer"
+          className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-600 hover:bg-slate-100 hover:text-slate-900 active:bg-slate-200 active:text-slate-950 transition-all duration-150 cursor-pointer"
         >
           <Minus size={18} weight="bold" aria-hidden="true" />
         </button>
@@ -126,7 +128,7 @@ function MapContainer({
               onClick={() => onFloorChange(config.floor)}
               className={
                 isActive
-                  ? 'rounded-xl bg-blue-600 border border-blue-600 px-3.5 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 transition-all duration-200 cursor-pointer'
+                  ? 'rounded-xl bg-slate-900 border border-slate-900 px-3.5 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-slate-800 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 transition-all duration-200 cursor-pointer'
                   : 'rounded-xl border border-slate-200 bg-slate-100 px-3.5 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-200/80 hover:border-slate-300 hover:-translate-y-0.5 hover:shadow-sm active:translate-y-0 transition-all duration-200 cursor-pointer'
               }
             >
@@ -138,6 +140,7 @@ function MapContainer({
 
       <TransformWrapper
         ref={transformRef}
+        initialScale={initialScale}
         minScale={0.8}
         maxScale={4}
         centerOnInit

@@ -166,6 +166,7 @@ export default function RoomSearchPanel({
           loading={loading}
           error={error}
           onSelectRoom={handleSelect}
+          variant="legacy"
         />
       )}
     </div>

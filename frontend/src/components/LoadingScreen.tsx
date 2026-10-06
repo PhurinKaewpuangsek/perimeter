@@ -27,7 +27,7 @@ function LoadingScreen({ error = null, onRetry }: LoadingScreenProps) {
             <button
               type="button"
               onClick={onRetry}
-              className="mt-2 flex items-center gap-2 rounded-2xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg hover:bg-blue-700 active:bg-blue-800 transition-colors duration-150 cursor-pointer"
+              className="mt-2 flex items-center gap-2 rounded-2xl bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white shadow-lg hover:bg-slate-800 active:bg-slate-950 transition-colors duration-150 cursor-pointer"
             >
               <ArrowClockwise size={16} weight="bold" aria-hidden="true" />
               ลองใหม่
@@ -36,7 +36,7 @@ function LoadingScreen({ error = null, onRetry }: LoadingScreenProps) {
         </div>
       ) : (
         <div role="status" aria-live="polite" className="flex flex-col items-center gap-3">
-          <CircleNotch size={40} weight="bold" className="animate-spin text-blue-600" aria-hidden="true" />
+          <CircleNotch size={40} weight="bold" className="animate-spin text-rose-500" aria-hidden="true" />
           <p className="text-base font-medium text-slate-700">กำลังโหลดแผนที่...</p>
         </div>
       )}

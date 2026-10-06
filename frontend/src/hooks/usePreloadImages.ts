@@ -8,25 +8,43 @@ import { useEffect, useState } from 'react'
  * failed image still counts as settled, so a broken asset can never keep the app stuck on
  * the loading screen.
  */
+const SETTLED_URLS = new Set<string>()
+
 export function usePreloadImages(urls: readonly string[]): boolean {
-  const [ready, setReady] = useState(false)
+  const initiallyReady = urls.length > 0 && urls.every((u) => SETTLED_URLS.has(u))
+  const [ready, setReady] = useState(initiallyReady)
   const key = urls.join('|')
 
   useEffect(() => {
     let isMounted = true
     const images = key.split('|').filter(Boolean)
 
+    if (images.length === 0 || images.every((u) => SETTLED_URLS.has(u))) {
+      return
+    }
+
     Promise.all(
       images.map(
         (src) =>
           new Promise<void>((resolve) => {
+            if (SETTLED_URLS.has(src)) {
+              resolve()
+              return
+            }
             const image = new Image()
-            image.onload = () => resolve()
-            image.onerror = () => resolve()
+            image.onload = () => {
+              SETTLED_URLS.add(src)
+              resolve()
+            }
+            image.onerror = () => {
+              SETTLED_URLS.add(src)
+              resolve()
+            }
             image.src = src
           })
       )
     ).then(() => {
+      images.forEach((u) => SETTLED_URLS.add(u))
       if (isMounted) setReady(true)
     })
 

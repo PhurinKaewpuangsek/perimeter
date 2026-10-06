@@ -49,13 +49,13 @@ export default function SearchBar({
             isFilterOpen
               ? 'bg-slate-100 text-slate-700 hover:bg-slate-200'
               : hasActiveFilter
-                ? 'bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100'
+                ? 'bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100'
                 : 'text-slate-400 hover:bg-slate-100 hover:text-slate-600'
           }`}
         >
           <List size={18} weight={hasActiveFilter ? 'bold' : 'regular'} />
           {hasActiveFilter && !isFilterOpen && (
-            <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-blue-600" />
+            <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-rose-500" />
           )}
         </button>
       )}
