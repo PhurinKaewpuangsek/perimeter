@@ -27,9 +27,9 @@ export interface MarkerPlacement {
 export const BADGE_RADIUS = 11
 
 /** The selected room's teardrop pin: tip on the room point, head above it. */
-export const SELECTED_PIN_WIDTH = 30
-export const SELECTED_PIN_HEIGHT = 40
-export const SELECTED_PIN_HEAD_Y = 25
+export const SELECTED_PIN_WIDTH = 25
+export const SELECTED_PIN_HEIGHT = 36
+export const SELECTED_PIN_HEAD_Y = 23
 
 export const DOT_RADIUS = 4
 export const LABEL_FONT_SIZE = 12

@@ -6,7 +6,6 @@ import type { FloorConfig } from './floorConfig'
 import { getCategoryIcon } from '../categoryIcon'
 import { getCategoryPinColor } from '../../services/roomDisplay'
 import {
-  BADGE_RADIUS,
   DOT_LABEL_FONT_SIZE,
   DOT_RADIUS,
   LABEL_FONT_SIZE,
@@ -38,13 +37,35 @@ const HOVER_ORIGIN = { transformOrigin: '0px 0px' } as const
 /** Screen-px radius of the invisible tap target around a dot. */
 const DOT_HIT_RADIUS = 11
 
-const BADGE_ICON_SIZE = 13
+const BADGE_ICON_SIZE = 12
+const POI_PIN_HALF_WIDTH = 12
 
-/** Selected pin: the 30×40px Google red teardrop, tip at (0,0), head centred at (0,-25). */
-const SELECTED_PIN_PATH = 'M 0 0 C -2.5 -8 -15 -15 -15 -25 A 15 15 0 1 1 15 -25 C 15 -15 2.5 -8 0 0 Z'
+/**
+ * Google Maps POI pin path for room badges:
+ * Outer white pin body: width 24px, height 26.2px, top circle radius 12,
+ * smooth horizontal tangent at rounded bottom tip (0, 14.2).
+ */
+const POI_BADGE_PATH =
+  'M 0 14.2 C -3 14.2 -12 7 -12 0 A 12 12 0 1 1 12 0 C 12 7 3 14.2 0 14.2 Z'
+
+/** Offset drop shadow (y + 1.3px) matching Google Maps POI elevation without CSS filter lag. */
+const POI_SHADOW_PATH =
+  'M 0 15.5 C -3 15.5 -12 8.3 -12 1.3 A 12 12 0 1 1 12 1.3 C 12 8.3 3 15.5 0 15.5 Z'
+
+const POI_INNER_RADIUS = 9.2
+
+/**
+ * Selected pin: Google Maps iconic red teardrop pin with dark red circular dot.
+ * Tip at (0, 0), head centred at (0, -23), radius 12.2, height 35.2.
+ */
+const SELECTED_PIN_PATH =
+  'M 0 0 C -1 -4 -8.13 -10.55 -11.31 -18.43 A 12.2 12.2 0 1 1 11.31 -18.43 C 8.13 -10.55 1 -4 0 0 Z'
 
 const SELECTED_PIN_COLOR = '#EA4335'
-const SELECTED_LABEL_COLOR = '#0f172a'
+const SELECTED_PIN_BORDER_COLOR = '#B31412'
+const SELECTED_PIN_DOT_COLOR = '#B31412'
+const SELECTED_PIN_DOT_RADIUS = 4.4
+const SELECTED_LABEL_COLOR = '#C5221F'
 
 /**
  * Safely extracts current zoom scale from react-zoom-pan-pinch context.
@@ -224,17 +245,19 @@ function RoomMarkers({
               className="transition-transform duration-150 group-hover:scale-110"
               style={HOVER_ORIGIN}
             >
-              {/* A plain offset circle stands in for a shadow: a CSS drop-shadow filter on
-                  every badge is re-rasterised on each zoom frame and made panning lag. */}
-              <circle cy={1} r={BADGE_RADIUS + 1} fill="#0f172a" fillOpacity={0.18} />
-              <circle r={BADGE_RADIUS} fill={color} stroke="white" strokeWidth={2} />
+              {/* Simulated drop shadow matching Google Maps POI elevation */}
+              <path d={POI_SHADOW_PATH} fill="#0f172a" fillOpacity={0.18} />
+              {/* Google Maps POI white teardrop body */}
+              <path d={POI_BADGE_PATH} fill="white" />
+              {/* Concentric colored disc */}
+              <circle r={POI_INNER_RADIUS} fill={color} />
               {renderIcon(room, -BADGE_ICON_SIZE / 2, -BADGE_ICON_SIZE / 2, BADGE_ICON_SIZE)}
             </g>
             {side && (
               <MarkerLabel
                 text={getMarkerLabel(room)}
                 side={side}
-                offset={BADGE_RADIUS + LABEL_GAP}
+                offset={POI_PIN_HALF_WIDTH + LABEL_GAP}
                 y={0}
                 color={color}
               />
@@ -255,15 +278,30 @@ function RoomMarkers({
             <ellipse
               data-testid="room-selected-halo"
               cx={0}
-              cy={2.5}
-              rx={6.5}
-              ry={2.5}
+              cy={1.5}
+              rx={5}
+              ry={2}
               fill="#000000"
-              fillOpacity={0.3}
+              fillOpacity={0.22}
             />
-            <g data-testid="room-selected-pin" className="animate-pin-drop" style={{ filter: 'drop-shadow(0 3px 6px rgba(0, 0, 0, 0.25))' }}>
-              <path d={SELECTED_PIN_PATH} fill={SELECTED_PIN_COLOR} />
-              {renderIcon(room, -9, -SELECTED_PIN_HEAD_Y - 9, 18)}
+            <g
+              data-testid="room-selected-pin"
+              className="animate-pin-drop"
+              style={{ filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.22))' }}
+            >
+              <path
+                d={SELECTED_PIN_PATH}
+                fill={SELECTED_PIN_COLOR}
+                stroke={SELECTED_PIN_BORDER_COLOR}
+                strokeWidth={0.8}
+                strokeLinejoin="round"
+              />
+              <circle
+                cx={0}
+                cy={-SELECTED_PIN_HEAD_Y}
+                r={SELECTED_PIN_DOT_RADIUS}
+                fill={SELECTED_PIN_DOT_COLOR}
+              />
             </g>
             <MarkerLabel
               text={getMarkerLabel(room)}

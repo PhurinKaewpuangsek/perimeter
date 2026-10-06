@@ -6,20 +6,21 @@ import { getFloorConfig } from '../floorConfig'
 
 /** jsdom has no matchMedia; MapLegend falls back to open, which is what these assert. */
 describe('MapLegend', () => {
-  it('shows the common-area colour on both floors, so floor 2 has a key too', () => {
+  it('shows category colors across floors', () => {
     for (const floor of [1, 2]) {
       const { unmount } = render(<MapLegend entries={getFloorConfig(floor).legend} />)
-      expect(screen.getByText('พื้นที่ส่วนกลาง')).toBeInTheDocument()
-      expect(screen.getByTestId('legend-swatch-#F5CAAB')).toHaveStyle({ backgroundColor: '#F5CAAB' })
+      expect(screen.getByText('ห้องพักอาจารย์ / สำนักงาน')).toBeInTheDocument()
+      expect(screen.getByTestId('legend-swatch-#FEF3C7')).toHaveStyle({ backgroundColor: '#FEF3C7' })
       unmount()
     }
   })
 
-  it('lists only the colours a floor uses — floor 2 has no physics rooms', () => {
+  it('lists only the colours a floor uses — floor 2 has meeting room, floor 1 has research room', () => {
     render(<MapLegend entries={getFloorConfig(2).legend} />)
 
-    expect(screen.getByRole('list').querySelectorAll('li')).toHaveLength(3)
-    expect(screen.queryByText('ภาควิชาฟิสิกส์')).not.toBeInTheDocument()
+    expect(screen.getByRole('list').querySelectorAll('li')).toHaveLength(6)
+    expect(screen.getByText('ห้องประชุม')).toBeInTheDocument()
+    expect(screen.queryByText('ห้องวิจัย')).not.toBeInTheDocument()
   })
 
   it('collapses and expands when the header is clicked', async () => {
