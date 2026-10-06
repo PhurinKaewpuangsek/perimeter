@@ -23,7 +23,7 @@ function MapLegend({ entries }: MapLegendProps) {
 
   return (
     <div className="absolute bottom-6 left-4 z-10 sm:bottom-6 sm:left-6">
-      <div className="rounded-2xl bg-white/95 shadow-2xl backdrop-blur-md border border-slate-100/80">
+      <div className="rounded-2xl bg-white shadow-lg border border-slate-200/80">
         <button
           type="button"
           aria-expanded={isOpen}
