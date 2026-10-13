@@ -151,6 +151,20 @@ export function expectedSchedulesRecordCount() {
   return parseCsv(readFileSync(seed, 'utf8')).length
 }
 
+/** Primary keys (location_id) the locations seed file holds. */
+export function expectedLocationKeys() {
+  const seed = join(repoRoot, 'tools/data-extraction/lc3/lc3-locations.seed.json')
+  return JSON.parse(readFileSync(seed, 'utf8')).records.map((r) => r.location_id)
+}
+
+/** Primary keys (room_code#schedule_slot) the schedule seed file holds. */
+export function expectedScheduleKeys() {
+  const seed = join(repoRoot, 'tools/data-extraction/lc3/lc3-schedules.seed.csv')
+  return parseCsv(readFileSync(seed, 'utf8')).map(
+    (r) => `${r.room_code}#${r.day_of_week}#${r.start_time}#${r.event_code}`
+  )
+}
+
 export function banner(text) {
   console.log(`\n=== ${text} ${'='.repeat(Math.max(0, 68 - text.length))}`)
 }
