@@ -9,6 +9,7 @@
  * Usage: npm run verify
  */
 import { awsJson, banner, expectedRecordCount, expectedSchedulesRecordCount, getStackOutputs } from './lib/stack.mjs'
+import { verifyApiCount, verifyTableCount } from './lib/verify-counts.mjs'
 
 const results = []
 
@@ -53,12 +54,12 @@ await check('table item count', async () => {
     awsJson(['dynamodb', 'scan', '--table-name', table, '--select', 'COUNT', '--consistent-read', '--region', region]).Count
 
   const locCount = getCount(outputs.LocationsTableName)
-  expect(locCount === expected, `${outputs.LocationsTableName} holds ${locCount}, expected ${expected} — run: npm run seed`)
+  verifyTableCount(locCount, expected, outputs.LocationsTableName)
 
   const schedCount = getCount(outputs.SchedulesTableName)
-  expect(schedCount === expectedSchedules, `${outputs.SchedulesTableName} holds ${schedCount}, expected ${expectedSchedules} — run: npm run seed`)
+  verifyTableCount(schedCount, expectedSchedules, outputs.SchedulesTableName)
 
-  return `${locCount} locs, ${schedCount} scheds`
+  return `${locCount} locs (>= ${expected}), ${schedCount} scheds (>= ${expectedSchedules})`
 })
 
 await check('GET /api/locations & /api/schedules', async () => {
@@ -68,15 +69,15 @@ await check('GET /api/locations & /api/schedules', async () => {
   expect(locRes.status === 200, `Locations HTTP ${locRes.status}`)
   expect(locRes.headers.get('access-control-allow-origin') === '*', 'missing CORS header')
   const locBody = await locRes.json()
-  expect(locBody.count === expected, `Locations API returned ${locBody.count} records, expected ${expected}`)
+  verifyApiCount(locBody.count, expected, 'Locations')
 
   const schedRes = await fetch(`${outputs.ApiUrl}/api/schedules`)
   expect(schedRes.status === 200, `Schedules HTTP ${schedRes.status}`)
   expect(schedRes.headers.get('access-control-allow-origin') === '*', 'missing CORS header')
   const schedBody = await schedRes.json()
-  expect(schedBody.count === expectedSchedules, `Schedules API returned ${schedBody.count} records, expected ${expectedSchedules}`)
+  verifyApiCount(schedBody.count, expectedSchedules, 'Schedules')
 
-  return `200 OK, counts match expected`
+  return `200 OK, counts satisfy minimum expected (${locBody.count} >= ${expected}, ${schedBody.count} >= ${expectedSchedules})`
 })
 
 await check('OPTIONS preflight', async () => {

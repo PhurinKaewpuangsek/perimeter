@@ -13,6 +13,7 @@
     "env:pull": "node scripts/write-env.mjs",
     "site:publish": "node scripts/publish-site.mjs",
     "site:empty": "node scripts/empty-site-bucket.mjs",
-    "verify": "node scripts/verify.mjs"
+    "verify": "node scripts/verify.mjs",
+    "test:verify": "node --test scripts/verify.test.mjs"
   }
 }
