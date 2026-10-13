@@ -8,8 +8,14 @@
  *
  * Usage: npm run verify
  */
-import { awsJson, banner, expectedRecordCount, expectedSchedulesRecordCount, getStackOutputs } from './lib/stack.mjs'
-import { verifyApiCount, verifyTableCount } from './lib/verify-counts.mjs'
+import {
+  awsJson,
+  banner,
+  expectedLocationKeys,
+  expectedScheduleKeys,
+  getStackOutputs,
+} from './lib/stack.mjs'
+import { verifyApiRecords, verifyTableRecords } from './lib/verify-counts.mjs'
 
 const results = []
 
@@ -27,8 +33,10 @@ const expect = (condition, message) => {
 banner('verify')
 
 const { stackName, region, status, outputs } = getStackOutputs()
-const expected = expectedRecordCount()
-const expectedSchedules = expectedSchedulesRecordCount()
+const expectedLocKeys = expectedLocationKeys()
+const expectedSchedKeys = expectedScheduleKeys()
+const expected = expectedLocKeys.length
+const expectedSchedules = expectedSchedKeys.length
 
 await check('stack status', async () => {
   expect(
@@ -50,16 +58,44 @@ await check('table item count', async () => {
   expect(Boolean(outputs.LocationsTableName), 'no Locations table to scan')
   expect(Boolean(outputs.SchedulesTableName), 'no Schedules table to scan')
   
-  const getCount = (table) =>
-    awsJson(['dynamodb', 'scan', '--table-name', table, '--select', 'COUNT', '--consistent-read', '--region', region]).Count
+  const scanTableKeys = (table, projection) => {
+    const data = awsJson([
+      'dynamodb',
+      'scan',
+      '--table-name',
+      table,
+      '--projection-expression',
+      projection,
+      '--consistent-read',
+      '--region',
+      region,
+    ])
+    return data.Items ?? []
+  }
 
-  const locCount = getCount(outputs.LocationsTableName)
-  verifyTableCount(locCount, expected, outputs.LocationsTableName)
+  const locItems = scanTableKeys(outputs.LocationsTableName, 'location_id')
+  const locKeys = locItems.map((item) => item.location_id?.S).filter(Boolean)
+  verifyTableRecords({
+    actualKeys: locKeys,
+    expectedKeys: expectedLocKeys,
+    actualCount: locItems.length,
+    expectedCount: expected,
+    tableName: outputs.LocationsTableName,
+  })
 
-  const schedCount = getCount(outputs.SchedulesTableName)
-  verifyTableCount(schedCount, expectedSchedules, outputs.SchedulesTableName)
+  const schedItems = scanTableKeys(outputs.SchedulesTableName, 'room_code, schedule_slot')
+  const schedKeys = schedItems
+    .map((item) => (item.room_code?.S && item.schedule_slot?.S ? `${item.room_code.S}#${item.schedule_slot.S}` : null))
+    .filter(Boolean)
+  verifyTableRecords({
+    actualKeys: schedKeys,
+    expectedKeys: expectedSchedKeys,
+    actualCount: schedItems.length,
+    expectedCount: expectedSchedules,
+    tableName: outputs.SchedulesTableName,
+  })
 
-  return `${locCount} locs (>= ${expected}), ${schedCount} scheds (>= ${expectedSchedules})`
+  return `${locItems.length} locs (>= ${expected}), ${schedItems.length} scheds (>= ${expectedSchedules})`
 })
 
 await check('GET /api/locations & /api/schedules', async () => {
@@ -69,15 +105,27 @@ await check('GET /api/locations & /api/schedules', async () => {
   expect(locRes.status === 200, `Locations HTTP ${locRes.status}`)
   expect(locRes.headers.get('access-control-allow-origin') === '*', 'missing CORS header')
   const locBody = await locRes.json()
-  verifyApiCount(locBody.count, expected, 'Locations')
+  verifyApiRecords({
+    actualRecords: locBody.records,
+    expectedKeys: expectedLocKeys,
+    actualCount: locBody.count,
+    getKey: (r) => r.location_id,
+    resourceName: 'Locations',
+  })
 
   const schedRes = await fetch(`${outputs.ApiUrl}/api/schedules`)
   expect(schedRes.status === 200, `Schedules HTTP ${schedRes.status}`)
   expect(schedRes.headers.get('access-control-allow-origin') === '*', 'missing CORS header')
   const schedBody = await schedRes.json()
-  verifyApiCount(schedBody.count, expectedSchedules, 'Schedules')
+  verifyApiRecords({
+    actualRecords: schedBody.records,
+    expectedKeys: expectedSchedKeys,
+    actualCount: schedBody.count,
+    getKey: (r) => `${r.room_code}#${r.schedule_slot}`,
+    resourceName: 'Schedules',
+  })
 
-  return `200 OK, counts satisfy minimum expected (${locBody.count} >= ${expected}, ${schedBody.count} >= ${expectedSchedules})`
+  return `200 OK, seed keys present (${locBody.count} >= ${expected} locs, ${schedBody.count} >= ${expectedSchedules} scheds)`
 })
 
 await check('OPTIONS preflight', async () => {
