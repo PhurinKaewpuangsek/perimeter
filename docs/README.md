@@ -17,6 +17,7 @@
 | ไฟล์ | เนื้อหา | สถานะ |
 |---|---|---|
 | [aws-cost-estimate.md](./aws-cost-estimate.md) | สรุปค่าใช้จ่าย AWS สำหรับนำเสนอ — สปรินต์ปัจจุบัน (S3) และสปรินต์ถัดไป (DynamoDB + Lambda) | ✅ ใช้งานได้ |
+| [v2-user-feedback-summary.md](./v2-user-feedback-summary.md) | สรุปผลการทดสอบ Peer Testing V2, รายการบั๊ก, ปัญหา UX/UI, และแผนพัฒนา | ✅ ใช้งานได้ |
 
 ## เอกสารที่ควรมีเพิ่มในอนาคต (ยังไม่ได้เขียน)
 
