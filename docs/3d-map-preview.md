@@ -11,22 +11,28 @@ The public map and admin map now open the approved LC3 model by default. Floor 1
 
 ## Asset and coordinate contract
 
-`frontend/public/maps/lc3/lc3-campus.glb` is the approved 14 October 2026 Blender export: 6,507,000 bytes, 119,457 triangles, six groups. SHA-256: `5F86A31619110BEE40C372DFE8A9180E3BA610DFC4C7D381ED517B1F73DB7805`.
+`frontend/public/maps/lc3/lc3-campus.glb` is the architectural finish revision exported on 14 October 2026: 5,734,824 bytes, 248,457 triangles, six groups. SHA-256: `F7051FA7CC73C11A09976DCA7ACF111A20DA660C6EC6C17E54FC775B94A1F2C0`.
+
+This revision adds eased structural edges, a muted material palette derived from the SVG categories, smoother fountain and tree surfaces, low courtyard planting and fountain ripples. The exporter now preserves evaluated corner normals instead of flattening the shading when combining objects. The added geometry fits in a smaller GLB because smooth surfaces share vertices. Downward-facing open forecourt geometry was corrected in Blender.
 
 Use node `extras.part` as identity; Blender may suffix node names. Groups: `LC3_Floor_1`, `LC3_Floor_2`, `LC3_Connecting_Stairs`, `Site_Ground`, `Covered_Link`, `Surrounding_Buildings`.
 
 The editable source is currently local at `C:/Users/admin/Documents/Blender/LC3-floor-study/lc3-campus-layout.blend`; it is not bundled into the website or stored in this repository. Preserve this source for future geometry changes.
 
+The same local folder contains `lc3-campus-before-quality-polish.blend`, the one-time finishing script `polish_architectural_model.py`, and the current repeatable exporter `prepare_architectural_export.py`. Use the current exporter to retain custom normals; the older `prepare_text_free_export.py` does not preserve them.
+
 `modelCoordinates.ts` maps each SVG's independent reference rectangle to the measured Blender bounds. Export shifts Blender X by +34 and maps Z-up to glTF Y-up. Floor 2 is at elevation 3.2. Do not normalize both SVGs to the same image width or use the campus-wide bounding box for room positions. The inverse transform maps floor ray intersections back to existing `ROOM_AREAS`.
 
-The renderer loads lazily and renders on demand rather than running a perpetual animation loop. Pixel ratio is capped at 1.5. Camera changes are immediate, with no automatic animation. GLB materials have no image textures; camera overlays do not alter the model.
+The renderer loads lazily and renders on demand rather than running a perpetual animation loop. Pixel ratio is capped at 1.75. Multisampled rendering, directional shadows and local ambient occlusion distinguish wall edges, stairs and ground contact. Shadow maps update on model/floor changes; camera changes are immediate, with no automatic animation. GLB materials are opaque and have no image textures; camera overlays do not alter the model.
 
 ## Verification
 
 On Windows, 14 October 2026:
 
 - `npm run lint`, `npm run build`, `npm test` (70 tests), `npm run test:ui` (75 tests) passed from `frontend/`.
-- Headless Edge, 1440×1000: floor switching, orbit without accidental selection, marker selection, search across floors, keyboard selection, 2D/3D remount, and admin selection checked. No admin writes were performed.
+- After the architectural revision, lint, build, 75 UI tests and browser checks were rerun. The unchanged service tests had passed during the initial integration.
+- Headless Edge, 1440×1000: floor switching, left-drag pan and right-drag orbit without accidental selection, marker selection, search across floors, keyboard selection, 2D/3D remount, and admin selection checked. No admin writes were performed.
+- Blender export reimport: six groups, floor 2 at 3.2, no image textures or transparent materials, and 5,822 sampled faces from 95 objects with no missing surface checks. SVG audit: all 164 recorded footprint checks passed; 116 of 117 seed rooms match enclosed geometry, with the existing `LC3-217` discrepancy below.
 - 390×844 mobile emulation: cold floor-2 deep link, selected marker framing above the detail sheet, and two-finger gesture without changing selection checked.
 - Aborted GLB request falls back to selectable SVG. The built production bundle was also opened locally with a floor-2 deep link.
 - Browser checks used repository location/schedule seed responses, not the deployed API. The separate local review server marks seed data visibly and rejects writes. Normal application API configuration is unchanged (`VITE_API_BASE_URL`).
@@ -34,8 +40,10 @@ On Windows, 14 October 2026:
 
 ## Remaining checks and limits
 
+The orthographic camera sits outside the campus bounds while retaining its original framing. This avoids near-plane clipping of surrounding buildings when zoomed out. Before/after browser captures verified maximum zoom-out, orbit and pan.
+
 - Real-phone performance and comparative usability testing are still required before release. Desktop browser emulation is not a physical-device result.
-- The additional lazy 3D JavaScript chunk is about 647 kB (163 kB gzip), plus the 6.5 MB model. Vite reports its >500 kB chunk advisory; no size-limit override was added.
+- The additional lazy 3D JavaScript chunk is about 676 kB (170 kB gzip), plus the 5.7 MB model. Vite reports its >500 kB chunk advisory; no size-limit override was added.
 - `LC3-217` is still a source-data discrepancy: its seed pin is in circulation space rather than an enclosed SVG room. Its existing pin is retained; no new room geometry is invented.
 - Campus surroundings are schematic. This trial does not add navigation or edit cloud resources.
 
