@@ -10,13 +10,38 @@ const CORS_HEADERS = {
   'Content-Type': 'application/json',
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'PUT,OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Headers': 'Content-Type,Authorization',
 };
+
+function getCallerGroups(event) {
+  const rawGroups = event?.requestContext?.authorizer?.claims?.['cognito:groups'];
+  if (!rawGroups) return [];
+  if (Array.isArray(rawGroups)) return rawGroups;
+  if (typeof rawGroups === 'string') {
+    const cleaned = rawGroups.replace(/[\[\]]/g, '');
+    return cleaned.split(',').map((g) => g.trim()).filter(Boolean);
+  }
+  return [];
+}
+
+function getCallerIdentity(event) {
+  const claims = event?.requestContext?.authorizer?.claims;
+  return claims?.['cognito:username'] || claims?.sub || 'unknown';
+}
 
 const UPDATABLE_FIELDS = ['end_time', 'event_name', 'event_type', 'day_of_week', 'start_time', 'event_code'];
 
 export function createHandler({ docClient = defaultDocClient, tableName = TABLE_NAME } = {}) {
   return async function updateSchedule(event) {
+    const groups = getCallerGroups(event);
+    if (!groups.includes('staff') && !groups.includes('admin')) {
+      return {
+        statusCode: 403,
+        headers: CORS_HEADERS,
+        body: JSON.stringify({ error: 'Forbidden: Insufficient privileges' }),
+      };
+    }
+
     const rawRoomCode = event.pathParameters?.room_code || '';
     const roomCode = decodeURIComponent(rawRoomCode);
     if (!roomCode) {
@@ -67,6 +92,9 @@ export function createHandler({ docClient = defaultDocClient, tableName = TABLE_
       };
     }
 
+    const updatedBy = getCallerIdentity(event);
+    const updatedAt = new Date().toISOString();
+
     try {
       if (updateData.day_of_week || updateData.start_time || updateData.event_code) {
         const getResult = await docClient.send(new GetCommand({
@@ -88,7 +116,13 @@ export function createHandler({ docClient = defaultDocClient, tableName = TABLE_
         const newScheduleSlot = `${newDay}#${newTime}#${newCourse}`;
         
         if (newScheduleSlot !== scheduleSlot) {
-          const newItem = { ...oldItem, ...updateData, schedule_slot: newScheduleSlot };
+          const newItem = {
+            ...oldItem,
+            ...updateData,
+            schedule_slot: newScheduleSlot,
+            updatedBy,
+            updatedAt,
+          };
           
           await docClient.send(new TransactWriteCommand({
             TransactItems: [
@@ -103,6 +137,9 @@ export function createHandler({ docClient = defaultDocClient, tableName = TABLE_
           };
         }
       }
+
+      updateData.updatedBy = updatedBy;
+      updateData.updatedAt = updatedAt;
 
       const updateExpressions = [];
       const expressionAttributeNames = {};

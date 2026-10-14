@@ -10,8 +10,24 @@ const CORS_HEADERS = {
   'Content-Type': 'application/json',
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST,OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Headers': 'Content-Type,Authorization',
 };
+
+function getCallerGroups(event) {
+  const rawGroups = event?.requestContext?.authorizer?.claims?.['cognito:groups'];
+  if (!rawGroups) return [];
+  if (Array.isArray(rawGroups)) return rawGroups;
+  if (typeof rawGroups === 'string') {
+    const cleaned = rawGroups.replace(/[\[\]]/g, '');
+    return cleaned.split(',').map((g) => g.trim()).filter(Boolean);
+  }
+  return [];
+}
+
+function getCallerIdentity(event) {
+  const claims = event?.requestContext?.authorizer?.claims;
+  return claims?.['cognito:username'] || claims?.sub || 'unknown';
+}
 
 const REQUIRED_FIELDS = ['room_code', 'day_of_week', 'start_time', 'event_code'];
 
@@ -25,6 +41,15 @@ export function createHandler({ docClient = defaultDocClient, tableName = TABLE_
    * Path: POST /api/schedules
    */
   return async function createSchedule(event) {
+    const groups = getCallerGroups(event);
+    if (!groups.includes('staff') && !groups.includes('admin')) {
+      return {
+        statusCode: 403,
+        headers: CORS_HEADERS,
+        body: JSON.stringify({ error: 'Forbidden: Insufficient privileges' }),
+      };
+    }
+
     // Parse body
     let body = {};
     if (typeof event.body === 'string') {
@@ -57,6 +82,8 @@ export function createHandler({ docClient = defaultDocClient, tableName = TABLE_
 
     // Auto-generate composite key
     const schedule_slot = `${day_of_week}#${start_time}#${event_code}`;
+    const updatedBy = getCallerIdentity(event);
+    const updatedAt = new Date().toISOString();
 
     const item = {
       room_code,
@@ -67,6 +94,8 @@ export function createHandler({ docClient = defaultDocClient, tableName = TABLE_
       ...(end_time !== undefined && { end_time }),
       ...(event_name !== undefined && { event_name }),
       ...(event_type !== undefined && { event_type }),
+      updatedBy,
+      updatedAt,
     };
 
     try {
