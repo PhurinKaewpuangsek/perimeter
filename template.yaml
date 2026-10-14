@@ -52,8 +52,29 @@ Globals:
     MinimumCompressionSize: 1024
     Cors:
       AllowMethods: "'GET,PUT,POST,DELETE,OPTIONS'"
-      AllowHeaders: "'Content-Type'"
+      AllowHeaders: "'Content-Type,Authorization'"
       AllowOrigin: "'*'"
+    Auth:
+      DefaultAuthorizer: CognitoAuthorizer
+      Authorizers:
+        CognitoAuthorizer:
+          UserPoolArn: !GetAtt TorchUserPool.Arn
+          Identity:
+            Header: Authorization
+      AddDefaultAuthorizerToCorsPreflight: false
+    GatewayResponses:
+      UNAUTHORIZED:
+        ResponseParameters:
+          Headers:
+            Access-Control-Allow-Origin: "'*'"
+            Access-Control-Allow-Headers: "'Content-Type,Authorization'"
+            Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
+      ACCESS_DENIED:
+        ResponseParameters:
+          Headers:
+            Access-Control-Allow-Origin: "'*'"
+            Access-Control-Allow-Headers: "'Content-Type,Authorization'"
+            Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
 
 # ---------------------------------------------------------------------------
 # Resources
@@ -178,6 +199,8 @@ Resources:
           Properties:
             Path: /api/locations
             Method: get
+            Auth:
+              Authorizer: NONE
 
   SmartFacultySchedules:
     Type: AWS::DynamoDB::Table
@@ -243,6 +266,8 @@ Resources:
           Properties:
             Path: /api/schedules
             Method: get
+            Auth:
+              Authorizer: NONE
 
   # ---------------------------------------------------------------------------
   # Admin write endpoints  Eissue #81 (admin-crud-panel).
@@ -470,8 +495,58 @@ Resources:
             Action: s3:GetObject
             Resource: !Sub "${SiteBucket.Arn}/*"
 
+  # ---------------------------------------------------------------------------
+  # Authentication — Amazon Cognito User Pool & Groups (issue #95)
+  # ---------------------------------------------------------------------------
+  TorchUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub "${AWS::StackName}-user-pool"
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: true
+      AutoVerifiedAttributes:
+        - email
+      UsernameAttributes:
+        - email
+
+  TorchUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: !Sub "${AWS::StackName}-client"
+      UserPoolId: !Ref TorchUserPool
+      GenerateSecret: false
+      ExplicitAuthFlows:
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+      PreventUserExistenceErrors: ENABLED
+
+  UserGroup:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties:
+      GroupName: user
+      Description: General users with access to read and own schedules
+      UserPoolId: !Ref TorchUserPool
+      Precedence: 3
+
+  StaffGroup:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties:
+      GroupName: staff
+      Description: Staff members who can create and update schedules and rooms
+      UserPoolId: !Ref TorchUserPool
+      Precedence: 2
+
+  AdminGroup:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties:
+      GroupName: admin
+      Description: Administrators who can manage all data including deletes
+      UserPoolId: !Ref TorchUserPool
+      Precedence: 1
+
 # ---------------------------------------------------------------------------
-# Outputs  Ethe scripts under scripts/ read these instead of hardcoding names,
+# Outputs — the scripts under scripts/ read these instead of hardcoding names,
 # so every teammate's stack drives their own environment.
 # ---------------------------------------------------------------------------
 Outputs:
@@ -480,7 +555,7 @@ Outputs:
     Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod"
 
   SiteUrl:
-    Description: S3 static website endpoint (http only  ECloudFront is out of scope)
+    Description: S3 static website endpoint (http only — CloudFront is out of scope)
     Value: !GetAtt SiteBucket.WebsiteURL
 
   SiteBucketName:
@@ -494,3 +569,11 @@ Outputs:
   SchedulesTableName:
     Description: DynamoDB table the schedules seed script and the API read
     Value: !Ref SmartFacultySchedules
+
+  UserPoolId:
+    Description: Cognito User Pool ID
+    Value: !Ref TorchUserPool
+
+  UserPoolClientId:
+    Description: Cognito User Pool App Client ID
+    Value: !Ref TorchUserPoolClient

@@ -10,6 +10,7 @@
     "bootstrap": "node scripts/bootstrap.mjs",
     "deploy": "sam build && sam deploy --config-env dev --no-confirm-changeset --no-fail-on-empty-changeset",
     "seed": "node scripts/seed.mjs",
+    "seed:users": "node tools/create-demo-users.mjs",
     "env:pull": "node scripts/write-env.mjs",
     "site:publish": "node scripts/publish-site.mjs",
     "site:empty": "node scripts/empty-site-bucket.mjs",

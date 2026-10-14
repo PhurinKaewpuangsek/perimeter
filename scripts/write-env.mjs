@@ -15,7 +15,7 @@ import { banner, fail, getStackOutputs, repoRoot } from './lib/stack.mjs'
 const ENV_PATH = join(repoRoot, 'frontend', '.env.local')
 
 /** Keys this script owns. Anything else already in the file is left as the teammate wrote it. */
-const OWNED = ['VITE_API_BASE_URL']
+const OWNED = ['VITE_API_BASE_URL', 'VITE_COGNITO_USER_POOL_ID', 'VITE_COGNITO_CLIENT_ID']
 
 banner('env:pull')
 
@@ -32,7 +32,15 @@ if (!kept.some((line) => line.startsWith('VITE_ENABLE_EDIT_MODE='))) {
   kept.push('VITE_ENABLE_EDIT_MODE=true')
 }
 
-const next = [`VITE_API_BASE_URL=${outputs.ApiUrl}`, ...kept].join('\n') + '\n'
+const nextLines = [`VITE_API_BASE_URL=${outputs.ApiUrl}`]
+if (outputs.UserPoolId) {
+  nextLines.push(`VITE_COGNITO_USER_POOL_ID=${outputs.UserPoolId}`)
+}
+if (outputs.UserPoolClientId) {
+  nextLines.push(`VITE_COGNITO_CLIENT_ID=${outputs.UserPoolClientId}`)
+}
+
+const next = [...nextLines, ...kept].join('\n') + '\n'
 writeFileSync(ENV_PATH, next)
 
 console.log(`wrote frontend/.env.local\n`)

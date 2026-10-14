@@ -20,6 +20,14 @@ describe('DeleteScheduleFunction Lambda Handler', () => {
     const handler = createHandler({ docClient: fakeDocClient({}), tableName: 'TestTable' });
     const response = await handler({
       pathParameters: { schedule_slot: 'MON#09:00#CS333' },
+      requestContext: {
+        authorizer: {
+          claims: {
+            sub: 'admin-789',
+            'cognito:groups': 'admin',
+          },
+        },
+      },
     });
 
     assert.equal(response.statusCode, 400);
@@ -33,6 +41,14 @@ describe('DeleteScheduleFunction Lambda Handler', () => {
     const handler = createHandler({ docClient: fakeDocClient({}), tableName: 'TestTable' });
     const response = await handler({
       pathParameters: { room_code: 'LC3-101/1' },
+      requestContext: {
+        authorizer: {
+          claims: {
+            sub: 'admin-789',
+            'cognito:groups': 'admin',
+          },
+        },
+      },
     });
 
     assert.equal(response.statusCode, 400);
@@ -41,10 +57,69 @@ describe('DeleteScheduleFunction Lambda Handler', () => {
     assert.match(body.error, /Missing schedule_slot/);
   });
 
-  test('returns 200 with success message when docClient.send() resolves', async () => {
+  test('returns 403 when event has no authorizer claims', async () => {
     const handler = createHandler({ docClient: fakeDocClient({}), tableName: 'TestTable' });
     const response = await handler({
       pathParameters: { room_code: 'LC3-101/1', schedule_slot: 'MON#09:00#CS333' },
+    });
+
+    assert.equal(response.statusCode, 403);
+    assert.equal(response.headers['Access-Control-Allow-Origin'], '*');
+    assert.equal(response.headers['Access-Control-Allow-Headers'], 'Content-Type,Authorization');
+    const body = JSON.parse(response.body);
+    assert.match(body.error, /Forbidden/);
+  });
+
+  test('returns 403 when caller is in user group', async () => {
+    const handler = createHandler({ docClient: fakeDocClient({}), tableName: 'TestTable' });
+    const response = await handler({
+      pathParameters: { room_code: 'LC3-101/1', schedule_slot: 'MON#09:00#CS333' },
+      requestContext: {
+        authorizer: {
+          claims: {
+            sub: 'user-123',
+            'cognito:groups': 'user',
+          },
+        },
+      },
+    });
+
+    assert.equal(response.statusCode, 403);
+    const body = JSON.parse(response.body);
+    assert.match(body.error, /Forbidden/);
+  });
+
+  test('returns 403 when caller is in staff group (staff cannot delete schedules)', async () => {
+    const handler = createHandler({ docClient: fakeDocClient({}), tableName: 'TestTable' });
+    const response = await handler({
+      pathParameters: { room_code: 'LC3-101/1', schedule_slot: 'MON#09:00#CS333' },
+      requestContext: {
+        authorizer: {
+          claims: {
+            sub: 'staff-456',
+            'cognito:groups': 'staff',
+          },
+        },
+      },
+    });
+
+    assert.equal(response.statusCode, 403);
+    const body = JSON.parse(response.body);
+    assert.match(body.error, /Forbidden/);
+  });
+
+  test('returns 200 with success message when caller is in admin group', async () => {
+    const handler = createHandler({ docClient: fakeDocClient({}), tableName: 'TestTable' });
+    const response = await handler({
+      pathParameters: { room_code: 'LC3-101/1', schedule_slot: 'MON#09:00#CS333' },
+      requestContext: {
+        authorizer: {
+          claims: {
+            sub: 'admin-789',
+            'cognito:groups': ['admin'],
+          },
+        },
+      },
     });
 
     assert.equal(response.statusCode, 200);
@@ -60,6 +135,14 @@ describe('DeleteScheduleFunction Lambda Handler', () => {
     });
     const response = await handler({
       pathParameters: { room_code: 'LC3-101/1', schedule_slot: 'MON#09:00#CS333' },
+      requestContext: {
+        authorizer: {
+          claims: {
+            sub: 'admin-789',
+            'cognito:groups': 'admin',
+          },
+        },
+      },
     });
 
     assert.equal(response.statusCode, 500);

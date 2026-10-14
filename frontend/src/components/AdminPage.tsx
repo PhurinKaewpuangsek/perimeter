@@ -34,6 +34,8 @@ import {
   ArrowSquareOut,
   Door,
   Sparkle,
+  SignOut,
+  Shield,
 } from '@phosphor-icons/react'
 import { useRooms } from '../hooks/useRooms'
 import { useSchedules } from '../hooks/useSchedules'
@@ -43,6 +45,8 @@ import { FLOOR_CONFIGS } from './map/floorConfig'
 import LoadingScreen from './LoadingScreen'
 import type { Room } from '../types/room'
 import type { ScheduleSlot } from '../types/schedule'
+import type { AuthSession } from '../types/auth'
+import { getSession, signIn, signOut, isAdmin, getUserRole } from '../services/authService'
 import {
   updateRoom,
   deleteRoom,
@@ -268,9 +272,10 @@ interface ScheduleRowProps {
   slot: ScheduleSlot & { schedule_slot: string }
   onDelete: () => Promise<void>
   onEdit: (updated: Partial<Pick<ScheduleSlot, 'dayOfWeek' | 'startTime' | 'eventCode' | 'endTime' | 'eventName' | 'eventType'>>) => Promise<void>
+  isAdmin?: boolean
 }
 
-function ScheduleRow({ slot, onDelete, onEdit }: ScheduleRowProps) {
+function ScheduleRow({ slot, onDelete, onEdit, isAdmin = false }: ScheduleRowProps) {
   const [editing, setEditing] = useState(false)
   const [dayOfWeek, setDayOfWeek] = useState(slot.dayOfWeek)
   const [startTime, setStartTime] = useState(slot.startTime)
@@ -447,16 +452,18 @@ function ScheduleRow({ slot, onDelete, onEdit }: ScheduleRowProps) {
         >
           <PencilSimple size={14} />
         </button>
-        <button
-          type="button"
-          onClick={handleDelete}
-          disabled={saving}
-          className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer transition-colors disabled:opacity-50"
-          title="ลบตาราง"
-          aria-label="ลบตาราง"
-        >
-          <Trash size={14} />
-        </button>
+        {isAdmin && (
+          <button
+            type="button"
+            onClick={handleDelete}
+            disabled={saving}
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer transition-colors disabled:opacity-50"
+            title="ลบตาราง"
+            aria-label="ลบตาราง"
+          >
+            <Trash size={14} />
+          </button>
+        )}
       </div>
     </div>
   )
@@ -634,6 +641,7 @@ interface RoomEditPanelProps {
   onRoomDeleted: () => void
   onRoomMutated: () => void
   onSchedulesMutated: () => void
+  isAdmin?: boolean
 }
 
 function RoomEditPanel({
@@ -643,6 +651,7 @@ function RoomEditPanel({
   onRoomDeleted,
   onRoomMutated,
   onSchedulesMutated,
+  isAdmin = false,
 }: RoomEditPanelProps) {
   const [nameInput, setNameInput] = useState(room.nameThai)
   const [capacityInput, setCapacityInput] = useState(
@@ -965,57 +974,60 @@ function RoomEditPanel({
                 slot={slot}
                 onDelete={() => handleScheduleDelete(slot)}
                 onEdit={(updated) => handleScheduleEdit(slot, updated)}
+                isAdmin={isAdmin}
               />
             ))}
           </div>
         )}
       </div>
 
-      {/* Section 3: Danger Zone */}
-      <div className="rounded-2xl border border-rose-200/80 bg-rose-50/40 p-4 shadow-xs space-y-3">
-        <div className="flex items-center gap-2 text-rose-800">
-          <Warning size={16} weight="bold" />
-          <h3 className="text-xs font-bold uppercase tracking-wide">Danger Zone</h3>
-        </div>
-        <p className="text-xs text-slate-600">
-          การลบห้องจะลบข้อมูลออกจากระบบผังอาคารและฐานข้อมูลอย่างถาวร
-        </p>
-
-        {!confirmDelete ? (
-          <button
-            type="button"
-            onClick={() => setConfirmDelete(true)}
-            className="rounded-xl border border-rose-300 bg-white px-3.5 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-50 shadow-2xs cursor-pointer transition-colors"
-          >
-            ลบห้องนี้…
-          </button>
-        ) : (
-          <div className="rounded-xl border border-rose-200 bg-white p-3 space-y-2 shadow-xs">
-            <p className="text-xs font-bold text-rose-800">
-              ยืนยันการลบห้อง <span className="font-mono">{room.code}</span>?
-            </p>
-            <p className="text-[11px] text-rose-600">ข้อมูลที่ถูกลบไม่สามารถกู้คืนได้</p>
-            <div className="flex gap-2 justify-end pt-1">
-              <button
-                type="button"
-                onClick={() => setConfirmDelete(false)}
-                disabled={deleting}
-                className="rounded-xl px-3 py-1 text-xs font-medium text-slate-600 border border-slate-200 hover:bg-slate-50 cursor-pointer disabled:opacity-50"
-              >
-                ยกเลิก
-              </button>
-              <button
-                type="button"
-                onClick={handleDelete}
-                disabled={deleting}
-                className="rounded-xl bg-rose-600 px-3 py-1 text-xs font-semibold text-white hover:bg-rose-700 cursor-pointer disabled:opacity-50"
-              >
-                {deleting ? 'กำลังลบ...' : 'ยืนยันลบ'}
-              </button>
-            </div>
+      {/* Section 3: Danger Zone (Admin Only) */}
+      {isAdmin && (
+        <div className="rounded-2xl border border-rose-200/80 bg-rose-50/40 p-4 shadow-xs space-y-3">
+          <div className="flex items-center gap-2 text-rose-800">
+            <Warning size={16} weight="bold" />
+            <h3 className="text-xs font-bold uppercase tracking-wide">Danger Zone</h3>
           </div>
-        )}
-      </div>
+          <p className="text-xs text-slate-600">
+            การลบห้องจะลบข้อมูลออกจากระบบผังอาคารและฐานข้อมูลอย่างถาวร
+          </p>
+
+          {!confirmDelete ? (
+            <button
+              type="button"
+              onClick={() => setConfirmDelete(true)}
+              className="rounded-xl border border-rose-300 bg-white px-3.5 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-50 shadow-2xs cursor-pointer transition-colors"
+            >
+              ลบห้องนี้…
+            </button>
+          ) : (
+            <div className="rounded-xl border border-rose-200 bg-white p-3 space-y-2 shadow-xs">
+              <p className="text-xs font-bold text-rose-800">
+                ยืนยันการลบห้อง <span className="font-mono">{room.code}</span>?
+              </p>
+              <p className="text-[11px] text-rose-600">ข้อมูลที่ถูกลบไม่สามารถกู้คืนได้</p>
+              <div className="flex gap-2 justify-end pt-1">
+                <button
+                  type="button"
+                  onClick={() => setConfirmDelete(false)}
+                  disabled={deleting}
+                  className="rounded-xl px-3 py-1 text-xs font-medium text-slate-600 border border-slate-200 hover:bg-slate-50 cursor-pointer disabled:opacity-50"
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  className="rounded-xl bg-rose-600 px-3 py-1 text-xs font-semibold text-white hover:bg-rose-700 cursor-pointer disabled:opacity-50"
+                >
+                  {deleting ? 'กำลังลบ...' : 'ยืนยันลบ'}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -1181,6 +1193,116 @@ function AllSchedulesView({
 }
 
 // ---------------------------------------------------------------------------
+// Staff Login Form Component
+// ---------------------------------------------------------------------------
+
+interface StaffLoginFormProps {
+  onSuccess: () => void
+}
+
+function StaffLoginForm({ onSuccess }: StaffLoginFormProps) {
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setError(null)
+    setLoading(true)
+    try {
+      await signIn(email, password)
+      onSuccess()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'เข้าสู่ระบบไม่สำเร็จ กรุณาตรวจสอบข้อมูล')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-900 flex flex-col justify-center items-center p-4">
+      <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-2xl border border-slate-100">
+        <div className="text-center mb-6">
+          <img
+            src={perimeterLogoNoBg}
+            alt="Perimeter"
+            className="h-14 mx-auto mb-3 object-contain"
+          />
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-50 text-rose-700 text-xs font-bold uppercase tracking-wider mb-2">
+            <Shield size={14} weight="bold" />
+            Staff Console
+          </div>
+          <h1 className="text-xl font-bold text-slate-900">เข้าสู่ระบบสำหรับเจ้าหน้าที่</h1>
+          <p className="text-xs text-slate-500 mt-1">
+            กรุณาเข้าสู่ระบบด้วยบัญชี Staff หรือ Admin เพื่อจัดการข้อมูล
+          </p>
+        </div>
+
+        {error && (
+          <div
+            role="alert"
+            className="mb-4 rounded-xl bg-rose-50 border border-rose-200 p-3 text-xs text-rose-700 flex items-start gap-2"
+          >
+            <Warning size={16} className="shrink-0 mt-0.5" weight="bold" />
+            <span>{error}</span>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1" htmlFor="staff-email">
+              อีเมล / ชื่อผู้ใช้
+            </label>
+            <input
+              id="staff-email"
+              type="text"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="staff@torch.dev"
+              className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-800 transition-all font-mono"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1" htmlFor="staff-password">
+              รหัสผ่าน
+            </label>
+            <input
+              id="staff-password"
+              type="password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-800 transition-all font-mono"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full rounded-xl bg-slate-900 py-2.5 text-xs font-bold text-white shadow-md hover:bg-slate-800 active:scale-[0.99] cursor-pointer transition-all disabled:opacity-50"
+          >
+            {loading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}
+          </button>
+        </form>
+
+        <div className="mt-6 pt-4 border-t border-slate-100 text-center">
+          <Link
+            to="/map"
+            className="text-xs font-semibold text-slate-500 hover:text-slate-900 transition-colors inline-flex items-center gap-1"
+          >
+            ← กลับสู่หน้าแผนที่ทั่วไป
+          </Link>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Main AdminPage Component
 // ---------------------------------------------------------------------------
 
@@ -1188,6 +1310,11 @@ type LeftPanelMode = 'list' | 'room'
 type LeftTab = 'rooms' | 'schedules'
 
 export default function AdminPage() {
+  const [session, setSession] = useState<AuthSession | null>(() => getSession())
+
+  const currentUserRole = useMemo(() => getUserRole(session), [session])
+  const isUserAdmin = useMemo(() => isAdmin(session), [session])
+
   const { rooms, loading: roomsLoading, error: roomsError, reload: reloadRooms } = useRooms()
   const {
     schedules,
@@ -1280,6 +1407,10 @@ export default function AdminPage() {
   const floor1Count = useMemo(() => rooms.filter((r) => r.floor === 1).length, [rooms])
   const floor2Count = useMemo(() => rooms.filter((r) => r.floor === 2).length, [rooms])
 
+  if (!session) {
+    return <StaffLoginForm onSuccess={() => setSession(getSession())} />
+  }
+
   if (roomsError) {
     return <LoadingScreen error={roomsError} onRetry={reloadRooms} />
   }
@@ -1342,10 +1473,34 @@ export default function AdminPage() {
               />
             </div>
 
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-2">
               <span className="text-xs font-extrabold tracking-tight text-rose-600 select-none">
-                Admin Console
+                Staff Console
               </span>
+              <span
+                data-testid="user-role-badge"
+                className={`px-2 py-0.5 text-[10px] font-bold rounded-full uppercase ${
+                  isUserAdmin
+                    ? 'bg-rose-100 text-rose-700'
+                    : currentUserRole === 'staff'
+                      ? 'bg-amber-100 text-amber-800'
+                      : 'bg-slate-100 text-slate-600'
+                }`}
+              >
+                {currentUserRole}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  signOut()
+                  setSession(null)
+                }}
+                title="ออกจากระบบ"
+                aria-label="ออกจากระบบ"
+                className="flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+              >
+                <SignOut size={16} weight="bold" />
+              </button>
               <Link
                 to="/map"
                 title="ไปยังหน้าแผนที่ผู้ใช้ทั่วไป (Public Map)"
@@ -1428,6 +1583,7 @@ export default function AdminPage() {
                 onRoomDeleted={handleRoomDeleted}
                 onRoomMutated={() => reloadRooms(true)}
                 onSchedulesMutated={() => reloadSchedules(true)}
+                isAdmin={isUserAdmin}
               />
             ) : (
               /* ROOM LIST MODE */

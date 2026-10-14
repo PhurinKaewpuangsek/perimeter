@@ -19,8 +19,11 @@ createRoot(document.getElementById('root')!).render(
         {/* /prototype/map: Backwards-compatible redirect to official /map */}
         <Route path="/prototype/map" element={<Navigate to="/map" replace />} />
 
-        {/* /admin: room & schedule CRUD panel (no public link — security by obscurity) */}
-        <Route path="/admin" element={<AdminPage />} />
+        {/* /staff: Official staff console (room & schedule management) */}
+        <Route path="/staff" element={<AdminPage />} />
+
+        {/* /admin: Backwards-compatible redirect to /staff */}
+        <Route path="/admin" element={<Navigate to="/staff" replace />} />
       </Routes>
     </BrowserRouter>
   </StrictMode>,
