@@ -94,7 +94,7 @@ export default function PrototypeLanding() {
   function handleAdminLogin() {
     setIsSlidingOut(true)
     setTimeout(() => {
-      navigate('/admin')
+      navigate('/staff')
     }, 400)
   }
 

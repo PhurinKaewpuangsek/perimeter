@@ -93,7 +93,7 @@ export default function LandingPage() {
   function handleAdminLogin() {
     setIsSlidingOut(true)
     setTimeout(() => {
-      navigate('/admin')
+      navigate('/staff')
     }, 400)
   }
 

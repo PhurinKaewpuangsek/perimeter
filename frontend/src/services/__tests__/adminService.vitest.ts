@@ -70,6 +70,32 @@ describe('updateRoom', () => {
     expect(parsed).not.toHaveProperty('capacity')
   })
 
+  it('includes Authorization header when token is available in session', async () => {
+    localStorage.setItem(
+      'perimeter_auth_session',
+      JSON.stringify({
+        idToken: 'mock-jwt-token',
+        expiresAt: Date.now() + 100000,
+        user: { email: 'staff@torch.dev', groups: ['staff'] },
+      }),
+    )
+    mockFetch(200, { message: 'ok' })
+    await updateRoom('LC3-F1-R101', { name_th: 'ห้อง 101' })
+
+    const { init } = lastFetch()
+    expect((init.headers as Record<string, string>)['Authorization']).toBe('mock-jwt-token')
+  })
+
+  it('throws friendly message when response is 401', async () => {
+    mockFetch(401, { message: 'Unauthorized' })
+    await expect(updateRoom('x', { name_th: 'test' })).rejects.toThrow(/Unauthorized/)
+  })
+
+  it('throws friendly message when response is 403', async () => {
+    mockFetch(403, { error: 'Forbidden: Insufficient privileges.' })
+    await expect(updateRoom('x', { name_th: 'test' })).rejects.toThrow(/Forbidden/)
+  })
+
   it('throws when response is not ok', async () => {
     mockFetch(400, { error: 'No fields provided for update' })
     await expect(updateRoom('x', { name_th: '' })).rejects.toThrow('No fields provided for update')
