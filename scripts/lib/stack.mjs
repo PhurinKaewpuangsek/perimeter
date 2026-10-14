@@ -81,7 +81,12 @@ export function readStackConfig() {
 
 /** Runs a command with its output going straight to the terminal. Throws on failure. */
 export function run(cmd, args, { allowFailure = false, cwd = repoRoot } = {}) {
-  const result = spawnSync(cmd, args.map(quote), { stdio: 'inherit', shell: needsShell, cwd })
+  const result = spawnSync(cmd, args.map(quote), {
+    stdio: 'inherit',
+    shell: needsShell,
+    cwd,
+    env: { ...process.env, PYTHONUTF8: '1', PYTHONIOENCODING: 'utf-8' },
+  })
   if (result.error?.code === 'ENOENT') fail(`\`${cmd}\` is not installed or not on PATH.`)
   if (!allowFailure && result.status !== 0) {
     fail(`\`${cmd} ${args.join(' ')}\` exited with ${result.status}.`)
@@ -91,7 +96,12 @@ export function run(cmd, args, { allowFailure = false, cwd = repoRoot } = {}) {
 
 /** Runs a command and captures its output instead of printing it. */
 export function capture(cmd, args, { cwd = repoRoot } = {}) {
-  const result = spawnSync(cmd, args.map(quote), { encoding: 'utf8', shell: needsShell, cwd })
+  const result = spawnSync(cmd, args.map(quote), {
+    encoding: 'utf8',
+    shell: needsShell,
+    cwd,
+    env: { ...process.env, PYTHONUTF8: '1', PYTHONIOENCODING: 'utf-8' },
+  })
   if (result.error?.code === 'ENOENT') fail(`\`${cmd}\` is not installed or not on PATH.`)
   return { status: result.status ?? 1, stdout: result.stdout ?? '', stderr: result.stderr ?? '' }
 }
