@@ -405,7 +405,10 @@ export default function MapPage() {
   const floorPlansReady = usePreloadImages(FLOOR_PLAN_ASSETS)
 
   const targetInitialRoom = initialRoomId ? rooms.find((rm) => rm.id === initialRoomId) : null
-  const [currentFloor, setCurrentFloor] = useState(targetInitialRoom?.floor ?? 1)
+  // Resolve a cold deep link after the room response arrives, until the user
+  // explicitly chooses a floor. useState(initialRoom.floor) misses async data.
+  const [floorOverride, setCurrentFloor] = useState<number | null>(null)
+  const currentFloor = floorOverride ?? targetInitialRoom?.floor ?? 1
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(initialRoomId)
   const [isDetailOpen, setIsDetailOpen] = useState<boolean>(Boolean(initialRoomId))
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false)
@@ -660,13 +663,14 @@ export default function MapPage() {
 
   return (
     <main className="relative h-[100dvh] w-screen overflow-hidden bg-slate-100 font-sans select-none">
-      {/* Primary SVG Floor Plan Workspace */}
+      {/* Interactive map workspace, with a 2D fallback */}
       <MapContainer
         rooms={rooms}
         currentFloor={currentFloor}
         onFloorChange={setCurrentFloor}
         selectedRoomId={selectedRoomId}
         isDetailOpen={isDetailOpen}
+        sidebarWidth={isSidebarCollapsed ? 0 : 400}
         onSelectRoom={handleSelectRoom}
         onClearSelection={handleMapBackgroundClick}
       />

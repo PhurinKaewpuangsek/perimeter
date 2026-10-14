@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import MapContainer from '../MapContainer'
+import MapContainer from '../MapContainer2D'
 import type { Room } from '../../../types/room'
 
 const rooms: Room[] = [
@@ -31,7 +31,7 @@ const rooms: Room[] = [
   },
 ]
 
-describe('MapContainer', () => {
+describe('MapContainer2D fallback', () => {
   it('renders floor switcher buttons and marks the current floor as pressed', () => {
     render(
       <MapContainer

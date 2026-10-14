@@ -1300,6 +1300,7 @@ export default function AdminPage() {
           // Keep selection stable in admin mode unless back button is explicitly clicked
         }}
         mode="admin"
+        sidebarWidth={isSidebarCollapsed ? 0 : 460}
       />
 
       {/* ------------------------------------------------------------------ */}
