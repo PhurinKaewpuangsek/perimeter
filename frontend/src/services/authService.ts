@@ -1,8 +1,9 @@
 import {
   CognitoIdentityProviderClient,
   InitiateAuthCommand,
+  RespondToAuthChallengeCommand,
 } from '@aws-sdk/client-cognito-identity-provider'
-import type { AuthSession, AuthUser, UserRole } from '../types/auth'
+import type { AuthSession, AuthUser, SignInResult, UserRole } from '../types/auth'
 
 const USER_POOL_ID = import.meta.env?.VITE_COGNITO_USER_POOL_ID || ''
 const CLIENT_ID = import.meta.env?.VITE_COGNITO_CLIENT_ID || ''
@@ -46,6 +47,38 @@ function extractGroups(claims: Record<string, unknown>): string[] {
   return []
 }
 
+function createSessionFromAuthResult(
+  authResult: { IdToken?: string; AccessToken?: string; RefreshToken?: string; ExpiresIn?: number },
+  fallbackEmail: string,
+): AuthSession {
+  if (!authResult.IdToken) {
+    throw new Error('Authentication failed: No token returned from Cognito')
+  }
+
+  const idToken = authResult.IdToken
+  const accessToken = authResult.AccessToken || ''
+  const refreshToken = authResult.RefreshToken
+  const expiresIn = authResult.ExpiresIn || 3600
+
+  const claims = parseJwtPayload(idToken)
+  const user: AuthUser = {
+    email: (claims.email as string) || (claims['cognito:username'] as string) || fallbackEmail,
+    sub: (claims.sub as string) || '',
+    groups: extractGroups(claims),
+  }
+
+  const session: AuthSession = {
+    idToken,
+    accessToken,
+    refreshToken,
+    expiresAt: Date.now() + expiresIn * 1000,
+    user,
+  }
+
+  saveSession(session)
+  return session
+}
+
 export function getSession(): AuthSession | null {
   try {
     const item = localStorage.getItem(SESSION_STORAGE_KEY)
@@ -78,7 +111,7 @@ export function signOut(): void {
   }
 }
 
-export async function signIn(email: string, password: string): Promise<AuthSession> {
+export async function signIn(email: string, password: string): Promise<SignInResult> {
   const client = new CognitoIdentityProviderClient({ region: REGION })
   const command = new InitiateAuthCommand({
     AuthFlow: 'USER_PASSWORD_AUTH',
@@ -90,32 +123,47 @@ export async function signIn(email: string, password: string): Promise<AuthSessi
   })
 
   const response = await client.send(command)
+  if (response.ChallengeName === 'NEW_PASSWORD_REQUIRED') {
+    return {
+      challenge: 'NEW_PASSWORD_REQUIRED',
+      session: response.Session || '',
+      email,
+    }
+  }
+
   if (!response.AuthenticationResult || !response.AuthenticationResult.IdToken) {
     throw new Error('Authentication failed: No token returned from Cognito')
   }
 
-  const idToken = response.AuthenticationResult.IdToken
-  const accessToken = response.AuthenticationResult.AccessToken || ''
-  const refreshToken = response.AuthenticationResult.RefreshToken
-  const expiresIn = response.AuthenticationResult.ExpiresIn || 3600
+  const session = createSessionFromAuthResult(response.AuthenticationResult, email)
+  return {
+    challenge: null,
+    session,
+  }
+}
 
-  const claims = parseJwtPayload(idToken)
-  const user: AuthUser = {
-    email: (claims.email as string) || (claims['cognito:username'] as string) || email,
-    sub: (claims.sub as string) || '',
-    groups: extractGroups(claims),
+export async function completeNewPassword(
+  email: string,
+  newPassword: string,
+  session: string,
+): Promise<AuthSession> {
+  const client = new CognitoIdentityProviderClient({ region: REGION })
+  const command = new RespondToAuthChallengeCommand({
+    ClientId: CLIENT_ID,
+    ChallengeName: 'NEW_PASSWORD_REQUIRED',
+    Session: session,
+    ChallengeResponses: {
+      USERNAME: email,
+      NEW_PASSWORD: newPassword,
+    },
+  })
+
+  const response = await client.send(command)
+  if (!response.AuthenticationResult || !response.AuthenticationResult.IdToken) {
+    throw new Error('Failed to set new password: No token returned from Cognito')
   }
 
-  const session: AuthSession = {
-    idToken,
-    accessToken,
-    refreshToken,
-    expiresAt: Date.now() + expiresIn * 1000,
-    user,
-  }
-
-  saveSession(session)
-  return session
+  return createSessionFromAuthResult(response.AuthenticationResult, email)
 }
 
 export function getIdToken(): string | null {

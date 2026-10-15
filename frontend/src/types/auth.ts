@@ -13,3 +13,13 @@ export interface AuthSession {
   expiresAt: number
   user: AuthUser
 }
+
+export interface AuthChallenge {
+  challenge: 'NEW_PASSWORD_REQUIRED'
+  session: string
+  email: string
+}
+
+export type SignInResult =
+  | { challenge: null; session: AuthSession }
+  | AuthChallenge
