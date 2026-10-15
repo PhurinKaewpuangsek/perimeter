@@ -67,7 +67,7 @@ export default function AdminManagementPage() {
 
   // User management state
   const [users, setUsers] = useState<ManagedUser[]>([])
-  const [usersLoading, setUsersLoading] = useState(false)
+  const [usersLoading, setUsersLoading] = useState(true)
   const [usersError, setUsersError] = useState<string | null>(null)
   const [actionSuccess, setActionSuccess] = useState<string | null>(null)
   const [refreshTrigger, setRefreshTrigger] = useState(0)
@@ -158,6 +158,7 @@ export default function AdminManagementPage() {
         setChallengeSession(res.session)
         setIsNewPasswordRequired(true)
       } else {
+        setUsersLoading(true)
         setSession(res.session)
       }
     } catch (err) {
@@ -184,6 +185,7 @@ export default function AdminManagementPage() {
       setIsNewPasswordRequired(false)
       setNewPasswordInput('')
       setConfirmPasswordInput('')
+      setUsersLoading(true)
       setSession(newSession)
     } catch (err) {
       setLoginError((err as Error).message || 'ไม่สามารถตั้งรหัสผ่านใหม่ได้')
@@ -193,6 +195,7 @@ export default function AdminManagementPage() {
   }
 
   function handleSignOut() {
+    setUsersLoading(true)
     signOut()
     setSession(null)
   }

@@ -33,13 +33,22 @@ export function getCallerGroups(event) {
   return [];
 }
 
+function safeDecode(val) {
+  if (!val) return '';
+  try {
+    return decodeURIComponent(val);
+  } catch {
+    return val;
+  }
+}
+
 function getAttr(attributes, name) {
   return attributes?.find((a) => a.Name === name)?.Value || '';
 }
 
 function isCaller(target, claims) {
   if (!target || !claims) return false;
-  const decodedTarget = decodeURIComponent(target).toLowerCase();
+  const decodedTarget = safeDecode(target).toLowerCase();
   const callerSub = (claims.sub || '').toLowerCase();
   const callerEmail = (claims.email || '').toLowerCase();
   const callerUsername = (claims['cognito:username'] || '').toLowerCase();
@@ -51,17 +60,47 @@ function isCaller(target, claims) {
   );
 }
 
+async function listAllUsers(cognitoClient, userPoolId) {
+  const users = [];
+  let paginationToken;
+  do {
+    const res = await cognitoClient.send(
+      new ListUsersCommand({
+        UserPoolId: userPoolId,
+        ...(paginationToken ? { PaginationToken: paginationToken } : {}),
+      })
+    );
+    if (res.Users) users.push(...res.Users);
+    paginationToken = res.PaginationToken;
+  } while (paginationToken);
+  return users;
+}
+
+async function listAllUsersInGroup(cognitoClient, userPoolId, groupName) {
+  const users = [];
+  let nextToken;
+  do {
+    const res = await cognitoClient.send(
+      new ListUsersInGroupCommand({
+        UserPoolId: userPoolId,
+        GroupName: groupName,
+        ...(nextToken ? { NextToken: nextToken } : {}),
+      })
+    );
+    if (res.Users) users.push(...res.Users);
+    nextToken = res.NextToken;
+  } while (nextToken);
+  return users;
+}
+
 async function getAdminGroupUsers(cognitoClient, userPoolId) {
-  const adminGroupRes = await cognitoClient.send(
-    new ListUsersInGroupCommand({ UserPoolId: userPoolId, GroupName: 'admin' })
-  );
-  const adminUsers = adminGroupRes.Users || [];
+  const adminUsers = await listAllUsersInGroup(cognitoClient, userPoolId, 'admin');
   const activeAdmins = adminUsers.filter((u) => u.Enabled !== false);
   return { adminUsers, activeAdmins };
 }
 
 function isUserInList(users, username) {
-  const decoded = decodeURIComponent(username).toLowerCase();
+  const decoded = safeDecode(username).toLowerCase();
   return users.some(
     (u) =>
       u.Username.toLowerCase() === decoded ||
@@ -86,18 +125,18 @@ export function createHandler({ cognitoClient = defaultClient, userPoolId = USER
 
     if (method === 'GET') {
       try {
-        const [usersRes, adminGroupRes, staffGroupRes, userGroupRes] = await Promise.all([
-          cognitoClient.send(new ListUsersCommand({ UserPoolId: userPoolId })),
-          cognitoClient.send(new ListUsersInGroupCommand({ UserPoolId: userPoolId, GroupName: 'admin' })),
-          cognitoClient.send(new ListUsersInGroupCommand({ UserPoolId: userPoolId, GroupName: 'staff' })),
-          cognitoClient.send(new ListUsersInGroupCommand({ UserPoolId: userPoolId, GroupName: 'user' })),
+        const [usersList, adminUsers, staffUsers, regularUsers] = await Promise.all([
+          listAllUsers(cognitoClient, userPoolId),
+          listAllUsersInGroup(cognitoClient, userPoolId, 'admin'),
+          listAllUsersInGroup(cognitoClient, userPoolId, 'staff'),
+          listAllUsersInGroup(cognitoClient, userPoolId, 'user'),
         ]);
 
-        const adminUsernames = new Set((adminGroupRes.Users || []).map((u) => u.Username));
-        const staffUsernames = new Set((staffGroupRes.Users || []).map((u) => u.Username));
-        const regularUsernames = new Set((userGroupRes.Users || []).map((u) => u.Username));
+        const adminUsernames = new Set(adminUsers.map((u) => u.Username));
+        const staffUsernames = new Set(staffUsers.map((u) => u.Username));
+        const regularUsernames = new Set(regularUsers.map((u) => u.Username));
 
-        const users = (usersRes.Users || []).map((u) => {
+        const users = usersList.map((u) => {
           let role = 'user';
           if (adminUsernames.has(u.Username)) {
             role = 'admin';
@@ -146,11 +185,19 @@ export function createHandler({ cognitoClient = defaultClient, userPoolId = USER
       }
 
       const { email, password, role } = payload;
-      if (!email || !password || !role) {
+      if (!email || !password || role === undefined || role === null) {
         return {
           statusCode: 400,
           headers: CORS_HEADERS,
           body: JSON.stringify({ error: 'Missing required fields: email, password, and role are required' }),
+        };
+      }
+
+      if (typeof role !== 'string') {
+        return {
+          statusCode: 400,
+          headers: CORS_HEADERS,
+          body: JSON.stringify({ error: 'Invalid role: role must be a string' }),
         };
       }
 
@@ -180,14 +227,27 @@ export function createHandler({ cognitoClient = defaultClient, userPoolId = USER
 
         const createdUsername = createRes.User?.Username || email;
 
-        // Add to requested group (one role per user)
-        await cognitoClient.send(
-          new AdminAddUserToGroupCommand({
-            UserPoolId: userPoolId,
-            Username: createdUsername,
-            GroupName: normalizedRole,
-          })
-        );
+        // Add to requested group (one role per user) with rollback if assignment fails
+        try {
+          await cognitoClient.send(
+            new AdminAddUserToGroupCommand({
+              UserPoolId: userPoolId,
+              Username: createdUsername,
+              GroupName: normalizedRole,
+            })
+          );
+        } catch (groupErr) {
+          console.error('Failed to add created user to group, rolling back user creation:', groupErr);
+          await cognitoClient
+            .send(
+              new AdminDeleteUserCommand({
+                UserPoolId: userPoolId,
+                Username: createdUsername,
+              })
+            )
+            .catch((rollbackErr) => console.error('Rollback failed:', rollbackErr));
+          throw groupErr;
+        }
 
         return {
           statusCode: 201,
@@ -214,7 +274,7 @@ export function createHandler({ cognitoClient = defaultClient, userPoolId = USER
 
     if (method === 'PUT') {
       const rawUsername = event.pathParameters?.username || '';
-      const username = decodeURIComponent(rawUsername).trim();
+      const username = safeDecode(rawUsername).trim();
       if (!username) {
         return {
           statusCode: 400,
@@ -243,12 +303,17 @@ export function createHandler({ cognitoClient = defaultClient, userPoolId = USER
         };
       }
 
-      const { adminUsers, activeAdmins } = await getAdminGroupUsers(cognitoClient, userPoolId);
-      const isAdminUser = isUserInList(adminUsers, username);
-
-      // Rule: Demotion checks
+      let normalizedRole;
       if (role !== undefined) {
-        const normalizedRole = role.toLowerCase().trim();
+        if (typeof role !== 'string') {
+          return {
+            statusCode: 400,
+            headers: CORS_HEADERS,
+            body: JSON.stringify({ error: 'Invalid role: role must be a string' }),
+          };
+        }
+
+        normalizedRole = role.toLowerCase().trim();
         if (!VALID_ROLES.has(normalizedRole)) {
           return {
             statusCode: 400,
@@ -256,46 +321,51 @@ export function createHandler({ cognitoClient = defaultClient, userPoolId = USER
             body: JSON.stringify({ error: `Invalid role: "${role}". Must be one of: admin, staff, user` }),
           };
         }
+      }
 
-        if (isAdminUser && normalizedRole !== 'admin') {
+      try {
+        const { adminUsers, activeAdmins } = await getAdminGroupUsers(cognitoClient, userPoolId);
+        const isAdminUser = isUserInList(adminUsers, username);
+
+        // Rule: Demotion checks
+        if (normalizedRole !== undefined) {
+          if (isAdminUser && normalizedRole !== 'admin') {
+            if (isCaller(username, claims)) {
+              return {
+                statusCode: 400,
+                headers: CORS_HEADERS,
+                body: JSON.stringify({ error: 'Cannot demote your own account' }),
+              };
+            }
+
+            if (activeAdmins.length <= 1) {
+              return {
+                statusCode: 400,
+                headers: CORS_HEADERS,
+                body: JSON.stringify({ error: 'Cannot demote the last remaining admin' }),
+              };
+            }
+          }
+        }
+
+        // Rule: Disable checks
+        if (enabled === false) {
           if (isCaller(username, claims)) {
             return {
               statusCode: 400,
               headers: CORS_HEADERS,
-              body: JSON.stringify({ error: 'Cannot demote your own account' }),
+              body: JSON.stringify({ error: 'Cannot disable your own account' }),
             };
           }
 
-          if (activeAdmins.length <= 1) {
+          if (isAdminUser && activeAdmins.length <= 1) {
             return {
               statusCode: 400,
               headers: CORS_HEADERS,
-              body: JSON.stringify({ error: 'Cannot demote the last remaining admin' }),
+              body: JSON.stringify({ error: 'Cannot disable the last remaining admin' }),
             };
           }
         }
-      }
-
-      // Rule: Disable checks
-      if (enabled === false) {
-        if (isCaller(username, claims)) {
-          return {
-            statusCode: 400,
-            headers: CORS_HEADERS,
-            body: JSON.stringify({ error: 'Cannot disable your own account' }),
-          };
-        }
-
-        if (isAdminUser && activeAdmins.length <= 1) {
-          return {
-            statusCode: 400,
-            headers: CORS_HEADERS,
-            body: JSON.stringify({ error: 'Cannot disable the last remaining admin' }),
-          };
-        }
-      }
-
-      try {
         // Execute role change if provided
         if (role !== undefined) {
           const normalizedRole = role.toLowerCase().trim();
@@ -364,7 +434,7 @@ export function createHandler({ cognitoClient = defaultClient, userPoolId = USER
 
     if (method === 'DELETE') {
       const rawUsername = event.pathParameters?.username || '';
-      const username = decodeURIComponent(rawUsername).trim();
+      const username = safeDecode(rawUsername).trim();
       if (!username) {
         return {
           statusCode: 400,
@@ -381,19 +451,19 @@ export function createHandler({ cognitoClient = defaultClient, userPoolId = USER
         };
       }
 
-      // Check if target is the last remaining active admin
-      const { adminUsers, activeAdmins } = await getAdminGroupUsers(cognitoClient, userPoolId);
-      const isAdminUser = isUserInList(adminUsers, username);
-
-      if (isAdminUser && activeAdmins.length <= 1) {
-        return {
-          statusCode: 400,
-          headers: CORS_HEADERS,
-          body: JSON.stringify({ error: 'Cannot delete the last remaining admin' }),
-        };
-      }
-
       try {
+        // Check if target is the last remaining active admin
+        const { adminUsers, activeAdmins } = await getAdminGroupUsers(cognitoClient, userPoolId);
+        const isAdminUser = isUserInList(adminUsers, username);
+
+        if (isAdminUser && activeAdmins.length <= 1) {
+          return {
+            statusCode: 400,
+            headers: CORS_HEADERS,
+            body: JSON.stringify({ error: 'Cannot delete the last remaining admin' }),
+          };
+        }
+
         await cognitoClient.send(
           new AdminDeleteUserCommand({
             UserPoolId: userPoolId,
