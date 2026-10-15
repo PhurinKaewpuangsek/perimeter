@@ -46,7 +46,14 @@ import LoadingScreen from './LoadingScreen'
 import type { Room } from '../types/room'
 import type { ScheduleSlot } from '../types/schedule'
 import type { AuthSession } from '../types/auth'
-import { getSession, signIn, signOut, isAdmin, getUserRole } from '../services/authService'
+import {
+  getSession,
+  signIn,
+  completeNewPassword,
+  signOut,
+  isAdmin,
+  getUserRole,
+} from '../services/authService'
 import {
   updateRoom,
   deleteRoom,
@@ -1206,15 +1213,47 @@ function StaffLoginForm({ onSuccess }: StaffLoginFormProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // First-time login challenge state
+  const [isNewPasswordRequired, setIsNewPasswordRequired] = useState(false)
+  const [challengeSession, setChallengeSession] = useState('')
+  const [challengeEmail, setChallengeEmail] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
     setLoading(true)
     try {
-      await signIn(email, password)
-      onSuccess()
+      const res = await signIn(email, password)
+      if (res.challenge === 'NEW_PASSWORD_REQUIRED') {
+        setChallengeEmail(res.email)
+        setChallengeSession(res.session)
+        setIsNewPasswordRequired(true)
+      } else {
+        onSuccess()
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'เข้าสู่ระบบไม่สำเร็จ กรุณาตรวจสอบข้อมูล')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleNewPasswordSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setError(null)
+    if (newPassword !== confirmPassword) {
+      setError('รหัสผ่านใหม่และการยืนยันรหัสผ่านไม่ตรงกัน')
+      return
+    }
+    setLoading(true)
+    try {
+      await completeNewPassword(challengeEmail, newPassword, challengeSession)
+      setIsNewPasswordRequired(false)
+      onSuccess()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'ไม่สามารถตั้งรหัสผ่านใหม่ได้')
     } finally {
       setLoading(false)
     }
@@ -1233,9 +1272,13 @@ function StaffLoginForm({ onSuccess }: StaffLoginFormProps) {
             <Shield size={14} weight="bold" />
             Staff Console
           </div>
-          <h1 className="text-xl font-bold text-slate-900">เข้าสู่ระบบสำหรับเจ้าหน้าที่</h1>
+          <h1 className="text-xl font-bold text-slate-900">
+            {isNewPasswordRequired ? 'ตั้งรหัสผ่านใหม่' : 'เข้าสู่ระบบสำหรับเจ้าหน้าที่'}
+          </h1>
           <p className="text-xs text-slate-500 mt-1">
-            กรุณาเข้าสู่ระบบด้วยบัญชี Staff หรือ Admin เพื่อจัดการข้อมูล
+            {isNewPasswordRequired
+              ? `บัญชี ${challengeEmail} เข้าสู่ระบบเป็นครั้งแรก กรุณาตั้งรหัสผ่านใหม่เพื่อเปิดใช้งาน`
+              : 'กรุณาเข้าสู่ระบบด้วยบัญชี Staff หรือ Admin เพื่อจัดการข้อมูล'}
           </p>
         </div>
 
@@ -1249,45 +1292,100 @@ function StaffLoginForm({ onSuccess }: StaffLoginFormProps) {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1" htmlFor="staff-email">
-              อีเมล / ชื่อผู้ใช้
-            </label>
-            <input
-              id="staff-email"
-              type="text"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="staff@torch.dev"
-              className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-800 transition-all font-mono"
-            />
-          </div>
+        {isNewPasswordRequired ? (
+          <form onSubmit={handleNewPasswordSubmit} className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1" htmlFor="staff-new-password">
+                รหัสผ่านใหม่
+              </label>
+              <input
+                id="staff-new-password"
+                type="password"
+                required
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="อย่างน้อย 8 ตัวอักษร"
+                className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-800 transition-all font-mono"
+              />
+            </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1" htmlFor="staff-password">
-              รหัสผ่าน
-            </label>
-            <input
-              id="staff-password"
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-800 transition-all font-mono"
-            />
-          </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1" htmlFor="staff-confirm-password">
+                ยืนยันรหัสผ่านใหม่
+              </label>
+              <input
+                id="staff-confirm-password"
+                type="password"
+                required
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="พิมพ์รหัสผ่านใหม่อีกครั้ง"
+                className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-800 transition-all font-mono"
+              />
+            </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-xl bg-slate-900 py-2.5 text-xs font-bold text-white shadow-md hover:bg-slate-800 active:scale-[0.99] cursor-pointer transition-all disabled:opacity-50"
-          >
-            {loading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}
-          </button>
-        </form>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsNewPasswordRequired(false)
+                  setError(null)
+                }}
+                disabled={loading}
+                className="w-1/3 rounded-xl border border-slate-300 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-all cursor-pointer disabled:opacity-50"
+              >
+                ย้อนกลับ
+              </button>
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex-1 rounded-xl bg-slate-900 py-2.5 text-xs font-bold text-white shadow-md hover:bg-slate-800 active:scale-[0.99] cursor-pointer transition-all disabled:opacity-50"
+              >
+                {loading ? 'กำลังบันทึก...' : 'บันทึกและเข้าใช้งาน'}
+              </button>
+            </div>
+          </form>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1" htmlFor="staff-email">
+                อีเมล / ชื่อผู้ใช้
+              </label>
+              <input
+                id="staff-email"
+                type="text"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="staff@torch.dev"
+                className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-800 transition-all font-mono"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1" htmlFor="staff-password">
+                รหัสผ่าน
+              </label>
+              <input
+                id="staff-password"
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-800 transition-all font-mono"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full rounded-xl bg-slate-900 py-2.5 text-xs font-bold text-white shadow-md hover:bg-slate-800 active:scale-[0.99] cursor-pointer transition-all disabled:opacity-50"
+            >
+              {loading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}
+            </button>
+          </form>
+        )}
 
         <div className="mt-6 pt-4 border-t border-slate-100 text-center">
           <Link
@@ -1489,6 +1587,15 @@ export default function AdminPage() {
               >
                 {currentUserRole}
               </span>
+              {isUserAdmin && (
+                <Link
+                  to="/admin"
+                  title="ไปยังหน้าผู้ดูแลระบบ (Admin Console)"
+                  className="flex h-8 w-8 items-center justify-center rounded-xl text-rose-600 hover:bg-rose-50 transition-colors"
+                >
+                  <Shield size={16} weight="bold" />
+                </Link>
+              )}
               <button
                 type="button"
                 onClick={() => {

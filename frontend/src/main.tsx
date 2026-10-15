@@ -5,6 +5,7 @@ import './index.css'
 import LandingPage from './components/LandingPage.tsx'
 import MapPage from './components/MapPage.tsx'
 import AdminPage from './components/AdminPage.tsx'
+import AdminManagementPage from './components/AdminManagementPage.tsx'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -22,8 +23,8 @@ createRoot(document.getElementById('root')!).render(
         {/* /staff: Official staff console (room & schedule management) */}
         <Route path="/staff" element={<AdminPage />} />
 
-        {/* /admin: Backwards-compatible redirect to /staff */}
-        <Route path="/admin" element={<Navigate to="/staff" replace />} />
+        {/* /admin: Official dedicated admin console (user & role management + admin actions) */}
+        <Route path="/admin" element={<AdminManagementPage />} />
       </Routes>
     </BrowserRouter>
   </StrictMode>,
