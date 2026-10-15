@@ -7,6 +7,7 @@ import MapPage from './components/MapPage.tsx'
 import AdminPage from './components/AdminPage.tsx'
 import AdminManagementPage from './components/AdminManagementPage.tsx'
 import LoginPage from './components/LoginPage.tsx'
+import RouteGuard from './components/RouteGuard.tsx'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -25,10 +26,24 @@ createRoot(document.getElementById('root')!).render(
         <Route path="/prototype/map" element={<Navigate to="/map" replace />} />
 
         {/* /staff: Official staff console (room & schedule management) */}
-        <Route path="/staff" element={<AdminPage />} />
+        <Route
+          path="/staff"
+          element={
+            <RouteGuard allowedRoles={['staff', 'admin']}>
+              <AdminPage />
+            </RouteGuard>
+          }
+        />
 
         {/* /admin: Official dedicated admin console (user & role management + admin actions) */}
-        <Route path="/admin" element={<AdminManagementPage />} />
+        <Route
+          path="/admin"
+          element={
+            <RouteGuard allowedRoles={['admin']}>
+              <AdminManagementPage />
+            </RouteGuard>
+          }
+        />
       </Routes>
     </BrowserRouter>
   </StrictMode>,
