@@ -252,6 +252,13 @@ describe('CreateScheduleFunction Lambda Handler', () => {
       assert.equal('event_date' in capture.command.input.Item, false);
     });
 
+    test('stores event_type in lowercase so later date guards match it', async () => {
+      const capture = {};
+      const response = await create({ event_type: 'Exam', event_date: '2026-05-18' }, capture);
+      assert.equal(response.statusCode, 200);
+      assert.equal(capture.command.input.Item.event_type, 'exam');
+    });
+
     test('treats EXAM in any letter case as an exam row', async () => {
       const response = await create({ event_type: 'Exam' });
       assert.equal(response.statusCode, 400);

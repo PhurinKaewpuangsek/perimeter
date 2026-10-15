@@ -44,6 +44,10 @@ export function isValidEventDate(value) {
   );
 }
 
+function normalizeEventType(eventType) {
+  return typeof eventType === 'string' ? eventType.toLowerCase() : eventType;
+}
+
 function isExamType(eventType) {
   return typeof eventType === 'string' && eventType.toLowerCase() === 'exam';
 }
@@ -107,6 +111,11 @@ export function createHandler({ docClient = defaultDocClient, tableName = TABLE_
       if (body[field] !== undefined) {
         updateData[field] = body[field];
       }
+    }
+
+    // Stored lowercase so the exam-date condition below (event_type = 'exam') matches every spelling.
+    if (updateData.event_type !== undefined) {
+      updateData.event_type = normalizeEventType(updateData.event_type);
     }
 
     // event_date: null or '' clears it; any other value must be a real YYYY-MM-DD date.

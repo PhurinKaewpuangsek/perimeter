@@ -43,6 +43,10 @@ export function isValidEventDate(value) {
   );
 }
 
+function normalizeEventType(eventType) {
+  return typeof eventType === 'string' ? eventType.toLowerCase() : eventType;
+}
+
 function isExamType(eventType) {
   return typeof eventType === 'string' && eventType.toLowerCase() === 'exam';
 }
@@ -101,8 +105,9 @@ export function createHandler({ docClient = defaultDocClient, tableName = TABLE_
       }
     }
 
-    const { room_code, day_of_week, start_time, event_code, end_time, event_name, event_type } =
-      body;
+    const { room_code, day_of_week, start_time, event_code, end_time, event_name } = body;
+    // Stored lowercase so DynamoDB conditions that compare event_type match every spelling.
+    const event_type = normalizeEventType(body.event_type);
 
     // event_date is optional, but when present it must be a real YYYY-MM-DD date,
     // and exam rows must always carry one.

@@ -309,6 +309,21 @@ describe('UpdateScheduleFunction Lambda Handler', () => {
       assert.equal(response.statusCode, 404);
     });
 
+    test('stores event_type in lowercase so the exam-date condition matches it', async () => {
+      const docClient = scriptedDocClient();
+      await update({ event_type: 'EXAM', event_date: '2026-05-18' }, docClient);
+      const input = docClient.commands[0].input;
+      assert.ok(Object.values(input.ExpressionAttributeValues).includes('exam'));
+      assert.ok(!Object.values(input.ExpressionAttributeValues).includes('EXAM'));
+    });
+
+    test('rejects a mixed-case exam type while clearing its date', async () => {
+      const docClient = scriptedDocClient();
+      const response = await update({ event_type: 'Exam', event_date: null }, docClient);
+      assert.equal(response.statusCode, 400);
+      assert.equal(docClient.commands.length, 0);
+    });
+
     test('class row without a date can still be edited without extra conditions', async () => {
       const docClient = scriptedDocClient();
       const response = await update({ event_type: 'class', end_time: '12:30' }, docClient);
