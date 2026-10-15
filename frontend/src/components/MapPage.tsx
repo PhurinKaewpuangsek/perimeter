@@ -889,7 +889,7 @@ export default function MapPage() {
               MOBILE FLOATING HEADER & SEARCH BAR (Mobile only: < sm)
               ========================================================================= */}
           <div className="fixed top-2.5 inset-x-2.5 z-30 pointer-events-none">
-            <div className="flex flex-col rounded-2xl bg-white shadow-xl border border-slate-200 p-2 pointer-events-auto">
+            <div className="relative z-40 flex flex-col rounded-2xl bg-white shadow-xl border border-slate-200 p-2 pointer-events-auto">
               <div className="flex items-center gap-2">
                 <img
                   src={perimeterLogoNoBg}
@@ -977,14 +977,22 @@ export default function MapPage() {
               </div>
             )}
 
-            {/* Mobile Search Results Floating Dropdown Sheet */}
+            {/* Mobile Search Results Floating Dropdown Sheet.
+                The wrapper above is pointer-events-none so the map stays usable around the
+                search bar. Both layers here must opt back in with pointer-events-auto:
+                otherwise a tap on a result falls through to the map underneath and selects
+                whichever room pin happens to sit under the finger (issue #91). */}
             {isDropdownOpen && hasActiveQueryOrFilter && (!isDetailOpen || !selectedRoom) && (
               <>
                 <div
-                  className="fixed inset-0 bg-slate-900/25 z-30"
+                  data-testid="mobile-search-backdrop"
+                  className="fixed inset-0 bg-slate-900/25 z-30 pointer-events-auto"
                   onClick={() => setIsDropdownOpen(false)}
                 />
-                <div className="relative z-40 mt-2 max-h-[65dvh] overflow-y-auto no-scrollbar rounded-2xl bg-white shadow-2xl border border-slate-200/90 p-3 animate-in fade-in duration-150">
+                <div
+                  data-testid="mobile-search-results"
+                  className="relative z-40 mt-2 max-h-[65dvh] overflow-y-auto no-scrollbar rounded-2xl bg-white shadow-2xl border border-slate-200/90 p-3 animate-in fade-in duration-150 pointer-events-auto"
+                >
                   <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100">
                     <span className="text-xs font-bold text-slate-500">
                       ผลการค้นหา ({searchResults.length})
