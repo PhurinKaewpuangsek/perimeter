@@ -190,4 +190,72 @@ describe('CreateScheduleFunction Lambda Handler', () => {
     const body = JSON.parse(response.body);
     assert.match(body.error, /Failed to create/);
   });
+
+  describe('event_date validation', () => {
+    const staffContext = {
+      authorizer: { claims: { sub: 'staff-uuid', 'cognito:username': 'staff@torch.dev', 'cognito:groups': 'staff' } },
+    };
+    const baseBody = { room_code: 'LC3-103', day_of_week: 'MON', start_time: '13:00', event_code: 'BAS350' };
+
+    async function create(extra, capture = {}) {
+      const handler = createHandler({ docClient: fakeDocClient({}, capture), tableName: 'TestTable' });
+      return handler({ body: JSON.stringify({ ...baseBody, ...extra }), requestContext: staffContext });
+    }
+
+    test('stores a valid event_date on an exam row', async () => {
+      const capture = {};
+      const response = await create({ event_type: 'exam', event_date: '2026-05-18' }, capture);
+      assert.equal(response.statusCode, 200);
+      assert.equal(capture.command.input.Item.event_date, '2026-05-18');
+    });
+
+    test('rejects an exam row without event_date', async () => {
+      const capture = {};
+      const response = await create({ event_type: 'exam' }, capture);
+      assert.equal(response.statusCode, 400);
+      assert.equal(response.headers['Access-Control-Allow-Origin'], '*');
+      assert.match(JSON.parse(response.body).error, /event_date is required for exam rows/);
+      assert.equal(capture.command, undefined, 'nothing is written');
+    });
+
+    test('rejects an exam row with an empty event_date', async () => {
+      const response = await create({ event_type: 'exam', event_date: '' });
+      assert.equal(response.statusCode, 400);
+      assert.match(JSON.parse(response.body).error, /event_date is required/);
+    });
+
+    test('rejects event_date in the wrong format', async () => {
+      for (const bad of ['18/05/2026', '2026-5-18', '20260518', 2026, '2026-05-18T00:00:00Z']) {
+        const response = await create({ event_type: 'exam', event_date: bad });
+        assert.equal(response.statusCode, 400, `should reject ${bad}`);
+        assert.match(JSON.parse(response.body).error, /Invalid event_date/);
+      }
+    });
+
+    test('rejects a date that does not exist on the calendar', async () => {
+      for (const bad of ['2026-02-30', '2026-13-01', '2026-04-31', '2026-00-10']) {
+        const response = await create({ event_type: 'exam', event_date: bad });
+        assert.equal(response.statusCode, 400, `should reject ${bad}`);
+        assert.match(JSON.parse(response.body).error, /Invalid event_date/);
+      }
+    });
+
+    test('accepts a leap day', async () => {
+      const response = await create({ event_type: 'exam', event_date: '2028-02-29' });
+      assert.equal(response.statusCode, 200);
+    });
+
+    test('still creates a class row without event_date', async () => {
+      const capture = {};
+      const response = await create({ event_type: 'class' }, capture);
+      assert.equal(response.statusCode, 200);
+      assert.equal('event_date' in capture.command.input.Item, false);
+    });
+
+    test('treats EXAM in any letter case as an exam row', async () => {
+      const response = await create({ event_type: 'Exam' });
+      assert.equal(response.statusCode, 400);
+      assert.match(JSON.parse(response.body).error, /event_date is required/);
+    });
+  });
 });

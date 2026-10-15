@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import AdminPage from '../AdminPage'
@@ -55,7 +55,27 @@ const mockSchedules: ScheduleSlot[] = [
     eventName: 'Data Structures Lab',
     eventType: 'lab',
   },
+  {
+    roomCode: 'LC3-201',
+    dayOfWeek: 'MON',
+    startTime: '13:00',
+    endTime: '16:00',
+    eventCode: 'BAS350',
+    eventName: 'Exam - BAS350',
+    eventType: 'exam',
+    eventDate: '2026-05-18',
+  },
 ]
+
+const adminServiceMock = vi.hoisted(() => ({
+  updateRoom: vi.fn(async () => {}),
+  deleteRoom: vi.fn(async () => {}),
+  createSchedule: vi.fn(async () => ({ message: 'ok', schedule_slot: 'slot' })),
+  updateSchedule: vi.fn(async () => {}),
+  deleteSchedule: vi.fn(async () => {}),
+}))
+
+vi.mock('../../services/adminService', () => adminServiceMock)
 
 let currentSession: AuthSession | null = null
 
@@ -289,3 +309,152 @@ describe('AdminPage', () => {
   })
 })
 
+describe('AdminPage exam date (event_date)', () => {
+  beforeEach(() => {
+    currentSession = {
+      idToken: 'mock-token',
+      accessToken: 'mock-access',
+      expiresAt: Date.now() + 3600000,
+      user: { email: 'staff@torch.dev', sub: 'staff-sub', groups: ['staff'] },
+    }
+    Object.values(adminServiceMock).forEach((fn) => fn.mockClear())
+  })
+
+  async function openCreateForm() {
+    const user = userEvent.setup()
+    render(
+      <MemoryRouter>
+        <AdminPage />
+      </MemoryRouter>,
+    )
+    await user.click(screen.getByText('ห้อง 101').closest('button')!)
+    await user.click(screen.getByRole('button', { name: /เพิ่มตาราง/ }))
+    const form = screen.getByText('เพิ่มตารางสอนใหม่').closest('form')!
+    return { user, form: within(form) }
+  }
+
+  async function fillRequired(user: ReturnType<typeof userEvent.setup>, form: ReturnType<typeof within>) {
+    await user.type(form.getByPlaceholderText('CS333'), 'BAS350')
+    await user.type(form.getByPlaceholderText('09:00'), '13:00')
+  }
+
+  it('shows the date picker only for exam and event rows', async () => {
+    const { user, form } = await openCreateForm()
+    const typeSelect = form.getByDisplayValue('บรรยาย (Lecture)')
+
+    expect(form.queryByLabelText(/วันสอบ/)).not.toBeInTheDocument()
+
+    await user.selectOptions(typeSelect, 'exam')
+    expect(form.getByLabelText(/วันสอบ/)).toHaveAttribute('type', 'date')
+
+    await user.selectOptions(typeSelect, 'other')
+    expect(form.getByLabelText(/วันที่จัด/)).toBeInTheDocument()
+
+    await user.selectOptions(typeSelect, 'lab')
+    expect(form.queryByLabelText(/วันที่จัด|วันสอบ/)).not.toBeInTheDocument()
+  })
+
+  it('blocks creating an exam without a date', async () => {
+    const { user, form } = await openCreateForm()
+    await fillRequired(user, form)
+    await user.selectOptions(form.getByDisplayValue('บรรยาย (Lecture)'), 'exam')
+    await user.click(form.getByRole('button', { name: /บันทึกตารางสอน/ }))
+
+    expect(form.getByLabelText(/วันสอบ/)).toBeInvalid()
+    expect(adminServiceMock.createSchedule).not.toHaveBeenCalled()
+  })
+
+  it('blocks turning a row into an exam without a date and explains why', async () => {
+    const user = userEvent.setup()
+    render(
+      <MemoryRouter>
+        <AdminPage />
+      </MemoryRouter>,
+    )
+    await user.click(screen.getByText('ห้อง 201').closest('button')!)
+    const labRow = screen.getByText('CS201').closest('div.group') as HTMLElement
+    await user.click(within(labRow).getByRole('button', { name: 'แก้ไขตาราง' }))
+    await user.selectOptions(screen.getByDisplayValue('ปฏิบัติการ (Lab)'), 'exam')
+    await user.click(screen.getByRole('button', { name: 'บันทึกการแก้ไข' }))
+
+    expect(screen.getByText(/กรุณาเลือกวันสอบ/)).toBeInTheDocument()
+    expect(adminServiceMock.updateSchedule).not.toHaveBeenCalled()
+  })
+
+  it('sends event_date when creating an exam', async () => {
+    const { user, form } = await openCreateForm()
+    await fillRequired(user, form)
+    await user.selectOptions(form.getByDisplayValue('บรรยาย (Lecture)'), 'exam')
+    await user.type(form.getByLabelText(/วันสอบ/), '2026-05-18')
+    await user.click(form.getByRole('button', { name: /บันทึกตารางสอน/ }))
+
+    expect(adminServiceMock.createSchedule).toHaveBeenCalledWith(
+      expect.objectContaining({ event_code: 'BAS350', event_type: 'exam', event_date: '2026-05-18' }),
+    )
+  })
+
+  it('does not send event_date for a lecture', async () => {
+    const { user, form } = await openCreateForm()
+    await fillRequired(user, form)
+    await user.click(form.getByRole('button', { name: /บันทึกตารางสอน/ }))
+
+    expect(adminServiceMock.createSchedule).toHaveBeenCalledTimes(1)
+    expect(adminServiceMock.createSchedule).toHaveBeenCalledWith(
+      expect.not.objectContaining({ event_date: expect.anything() }),
+    )
+  })
+
+  it('shows the error message returned by the API', async () => {
+    adminServiceMock.createSchedule.mockRejectedValueOnce(
+      new Error('Invalid event_date: use a real calendar date in YYYY-MM-DD format'),
+    )
+    const { user, form } = await openCreateForm()
+    await fillRequired(user, form)
+    await user.selectOptions(form.getByDisplayValue('บรรยาย (Lecture)'), 'exam')
+    await user.type(form.getByLabelText(/วันสอบ/), '2026-05-18')
+    await user.click(form.getByRole('button', { name: /บันทึกตารางสอน/ }))
+
+    expect(await form.findByText(/Invalid event_date/)).toBeInTheDocument()
+  })
+
+  it('pre-fills the stored exam date when editing and sends it on save', async () => {
+    const user = userEvent.setup()
+    render(
+      <MemoryRouter>
+        <AdminPage />
+      </MemoryRouter>,
+    )
+    await user.click(screen.getByText('ห้อง 201').closest('button')!)
+    const examRow = screen.getByText('BAS350').closest('div.group') as HTMLElement
+    await user.click(within(examRow).getByRole('button', { name: 'แก้ไขตาราง' }))
+
+    expect(screen.getByLabelText(/วันสอบ/)).toHaveValue('2026-05-18')
+    await user.click(screen.getByRole('button', { name: 'บันทึกการแก้ไข' }))
+
+    expect(adminServiceMock.updateSchedule).toHaveBeenCalledWith(
+      'LC3-201',
+      'MON#13:00#BAS350',
+      expect.objectContaining({ event_type: 'exam', event_date: '2026-05-18' }),
+    )
+  })
+
+  it('clears the date when an edited row is no longer an exam or event', async () => {
+    const user = userEvent.setup()
+    render(
+      <MemoryRouter>
+        <AdminPage />
+      </MemoryRouter>,
+    )
+    await user.click(screen.getByText('ห้อง 201').closest('button')!)
+    const examRow = screen.getByText('BAS350').closest('div.group') as HTMLElement
+    await user.click(within(examRow).getByRole('button', { name: 'แก้ไขตาราง' }))
+    await user.selectOptions(screen.getByDisplayValue('การสอบ (Exam)'), 'lab')
+    await user.click(screen.getByRole('button', { name: 'บันทึกการแก้ไข' }))
+
+    expect(adminServiceMock.updateSchedule).toHaveBeenCalledWith(
+      'LC3-201',
+      'MON#13:00#BAS350',
+      expect.objectContaining({ event_type: 'lab', event_date: null }),
+    )
+  })
+})

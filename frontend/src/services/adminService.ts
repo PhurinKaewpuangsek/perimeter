@@ -51,6 +51,8 @@ export interface CreateSchedulePayload {
   end_time?: string
   event_name?: string
   event_type?: string
+  /** Real calendar date (YYYY-MM-DD); required by the API for exam rows. */
+  event_date?: string
 }
 
 export interface UpdateSchedulePayload {
@@ -60,6 +62,8 @@ export interface UpdateSchedulePayload {
   end_time?: string
   event_name?: string
   event_type?: string
+  /** YYYY-MM-DD to set the date, null to clear it. */
+  event_date?: string | null
 }
 
 export interface CreateScheduleResult {
@@ -135,7 +139,8 @@ export async function createSchedule(
 
 /**
  * PUT /api/schedules/{room_code}/{schedule_slot}
- * Updatable fields: end_time, event_name, event_type.
+ * Updatable fields: day_of_week, start_time, event_code, end_time, event_name,
+ * event_type, event_date (null clears it).
  * room_code and schedule_slot must be URL-encoded because schedule_slot
  * contains '#' characters.
  */
