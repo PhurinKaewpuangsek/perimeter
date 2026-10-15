@@ -6,6 +6,8 @@ export interface ScheduleSlot {
   startTime: string
   endTime: string
   eventType: string
+  /** Real calendar date (YYYY-MM-DD) for exam/event rows; empty when not announced. */
+  eventDate?: string
 }
 
 export interface RawScheduleRecord {
@@ -17,6 +19,7 @@ export interface RawScheduleRecord {
   start_time?: string
   end_time?: string
   event_type?: string
+  event_date?: string
   [key: string]: unknown
 }
 

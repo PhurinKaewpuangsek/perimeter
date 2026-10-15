@@ -13,6 +13,7 @@ export function normalizeSchedule(raw: RawScheduleRecord): ScheduleSlot {
     startTime: normalizeText(raw.start_time),
     endTime: normalizeText(raw.end_time),
     eventType: normalizeText(raw.event_type),
+    eventDate: normalizeText(raw.event_date),
   }
 }
 

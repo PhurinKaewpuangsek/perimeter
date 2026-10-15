@@ -14,7 +14,7 @@
  * 5. Bottom-Left Collapsed Pill: Repositioned floating pinned room pill to bottom-left
  *    (bottom-6 left-6) for unobstructed map exploration.
  */
-import { useState, useCallback, useMemo, useRef, createElement } from 'react'
+import { useState, useCallback, useMemo, useRef, useId, createElement } from 'react'
 import { Link } from 'react-router-dom'
 import {
   CaretLeft,
@@ -129,6 +129,71 @@ function RoomCategoryBadge({ category, nameThai }: { category: string; nameThai?
       {createElement(Icon, { size: 13, weight: 'duotone' })}
       <span>{label}</span>
     </span>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Event date (exam/event rows)
+// ---------------------------------------------------------------------------
+
+/** Event types that happen on one calendar date, so the form asks for event_date. */
+const DATED_EVENT_TYPES = ['exam', 'other']
+
+function isDatedEventType(type: string | undefined): boolean {
+  return DATED_EVENT_TYPES.includes((type || '').toLowerCase())
+}
+
+function isExamEventType(type: string | undefined): boolean {
+  return (type || '').toLowerCase() === 'exam'
+}
+
+/** True when value is a real calendar date written as YYYY-MM-DD (rejects 2026-02-30). */
+function isValidEventDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
+  const [year, month, day] = value.split('-').map(Number)
+  const date = new Date(Date.UTC(year, month - 1, day))
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day
+}
+
+/** Thai error message for the date field, or null when it can be saved. Mirrors the API rules. */
+function getEventDateError(type: string, date: string): string | null {
+  if (!isDatedEventType(type)) return null
+  if (!date) return isExamEventType(type) ? 'กรุณาเลือกวันสอบ (จำเป็นสำหรับการสอบ)' : null
+  if (!isValidEventDate(date)) return 'วันที่ไม่ถูกต้อง กรุณาเลือกวันที่จากปฏิทิน'
+  return null
+}
+
+/** event_date value to send: the date for dated rows, otherwise undefined. */
+function eventDateForPayload(type: string, date: string): string | undefined {
+  return isDatedEventType(type) && date ? date : undefined
+}
+
+interface EventDateFieldProps {
+  eventType: string
+  value: string
+  onChange: (value: string) => void
+}
+
+/** Date picker shown only for exam/event rows. */
+function EventDateField({ eventType, value, onChange }: EventDateFieldProps) {
+  const inputId = useId()
+  if (!isDatedEventType(eventType)) return null
+  const required = isExamEventType(eventType)
+  return (
+    <div className="col-span-2">
+      <label htmlFor={inputId} className="block text-[11px] font-semibold text-slate-700 mb-1">
+        {required ? 'วันสอบ' : 'วันที่จัด'}
+        {required && <span className="text-rose-500"> *</span>}
+      </label>
+      <input
+        id={inputId}
+        type="date"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        required={required}
+        className="w-full rounded-xl border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-slate-900/10"
+      />
+    </div>
   )
 }
 
@@ -278,7 +343,7 @@ function RoomListItem({
 interface ScheduleRowProps {
   slot: ScheduleSlot & { schedule_slot: string }
   onDelete: () => Promise<void>
-  onEdit: (updated: Partial<Pick<ScheduleSlot, 'dayOfWeek' | 'startTime' | 'eventCode' | 'endTime' | 'eventName' | 'eventType'>>) => Promise<void>
+  onEdit: (updated: Partial<Pick<ScheduleSlot, 'dayOfWeek' | 'startTime' | 'eventCode' | 'endTime' | 'eventName' | 'eventType' | 'eventDate'>>) => Promise<void>
   isAdmin?: boolean
 }
 
@@ -290,6 +355,7 @@ function ScheduleRow({ slot, onDelete, onEdit, isAdmin = false }: ScheduleRowPro
   const [endTime, setEndTime] = useState(slot.endTime)
   const [eventName, setEventName] = useState(slot.eventName)
   const [eventType, setEventType] = useState(slot.eventType)
+  const [eventDate, setEventDate] = useState(slot.eventDate ?? '')
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
@@ -310,10 +376,15 @@ function ScheduleRow({ slot, onDelete, onEdit, isAdmin = false }: ScheduleRowPro
   }
 
   async function handleSave() {
+    const dateError = getEventDateError(eventType, eventDate)
+    if (dateError) {
+      setErr(dateError)
+      return
+    }
     setSaving(true)
     setErr(null)
     try {
-      await onEdit({ dayOfWeek, startTime, eventCode, endTime, eventName, eventType })
+      await onEdit({ dayOfWeek, startTime, eventCode, endTime, eventName, eventType, eventDate })
       setEditing(false)
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'เกิดข้อผิดพลาด')
@@ -402,6 +473,7 @@ function ScheduleRow({ slot, onDelete, onEdit, isAdmin = false }: ScheduleRowPro
               <option value="other">อื่นๆ (Other)</option>
             </select>
           </div>
+          <EventDateField eventType={eventType} value={eventDate} onChange={setEventDate} />
         </div>
         <div className="flex gap-2 justify-end pt-1">
           <button
@@ -493,11 +565,18 @@ function CreateScheduleForm({ roomCode, onCreated, onCancel }: CreateScheduleFor
   const [eventCode, setEventCode] = useState('')
   const [eventName, setEventName] = useState('')
   const [eventType, setEventType] = useState('lecture')
+  const [eventDate, setEventDate] = useState('')
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    const dateError = getEventDateError(eventType, eventDate)
+    if (dateError) {
+      setErr(dateError)
+      return
+    }
+    const event_date = eventDateForPayload(eventType, eventDate)
     setSaving(true)
     setErr(null)
     try {
@@ -509,6 +588,7 @@ function CreateScheduleForm({ roomCode, onCreated, onCancel }: CreateScheduleFor
         event_code: eventCode,
         event_name: eventName,
         event_type: eventType,
+        ...(event_date !== undefined ? { event_date } : {}),
       })
       onCreated()
     } catch (e) {
@@ -614,6 +694,7 @@ function CreateScheduleForm({ roomCode, onCreated, onCancel }: CreateScheduleFor
             <option value="other">อื่นๆ (Other)</option>
           </select>
         </div>
+        <EventDateField eventType={eventType} value={eventDate} onChange={setEventDate} />
       </div>
 
       <div className="flex gap-2 justify-end pt-1">
@@ -731,8 +812,10 @@ function RoomEditPanel({
 
   async function handleScheduleEdit(
     slot: ScheduleSlot & { schedule_slot: string },
-    updated: Partial<Pick<ScheduleSlot, 'dayOfWeek' | 'startTime' | 'eventCode' | 'endTime' | 'eventName' | 'eventType'>>,
+    updated: Partial<Pick<ScheduleSlot, 'dayOfWeek' | 'startTime' | 'eventCode' | 'endTime' | 'eventName' | 'eventType' | 'eventDate'>>,
   ) {
+    const finalType = updated.eventType ?? slot.eventType
+    const finalDate = updated.eventDate ?? slot.eventDate ?? ''
     await updateSchedule(room.code, slot.schedule_slot, {
       day_of_week: updated.dayOfWeek,
       start_time: updated.startTime,
@@ -740,6 +823,8 @@ function RoomEditPanel({
       end_time: updated.endTime,
       event_name: updated.eventName,
       event_type: updated.eventType,
+      // Dated rows send their date; other rows clear any stale date (null).
+      event_date: eventDateForPayload(finalType, finalDate) ?? null,
     })
     onSchedulesMutated()
   }
