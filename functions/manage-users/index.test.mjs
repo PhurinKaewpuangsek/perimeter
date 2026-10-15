@@ -482,6 +482,71 @@ describe('ManageUsersFunction Lambda Handler - PUT /api/admin/users/{username}',
     const addCmd = sentCommands.find((c) => c.constructor.name === 'AdminAddUserToGroupCommand');
     assert.ok(addCmd);
     assert.equal(addCmd.input.GroupName, 'staff');
+
+    // Verify ordering: add new role first before removing old role
+    assert.ok(
+      sentCommands.indexOf(addCmd) < sentCommands.indexOf(removeCmd),
+      'New group must be added before removing old group'
+    );
+  });
+
+  test('does not remove old group if adding to new group fails during role update', async () => {
+    const sentCommands = [];
+    const sendMock = mock.fn(async (cmd) => {
+      sentCommands.push(cmd);
+      if (cmd.constructor.name === 'ListUsersInGroupCommand') {
+        return {
+          Users: [
+            { Username: 'admin@torch.dev', Enabled: true, Attributes: [{ Name: 'sub', Value: 'admin-uuid' }] },
+            { Username: 'admin2@torch.dev', Enabled: true, Attributes: [{ Name: 'sub', Value: 'admin2-uuid' }] },
+          ],
+        };
+      }
+      if (cmd.constructor.name === 'AdminListGroupsForUserCommand') {
+        return {
+          Groups: [{ GroupName: 'admin' }],
+        };
+      }
+      if (cmd.constructor.name === 'AdminAddUserToGroupCommand') {
+        const err = new Error('Cognito network failure');
+        err.name = 'ServiceUnavailableException';
+        throw err;
+      }
+      return {};
+    });
+
+    const handler = createHandler({
+      cognitoClient: { send: sendMock },
+      userPoolId: 'test-user-pool',
+    });
+
+    const response = await handler({
+      httpMethod: 'PUT',
+      path: '/api/admin/users/admin2@torch.dev',
+      pathParameters: { username: 'admin2@torch.dev' },
+      body: JSON.stringify({ role: 'staff' }),
+      requestContext: {
+        authorizer: {
+          claims: {
+            sub: 'admin-uuid',
+            email: 'admin@torch.dev',
+            'cognito:username': 'admin@torch.dev',
+            'cognito:groups': 'admin',
+          },
+        },
+      },
+    });
+
+    assert.equal(response.statusCode, 500);
+    assert.equal(response.headers['Access-Control-Allow-Origin'], '*');
+
+    // AdminAddUserToGroupCommand was attempted
+    const addCmd = sentCommands.find((c) => c.constructor.name === 'AdminAddUserToGroupCommand');
+    assert.ok(addCmd);
+
+    // AdminRemoveUserFromGroupCommand was NEVER called, preserving original group
+    const removeCmd = sentCommands.find((c) => c.constructor.name === 'AdminRemoveUserFromGroupCommand');
+    assert.equal(removeCmd, undefined, 'Must not remove existing group when adding new group fails');
   });
 
   test('successfully enables and disables user', async () => {

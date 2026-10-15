@@ -366,7 +366,7 @@ export function createHandler({ cognitoClient = defaultClient, userPoolId = USER
             };
           }
         }
-        // Execute role change if provided
+        // Execute role change if provided: add new group first before removing old groups
         if (role !== undefined) {
           const normalizedRole = role.toLowerCase().trim();
           const groupsRes = await cognitoClient.send(
@@ -377,6 +377,19 @@ export function createHandler({ cognitoClient = defaultClient, userPoolId = USER
           );
 
           const existingGroups = (groupsRes.Groups || []).map((g) => g.GroupName);
+
+          // 1. Add to new group first so user maintains permissions if this step fails
+          if (!existingGroups.includes(normalizedRole)) {
+            await cognitoClient.send(
+              new AdminAddUserToGroupCommand({
+                UserPoolId: userPoolId,
+                Username: username,
+                GroupName: normalizedRole,
+              })
+            );
+          }
+
+          // 2. Remove old roles only after the new role has been safely assigned
           for (const g of existingGroups) {
             if (VALID_ROLES.has(g) && g !== normalizedRole) {
               await cognitoClient.send(
@@ -387,16 +400,6 @@ export function createHandler({ cognitoClient = defaultClient, userPoolId = USER
                 })
               );
             }
-          }
-
-          if (!existingGroups.includes(normalizedRole)) {
-            await cognitoClient.send(
-              new AdminAddUserToGroupCommand({
-                UserPoolId: userPoolId,
-                Username: username,
-                GroupName: normalizedRole,
-              })
-            );
           }
         }
 
