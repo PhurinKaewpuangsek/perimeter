@@ -545,6 +545,94 @@ Resources:
       UserPoolId: !Ref TorchUserPool
       Precedence: 1
 
+  # ---------------------------------------------------------------------------
+  # Admin User Management endpoints — issue #96 (rbac-admin-user-management).
+  # GET    /api/admin/users
+  # POST   /api/admin/users
+  # PUT    /api/admin/users/{username}
+  # DELETE /api/admin/users/{username}
+  # ---------------------------------------------------------------------------
+
+  ManageUsersRole:
+    Type: AWS::IAM::Role
+    Condition: CreateLambdaRoles
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: ManageCognitoUsersOnly
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cognito-idp:ListUsers
+                  - cognito-idp:ListUsersInGroup
+                  - cognito-idp:AdminCreateUser
+                  - cognito-idp:AdminAddUserToGroup
+                  - cognito-idp:AdminRemoveUserFromGroup
+                  - cognito-idp:AdminListGroupsForUser
+                  - cognito-idp:AdminEnableUser
+                  - cognito-idp:AdminDisableUser
+                  - cognito-idp:AdminDeleteUser
+                Resource: !GetAtt TorchUserPool.Arn
+
+  ManageUsersFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/manage-users/
+      Handler: index.handler
+      Role: !If
+        - UseExistingLambdaRole
+        - !Sub "arn:aws:iam::${AWS::AccountId}:role/${ExistingLambdaRoleName}"
+        - !GetAtt ManageUsersRole.Arn
+      Environment:
+        Variables:
+          USER_POOL_ID: !Ref TorchUserPool
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - cognito-idp:ListUsers
+                - cognito-idp:ListUsersInGroup
+                - cognito-idp:AdminCreateUser
+                - cognito-idp:AdminAddUserToGroup
+                - cognito-idp:AdminRemoveUserFromGroup
+                - cognito-idp:AdminListGroupsForUser
+                - cognito-idp:AdminEnableUser
+                - cognito-idp:AdminDisableUser
+                - cognito-idp:AdminDeleteUser
+              Resource: !GetAtt TorchUserPool.Arn
+      Events:
+        ListUsers:
+          Type: Api
+          Properties:
+            Path: /api/admin/users
+            Method: get
+        CreateUser:
+          Type: Api
+          Properties:
+            Path: /api/admin/users
+            Method: post
+        UpdateUser:
+          Type: Api
+          Properties:
+            Path: /api/admin/users/{username}
+            Method: put
+        DeleteUser:
+          Type: Api
+          Properties:
+            Path: /api/admin/users/{username}
+            Method: delete
+
+
 # ---------------------------------------------------------------------------
 # Outputs — the scripts under scripts/ read these instead of hardcoding names,
 # so every teammate's stack drives their own environment.

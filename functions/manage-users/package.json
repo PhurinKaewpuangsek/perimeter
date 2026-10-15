@@ -1,0 +1,13 @@
+{
+  "name": "manage-users",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Admin-only Lambda function to manage Cognito users and roles in-app",
+  "main": "index.mjs",
+  "scripts": {
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@aws-sdk/client-cognito-identity-provider": "^3.758.0"
+  }
+}

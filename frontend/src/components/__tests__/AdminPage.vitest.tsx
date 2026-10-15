@@ -92,6 +92,19 @@ vi.mock('../../services/authService', () => ({
         groups: [email.includes('admin') ? 'admin' : 'staff'],
       },
     }
+    return { challenge: null, session: currentSession }
+  }),
+  completeNewPassword: vi.fn(async (email: string) => {
+    currentSession = {
+      idToken: 'mock-token',
+      accessToken: 'mock-access',
+      expiresAt: Date.now() + 3600000,
+      user: {
+        email,
+        sub: 'mock-sub',
+        groups: [email.includes('admin') ? 'admin' : 'staff'],
+      },
+    }
     return currentSession
   }),
   signOut: vi.fn(() => {
@@ -181,6 +194,37 @@ describe('AdminPage', () => {
 
     expect(await screen.findByText('Staff Console')).toBeInTheDocument()
     expect(screen.getByText('ห้องและพื้นที่')).toBeInTheDocument()
+  })
+
+  it('handles NEW_PASSWORD_REQUIRED challenge on first-time login', async () => {
+    currentSession = null
+    const { signIn, completeNewPassword } = await import('../../services/authService')
+    vi.mocked(signIn).mockResolvedValueOnce({
+      challenge: 'NEW_PASSWORD_REQUIRED',
+      session: 'sess-123',
+      email: 'newuser@torch.dev',
+    })
+
+    const user = userEvent.setup()
+    render(
+      <MemoryRouter>
+        <AdminPage />
+      </MemoryRouter>,
+    )
+
+    await user.type(screen.getByLabelText(/อีเมล \/ ชื่อผู้ใช้/), 'newuser@torch.dev')
+    await user.type(screen.getByLabelText(/รหัสผ่าน/), 'TempPass123!')
+    await user.click(screen.getByRole('button', { name: /เข้าสู่ระบบ/ }))
+
+    expect(await screen.findByText('ตั้งรหัสผ่านใหม่')).toBeInTheDocument()
+    expect(screen.getByLabelText(/^รหัสผ่านใหม่/)).toBeInTheDocument()
+    expect(screen.getByLabelText(/ยืนยันรหัสผ่านใหม่/)).toBeInTheDocument()
+
+    await user.type(screen.getByLabelText(/^รหัสผ่านใหม่/), 'PermanentPass123!')
+    await user.type(screen.getByLabelText(/ยืนยันรหัสผ่านใหม่/), 'PermanentPass123!')
+    await user.click(screen.getByRole('button', { name: /บันทึกและเข้าใช้งาน/ }))
+
+    expect(completeNewPassword).toHaveBeenCalledWith('newuser@torch.dev', 'PermanentPass123!', 'sess-123')
   })
 
   it('renders Perimeter branding, Staff Console badge, and room count for admin', () => {
