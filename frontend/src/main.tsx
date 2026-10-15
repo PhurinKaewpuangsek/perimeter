@@ -6,6 +6,7 @@ import LandingPage from './components/LandingPage.tsx'
 import MapPage from './components/MapPage.tsx'
 import AdminPage from './components/AdminPage.tsx'
 import AdminManagementPage from './components/AdminManagementPage.tsx'
+import LoginPage from './components/LoginPage.tsx'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -13,6 +14,9 @@ createRoot(document.getElementById('root')!).render(
       <Routes>
         {/* /: Official Landing Page (Split Portal on Desktop, Regular Login on Mobile) */}
         <Route path="/" element={<LandingPage />} />
+
+        {/* /login: Unified sign-in route with first-login challenge */}
+        <Route path="/login" element={<LoginPage />} />
 
         {/* /map: Official interactive floor plan with Unified Left Sidebar */}
         <Route path="/map" element={<MapPage />} />

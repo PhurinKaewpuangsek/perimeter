@@ -80,20 +80,27 @@ function createSessionFromAuthResult(
 }
 
 export function getSession(): AuthSession | null {
+  return checkSession().session
+}
+
+/**
+ * Returns session if active, and indicates whether an existing session has expired.
+ */
+export function checkSession(): { session: AuthSession | null; expired: boolean } {
   try {
     const item = localStorage.getItem(SESSION_STORAGE_KEY)
-    if (!item) return null
+    if (!item) return { session: null, expired: false }
     const session: AuthSession = JSON.parse(item)
-    // If expired, discard
     if (session.expiresAt && Date.now() > session.expiresAt) {
       signOut()
-      return null
+      return { session: null, expired: true }
     }
-    return session
+    return { session, expired: false }
   } catch {
-    return null
+    return { session: null, expired: false }
   }
 }
+
 
 export function saveSession(session: AuthSession): void {
   try {
