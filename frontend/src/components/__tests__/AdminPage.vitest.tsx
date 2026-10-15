@@ -165,69 +165,7 @@ describe('AdminPage', () => {
     }
   })
 
-  it('renders Staff Login form when unauthenticated', () => {
-    currentSession = null
-    render(
-      <MemoryRouter>
-        <AdminPage />
-      </MemoryRouter>,
-    )
-
-    expect(screen.getByText('เข้าสู่ระบบสำหรับเจ้าหน้าที่')).toBeInTheDocument()
-    expect(screen.getByLabelText(/อีเมล \/ ชื่อผู้ใช้/)).toBeInTheDocument()
-    expect(screen.getByLabelText(/รหัสผ่าน/)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /เข้าสู่ระบบ/ })).toBeInTheDocument()
-  })
-
-  it('allows user to sign in from login form', async () => {
-    currentSession = null
-    const user = userEvent.setup()
-    render(
-      <MemoryRouter>
-        <AdminPage />
-      </MemoryRouter>,
-    )
-
-    await user.type(screen.getByLabelText(/อีเมล \/ ชื่อผู้ใช้/), 'admin@torch.dev')
-    await user.type(screen.getByLabelText(/รหัสผ่าน/), 'Password123!')
-    await user.click(screen.getByRole('button', { name: /เข้าสู่ระบบ/ }))
-
-    expect(await screen.findByText('Staff Console')).toBeInTheDocument()
-    expect(screen.getByText('ห้องและพื้นที่')).toBeInTheDocument()
-  })
-
-  it('handles NEW_PASSWORD_REQUIRED challenge on first-time login', async () => {
-    currentSession = null
-    const { signIn, completeNewPassword } = await import('../../services/authService')
-    vi.mocked(signIn).mockResolvedValueOnce({
-      challenge: 'NEW_PASSWORD_REQUIRED',
-      session: 'sess-123',
-      email: 'newuser@torch.dev',
-    })
-
-    const user = userEvent.setup()
-    render(
-      <MemoryRouter>
-        <AdminPage />
-      </MemoryRouter>,
-    )
-
-    await user.type(screen.getByLabelText(/อีเมล \/ ชื่อผู้ใช้/), 'newuser@torch.dev')
-    await user.type(screen.getByLabelText(/รหัสผ่าน/), 'TempPass123!')
-    await user.click(screen.getByRole('button', { name: /เข้าสู่ระบบ/ }))
-
-    expect(await screen.findByText('ตั้งรหัสผ่านใหม่')).toBeInTheDocument()
-    expect(screen.getByLabelText(/^รหัสผ่านใหม่/)).toBeInTheDocument()
-    expect(screen.getByLabelText(/ยืนยันรหัสผ่านใหม่/)).toBeInTheDocument()
-
-    await user.type(screen.getByLabelText(/^รหัสผ่านใหม่/), 'PermanentPass123!')
-    await user.type(screen.getByLabelText(/ยืนยันรหัสผ่านใหม่/), 'PermanentPass123!')
-    await user.click(screen.getByRole('button', { name: /บันทึกและเข้าใช้งาน/ }))
-
-    expect(completeNewPassword).toHaveBeenCalledWith('newuser@torch.dev', 'PermanentPass123!', 'sess-123')
-  })
-
-  it('renders Perimeter branding, Staff Console badge, and room count for admin', () => {
+  it('renders Perimeter branding, Staff Console header, AccountMenu, and room count for admin', () => {
     render(
       <MemoryRouter>
         <AdminPage />
@@ -235,7 +173,7 @@ describe('AdminPage', () => {
     )
 
     expect(screen.getByText('Staff Console')).toBeInTheDocument()
-    expect(screen.getByTestId('user-role-badge')).toHaveTextContent('admin')
+    expect(screen.getByRole('button', { name: /บัญชีผู้ใช้ admin@torch.dev/i })).toBeInTheDocument()
     expect(screen.getByText('ห้องและพื้นที่')).toBeInTheDocument()
     expect(screen.getByText('ตารางเวลาทั้งหมด')).toBeInTheDocument()
     expect(screen.getByText('ห้อง 101')).toBeInTheDocument()
@@ -309,7 +247,7 @@ describe('AdminPage', () => {
       </MemoryRouter>,
     )
 
-    expect(screen.getByTestId('user-role-badge')).toHaveTextContent('staff')
+    expect(screen.getByRole('button', { name: /บัญชีผู้ใช้ staff@torch.dev/i })).toHaveTextContent('staff')
 
     const roomButton = screen.getByText('ห้อง 101').closest('button')!
     await user.click(roomButton)
@@ -338,7 +276,8 @@ describe('AdminPage', () => {
     expect(screen.getByText('CS201')).toBeInTheDocument()
   })
 
-  it('signs out and shows login form when sign out button is clicked', async () => {
+  it('signs out via AccountMenu', async () => {
+    const { signOut } = await import('../../services/authService')
     const user = userEvent.setup()
     render(
       <MemoryRouter>
@@ -346,10 +285,13 @@ describe('AdminPage', () => {
       </MemoryRouter>,
     )
 
-    const signOutBtn = screen.getByRole('button', { name: 'ออกจากระบบ' })
+    const accountTrigger = screen.getByRole('button', { name: /บัญชีผู้ใช้ admin@torch.dev/i })
+    await user.click(accountTrigger)
+
+    const signOutBtn = screen.getByRole('button', { name: /ออกจากระบบ/i })
     await user.click(signOutBtn)
 
-    expect(screen.getByText('เข้าสู่ระบบสำหรับเจ้าหน้าที่')).toBeInTheDocument()
+    expect(signOut).toHaveBeenCalled()
   })
 })
 

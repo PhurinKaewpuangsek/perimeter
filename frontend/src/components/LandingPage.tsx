@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import {
   ArrowRight,
   MagnifyingGlass,
-  ShieldCheck,
   SignIn,
   MapTrifold,
   MapPin,
@@ -90,17 +89,10 @@ export default function LandingPage() {
     handleEnterFullMap(null, quickQuery)
   }
 
-  function handleAdminLogin() {
+  function handleSignIn() {
     setIsSlidingOut(true)
     setTimeout(() => {
-      navigate('/staff')
-    }, 400)
-  }
-
-  function handleRegularLogin() {
-    setIsSlidingOut(true)
-    setTimeout(() => {
-      navigate('/map')
+      navigate('/login')
     }, 400)
   }
 
@@ -203,14 +195,14 @@ export default function LandingPage() {
                   <ArrowRight size={16} weight="bold" />
                 </button>
 
-                {/* Dedicated Log in as ADMIN Button */}
+                {/* Single Sign in Button */}
                 <button
                   type="button"
-                  onClick={handleAdminLogin}
+                  onClick={handleSignIn}
                   className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white py-3 text-sm font-bold text-slate-800 hover:bg-slate-50 hover:border-slate-400 active:bg-slate-100 transition-all cursor-pointer shadow-xs active:scale-[0.99]"
                 >
-                  <ShieldCheck size={18} weight="bold" className="text-slate-600" />
-                  <span>Log in as ADMIN</span>
+                  <SignIn size={18} weight="bold" className="text-slate-600" />
+                  <span>เข้าสู่ระบบ (Sign in)</span>
                 </button>
               </form>
 
@@ -231,15 +223,15 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* Mobile Only: Regular User Login (Admin room editing is restricted to PC) */}
+          {/* Mobile Only: Sign in */}
           <div className="sm:hidden my-auto w-full max-w-xs mx-auto py-8">
             <button
               type="button"
-              onClick={handleRegularLogin}
+              onClick={handleSignIn}
               className="flex w-full items-center justify-center gap-2.5 rounded-2xl bg-slate-900 py-4 text-base font-bold text-white hover:bg-slate-800 active:bg-slate-950 transition-all cursor-pointer shadow-lg active:scale-[0.99]"
             >
               <SignIn size={22} weight="bold" className="text-slate-200" />
-              <span>Log in</span>
+              <span>เข้าสู่ระบบ (Sign in)</span>
             </button>
           </div>
 

@@ -13,7 +13,6 @@
  */
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import { Link } from 'react-router-dom'
 import {
   Users,
   UserPlus,
@@ -22,18 +21,12 @@ import {
   Check,
   X,
   Warning,
-  SignOut,
-  MapPin,
   Calendar,
   Door,
 } from '@phosphor-icons/react'
 import {
   getSession,
-  signIn,
-  completeNewPassword,
-  signOut,
   isAdmin,
-  getUserRole,
 } from '../services/authService'
 import {
   listUsers,
@@ -43,27 +36,15 @@ import {
   type ManagedUser,
 } from '../services/adminUserService'
 import { deleteRoom, deleteSchedule } from '../services/adminService'
+import AccountMenu from './AccountMenu'
 import { useRooms } from '../hooks/useRooms'
 import { useSchedules } from '../hooks/useSchedules'
-import type { AuthSession, UserRole } from '../types/auth'
+import type { UserRole } from '../types/auth'
 import perimeterLogoNoBg from '../assets/perimeter_logo_negative_nobg.png'
 
 export default function AdminManagementPage() {
-  const [session, setSession] = useState<AuthSession | null>(() => getSession())
+  const session = getSession()
   const [activeTab, setActiveTab] = useState<'users' | 'building'>('users')
-
-  // Auth form state (when unauthenticated)
-  const [loginEmail, setLoginEmail] = useState('')
-  const [loginPassword, setLoginPassword] = useState('')
-  const [loginLoading, setLoginLoading] = useState(false)
-  const [loginError, setLoginError] = useState<string | null>(null)
-
-  // First-login password change state
-  const [isNewPasswordRequired, setIsNewPasswordRequired] = useState(false)
-  const [challengeSession, setChallengeSession] = useState('')
-  const [challengeEmail, setChallengeEmail] = useState('')
-  const [newPasswordInput, setNewPasswordInput] = useState('')
-  const [confirmPasswordInput, setConfirmPasswordInput] = useState('')
 
   // User management state
   const [users, setUsers] = useState<ManagedUser[]>([])
@@ -91,7 +72,6 @@ export default function AdminManagementPage() {
   const [roomActionLoading, setRoomActionLoading] = useState(false)
 
   const isUserAdmin = useMemo(() => isAdmin(session), [session])
-  const currentUserRole = useMemo(() => getUserRole(session), [session])
 
   useEffect(() => {
     if (!isUserAdmin) return
@@ -145,60 +125,6 @@ export default function AdminManagementPage() {
     },
     [activeAdminCount],
   )
-
-  // --- Auth handlers ---
-  async function handleLogin(e: React.FormEvent) {
-    e.preventDefault()
-    setLoginError(null)
-    setLoginLoading(true)
-    try {
-      const res = await signIn(loginEmail.trim(), loginPassword)
-      if (res.challenge === 'NEW_PASSWORD_REQUIRED') {
-        setChallengeEmail(res.email)
-        setChallengeSession(res.session)
-        setIsNewPasswordRequired(true)
-      } else {
-        setUsersLoading(true)
-        setSession(res.session)
-      }
-    } catch (err) {
-      setLoginError((err as Error).message || 'Login failed')
-    } finally {
-      setLoginLoading(false)
-    }
-  }
-
-  async function handleCompleteNewPassword(e: React.FormEvent) {
-    e.preventDefault()
-    setLoginError(null)
-    if (newPasswordInput !== confirmPasswordInput) {
-      setLoginError('รหัสผ่านใหม่และการยืนยันรหัสผ่านไม่ตรงกัน')
-      return
-    }
-    setLoginLoading(true)
-    try {
-      const newSession = await completeNewPassword(
-        challengeEmail,
-        newPasswordInput,
-        challengeSession,
-      )
-      setIsNewPasswordRequired(false)
-      setNewPasswordInput('')
-      setConfirmPasswordInput('')
-      setUsersLoading(true)
-      setSession(newSession)
-    } catch (err) {
-      setLoginError((err as Error).message || 'ไม่สามารถตั้งรหัสผ่านใหม่ได้')
-    } finally {
-      setLoginLoading(false)
-    }
-  }
-
-  function handleSignOut() {
-    setUsersLoading(true)
-    signOut()
-    setSession(null)
-  }
 
   // --- User management actions ---
   async function handleCreateUser(e: React.FormEvent) {
@@ -309,185 +235,7 @@ export default function AdminManagementPage() {
   }
 
   // -------------------------------------------------------------------------
-  // Render: 1. Unauthenticated Login Screen
-  // -------------------------------------------------------------------------
-  if (!session) {
-    return (
-      <div className="min-h-screen bg-slate-900 text-white flex flex-col justify-center items-center px-4">
-        <div className="w-full max-w-md bg-slate-800/90 border border-slate-700/80 rounded-3xl p-8 shadow-2xl backdrop-blur-md">
-          <div className="flex flex-col items-center mb-6 text-center">
-            <img src={perimeterLogoNoBg} alt="Perimeter" className="h-10 mb-3" />
-            <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
-              <Shield className="text-rose-500" size={24} weight="fill" />
-              {isNewPasswordRequired ? 'ตั้งรหัสผ่านใหม่' : 'เข้าสู่ระบบสำหรับผู้ดูแลระบบ'}
-            </h1>
-            <p className="text-xs text-slate-400 mt-1">
-              {isNewPasswordRequired
-                ? `บัญชี ${challengeEmail} เข้าสู่ระบบเป็นครั้งแรก กรุณาตั้งรหัสผ่านใหม่เพื่อเปิดใช้งาน`
-                : 'Perimeter Admin Console (สิทธิ์ระดับ Admin เท่านั้น)'}
-            </p>
-          </div>
-
-          {loginError && (
-            <div className="mb-4 rounded-xl bg-rose-500/10 border border-rose-500/30 p-3 text-xs text-rose-300 flex items-center gap-2">
-              <Warning size={16} className="shrink-0" />
-              <span>{loginError}</span>
-            </div>
-          )}
-
-          {isNewPasswordRequired ? (
-            <form onSubmit={handleCompleteNewPassword} className="space-y-4">
-              <div>
-                <label htmlFor="adminNewPassword" className="block text-xs font-semibold text-slate-300 mb-1">
-                  รหัสผ่านใหม่
-                </label>
-                <input
-                  id="adminNewPassword"
-                  type="password"
-                  required
-                  value={newPasswordInput}
-                  onChange={(e) => setNewPasswordInput(e.target.value)}
-                  placeholder="อย่างน้อย 8 ตัวอักษร"
-                  className="w-full rounded-xl bg-slate-900/80 border border-slate-700 px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-rose-500/50"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="adminConfirmPassword" className="block text-xs font-semibold text-slate-300 mb-1">
-                  ยืนยันรหัสผ่านใหม่
-                </label>
-                <input
-                  id="adminConfirmPassword"
-                  type="password"
-                  required
-                  value={confirmPasswordInput}
-                  onChange={(e) => setConfirmPasswordInput(e.target.value)}
-                  placeholder="พิมพ์รหัสผ่านใหม่อีกครั้ง"
-                  className="w-full rounded-xl bg-slate-900/80 border border-slate-700 px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-rose-500/50"
-                />
-              </div>
-
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsNewPasswordRequired(false)
-                    setLoginError(null)
-                  }}
-                  disabled={loginLoading}
-                  className="w-1/3 rounded-xl border border-slate-700 hover:bg-slate-700/60 text-slate-300 font-medium py-2.5 text-sm transition-colors cursor-pointer disabled:opacity-50"
-                >
-                  ย้อนกลับ
-                </button>
-                <button
-                  type="submit"
-                  disabled={loginLoading}
-                  className="flex-1 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-medium py-2.5 text-sm transition-colors cursor-pointer disabled:opacity-50"
-                >
-                  {loginLoading ? 'กำลังบันทึก...' : 'บันทึกและเข้าใช้งาน'}
-                </button>
-              </div>
-            </form>
-          ) : (
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div>
-                <label htmlFor="loginEmail" className="block text-xs font-semibold text-slate-300 mb-1">
-                  อีเมล
-                </label>
-                <input
-                  id="loginEmail"
-                  type="email"
-                  required
-                  value={loginEmail}
-                  onChange={(e) => setLoginEmail(e.target.value)}
-                  placeholder="admin@torch.dev"
-                  className="w-full rounded-xl bg-slate-900/80 border border-slate-700 px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-rose-500/50"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="loginPassword" className="block text-xs font-semibold text-slate-300 mb-1">
-                  รหัสผ่าน
-                </label>
-                <input
-                  id="loginPassword"
-                  type="password"
-                  required
-                  value={loginPassword}
-                  onChange={(e) => setLoginPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full rounded-xl bg-slate-900/80 border border-slate-700 px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-rose-500/50"
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={loginLoading}
-                className="w-full rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-medium py-2.5 text-sm transition-colors cursor-pointer disabled:opacity-50"
-              >
-                {loginLoading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}
-              </button>
-            </form>
-          )}
-
-          <div className="mt-6 pt-4 border-t border-slate-700/60 text-center">
-            <Link to="/map" className="text-xs text-slate-400 hover:text-white transition-colors">
-              ← กลับสู่แผนที่หลัก
-            </Link>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  // -------------------------------------------------------------------------
-  // Render: 2. Authenticated Non-Admin (403 No Permission Screen)
-  // -------------------------------------------------------------------------
-  if (!isUserAdmin) {
-    return (
-      <div className="min-h-screen bg-slate-900 text-white flex flex-col justify-center items-center px-4">
-        <div className="w-full max-w-lg bg-slate-800/90 border border-rose-500/30 rounded-3xl p-8 shadow-2xl text-center">
-          <div className="mx-auto w-16 h-16 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400 mb-4">
-            <Shield size={36} weight="duotone" />
-          </div>
-          <h1 className="text-2xl font-bold text-white mb-2">ไม่มีสิทธิ์เข้าถึง (403 Forbidden)</h1>
-          <p className="text-sm text-slate-300 mb-4">
-            หน้านี้สงวนไว้สำหรับผู้ดูแลระบบ (Admin) เท่านั้น บัญชีปัจจุบันของคุณได้รับสิทธิ์ระดับ{' '}
-            <span className="font-semibold text-rose-400">{currentUserRole}</span>
-          </p>
-          <p className="text-xs text-slate-400 mb-6">
-            หากคุณเป็นเจ้าหน้าที่ กรุณาใช้ Staff Console ในการแก้ไขข้อมูลห้องและตารางเรียน
-          </p>
-
-          <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            {currentUserRole === 'staff' && (
-              <Link
-                to="/staff"
-                className="rounded-xl bg-slate-700 hover:bg-slate-600 text-white px-5 py-2.5 text-sm font-medium transition-colors"
-              >
-                ไปที่ Staff Console
-              </Link>
-            )}
-            <Link
-              to="/map"
-              className="rounded-xl bg-rose-600 hover:bg-rose-500 text-white px-5 py-2.5 text-sm font-medium transition-colors"
-            >
-              กลับสู่แผนที่หลัก (/map)
-            </Link>
-            <button
-              onClick={handleSignOut}
-              className="rounded-xl border border-slate-600 text-slate-300 hover:text-white hover:border-slate-500 px-4 py-2.5 text-sm font-medium transition-colors"
-            >
-              ออกจากระบบ
-            </button>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  // -------------------------------------------------------------------------
-  // Render: 3. Admin Console Dashboard
+  // Render: Admin Console Dashboard
   // -------------------------------------------------------------------------
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col">
@@ -504,27 +252,7 @@ export default function AdminManagementPage() {
         </div>
 
         <div className="flex items-center gap-3">
-          <Link
-            to="/staff"
-            className="text-xs text-slate-300 hover:text-white bg-slate-800 border border-slate-700 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
-          >
-            <Door size={14} />
-            <span>Staff Console</span>
-          </Link>
-          <Link
-            to="/map"
-            className="text-xs text-slate-300 hover:text-white bg-slate-800 border border-slate-700 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
-          >
-            <MapPin size={14} />
-            <span>แผนที่ (/map)</span>
-          </Link>
-          <button
-            onClick={handleSignOut}
-            className="text-xs text-rose-400 hover:text-rose-300 bg-rose-500/10 border border-rose-500/30 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
-          >
-            <SignOut size={14} />
-            <span>ออกจากระบบ</span>
-          </button>
+          <AccountMenu />
         </div>
       </header>
 

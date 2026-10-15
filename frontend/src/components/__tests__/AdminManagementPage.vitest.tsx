@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import AdminManagementPage from '../AdminManagementPage'
@@ -41,32 +41,8 @@ const mockSchedules: ScheduleSlot[] = [
 
 vi.mock('../../services/authService', () => ({
   getSession: () => currentSession,
-  signIn: vi.fn(async (email: string) => {
-    currentSession = {
-      idToken: 'mock-token',
-      accessToken: 'mock-access',
-      expiresAt: Date.now() + 3600000,
-      user: {
-        email,
-        sub: email.includes('admin') ? 'sub-admin' : 'sub-staff',
-        groups: [email.includes('admin') ? 'admin' : 'staff'],
-      },
-    }
-    return { challenge: null, session: currentSession }
-  }),
-  completeNewPassword: vi.fn(async (email: string) => {
-    currentSession = {
-      idToken: 'mock-token',
-      accessToken: 'mock-access',
-      expiresAt: Date.now() + 3600000,
-      user: {
-        email,
-        sub: email.includes('admin') ? 'sub-admin' : 'sub-staff',
-        groups: [email.includes('admin') ? 'admin' : 'staff'],
-      },
-    }
-    return currentSession
-  }),
+  signIn: vi.fn(),
+  completeNewPassword: vi.fn(),
   signOut: vi.fn(() => {
     currentSession = null
   }),
@@ -176,43 +152,6 @@ describe('AdminManagementPage', () => {
     ]
   })
 
-  it('renders login form when unauthenticated', () => {
-    currentSession = null
-    render(
-      <MemoryRouter>
-        <AdminManagementPage />
-      </MemoryRouter>,
-    )
-
-    expect(screen.getByText(/เข้าสู่ระบบสำหรับผู้ดูแลระบบ/)).toBeInTheDocument()
-    expect(screen.getByLabelText(/อีเมล/)).toBeInTheDocument()
-    expect(screen.getByLabelText(/รหัสผ่าน/)).toBeInTheDocument()
-  })
-
-  it('renders 403 No Permission view when user is logged in as non-admin (staff)', () => {
-    currentSession = {
-      idToken: 'mock-token',
-      accessToken: 'mock-access',
-      expiresAt: Date.now() + 3600000,
-      user: {
-        email: 'staff@torch.dev',
-        sub: 'sub-staff',
-        groups: ['staff'],
-      },
-    }
-
-    render(
-      <MemoryRouter>
-        <AdminManagementPage />
-      </MemoryRouter>,
-    )
-
-    expect(screen.getByText(/ไม่มีสิทธิ์เข้าถึง/)).toBeInTheDocument()
-    expect(screen.getByText(/หน้านี้สงวนไว้สำหรับผู้ดูแลระบบ/)).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /ไปที่ Staff Console/ })).toBeInTheDocument()
-    expect(screen.queryByText(/การจัดการผู้ใช้และสิทธิ์/)).not.toBeInTheDocument()
-  })
-
   it('renders user table for authenticated admin', async () => {
     render(
       <MemoryRouter>
@@ -224,9 +163,10 @@ describe('AdminManagementPage', () => {
     expect(screen.getByRole('heading', { name: /การจัดการผู้ใช้และสิทธิ์/ })).toBeInTheDocument()
 
     await waitFor(() => {
-      expect(screen.getByText('admin@torch.dev')).toBeInTheDocument()
-      expect(screen.getByText('staff@torch.dev')).toBeInTheDocument()
-      expect(screen.getByText('student@torch.dev')).toBeInTheDocument()
+      const table = screen.getByRole('table')
+      expect(within(table).getByText('admin@torch.dev')).toBeInTheDocument()
+      expect(within(table).getByText('staff@torch.dev')).toBeInTheDocument()
+      expect(within(table).getByText('student@torch.dev')).toBeInTheDocument()
     })
   })
 
@@ -239,7 +179,8 @@ describe('AdminManagementPage', () => {
     )
 
     await waitFor(() => {
-      expect(screen.getByText('admin@torch.dev')).toBeInTheDocument()
+      const table = screen.getByRole('table')
+      expect(within(table).getByText('admin@torch.dev')).toBeInTheDocument()
     })
 
     const openAddBtn = screen.getByRole('button', { name: /เพิ่มผู้ใช้ใหม่/ })
@@ -253,7 +194,8 @@ describe('AdminManagementPage', () => {
     await user.click(submitBtn)
 
     await waitFor(() => {
-      expect(screen.getByText('newstaff@torch.dev')).toBeInTheDocument()
+      const table = screen.getByRole('table')
+      expect(within(table).getByText('newstaff@torch.dev')).toBeInTheDocument()
     })
   })
 
@@ -265,11 +207,13 @@ describe('AdminManagementPage', () => {
     )
 
     await waitFor(() => {
-      expect(screen.getByText('admin@torch.dev')).toBeInTheDocument()
+      const table = screen.getByRole('table')
+      expect(within(table).getByText('admin@torch.dev')).toBeInTheDocument()
     })
 
     // Caller is admin@torch.dev
-    const callerRow = screen.getByText('admin@torch.dev').closest('tr')!
+    const table = screen.getByRole('table')
+    const callerRow = within(table).getByText('admin@torch.dev').closest('tr')!
     const roleSelect = callerRow.querySelector('select')!
     expect(roleSelect).toBeDisabled()
 
@@ -357,35 +301,5 @@ describe('AdminManagementPage', () => {
     expect(screen.getByRole('button', { name: /ลบห้องนี้/ })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /ลบตาราง/ })).toBeInTheDocument()
   })
-
-  it('handles NEW_PASSWORD_REQUIRED challenge on first-time admin login', async () => {
-    currentSession = null
-    const { signIn, completeNewPassword } = await import('../../services/authService')
-    vi.mocked(signIn).mockResolvedValueOnce({
-      challenge: 'NEW_PASSWORD_REQUIRED',
-      session: 'sess-456',
-      email: 'newadmin@torch.dev',
-    })
-
-    const user = userEvent.setup()
-    render(
-      <MemoryRouter>
-        <AdminManagementPage />
-      </MemoryRouter>,
-    )
-
-    await user.type(screen.getByLabelText(/อีเมล/), 'newadmin@torch.dev')
-    await user.type(screen.getByLabelText(/รหัสผ่าน/), 'TempPass123!')
-    await user.click(screen.getByRole('button', { name: /เข้าสู่ระบบ/ }))
-
-    expect(await screen.findByText('ตั้งรหัสผ่านใหม่')).toBeInTheDocument()
-    expect(screen.getByLabelText(/^รหัสผ่านใหม่/)).toBeInTheDocument()
-    expect(screen.getByLabelText(/ยืนยันรหัสผ่านใหม่/)).toBeInTheDocument()
-
-    await user.type(screen.getByLabelText(/^รหัสผ่านใหม่/), 'NewPermanentPass123!')
-    await user.type(screen.getByLabelText(/ยืนยันรหัสผ่านใหม่/), 'NewPermanentPass123!')
-    await user.click(screen.getByRole('button', { name: /บันทึกและเข้าใช้งาน/ }))
-
-    expect(completeNewPassword).toHaveBeenCalledWith('newadmin@torch.dev', 'NewPermanentPass123!', 'sess-456')
-  })
 })
+
