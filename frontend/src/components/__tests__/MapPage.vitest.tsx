@@ -152,4 +152,117 @@ describe('MapPage course search (issue #91)', () => {
     // The search box must stay usable above the backdrop.
     expect(effectivePointerEvents(screen.getByRole('textbox'))).toBe('auto')
   })
+
+  describe('MapPage navigation and clear/dismiss behavior (issue #99)', () => {
+    describe.each([
+      ['mobile', false],
+      ['desktop', true],
+    ])('%s layout', (_layout, isDesktop) => {
+      beforeEach(() => mockViewport(isDesktop))
+
+      it('renders top bar with back-to-home link pointing to /', () => {
+        renderMap()
+        const backToHome = screen.getByTestId('back-to-home')
+        expect(backToHome).toBeInTheDocument()
+        expect(backToHome).toHaveAttribute('href', '/')
+      })
+
+      it('renders My Schedule placeholder slot', () => {
+        renderMap()
+        const placeholder = screen.getByTestId('my-schedule-placeholder')
+        expect(placeholder).toBeInTheDocument()
+        expect(placeholder).toHaveTextContent(/my schedule/i)
+      })
+
+      it('renders login entry visible and pointing to /login', () => {
+        renderMap()
+        const loginLink = screen.getByTestId('login-link')
+        expect(loginLink).toBeInTheDocument()
+        expect(loginLink).toHaveAttribute('href', '/login')
+      })
+
+      it('search bar clear (X) button empties query and dismisses search results', async () => {
+        const user = userEvent.setup()
+        renderMap()
+
+        const input = screen.getByRole('textbox')
+        await user.type(input, 'CS102')
+        expect(input).toHaveValue('CS102')
+
+        const clearBtn = screen.getByRole('button', { name: 'ล้างการค้นหา' })
+        expect(clearBtn).toBeInTheDocument()
+
+        await user.click(clearBtn)
+        expect(input).toHaveValue('')
+        expect(screen.queryByRole('button', { name: 'ล้างการค้นหา' })).not.toBeInTheDocument()
+      })
+
+      it('clearing search query via (X) does not change or lose the pinned room', async () => {
+        const user = userEvent.setup()
+        renderMap('/map?room=LC3-F1-R105')
+
+        if (!isDesktop) {
+          await user.click(screen.getByRole('button', { name: 'ปิดรายละเอียดห้อง' }))
+        }
+
+        const input = screen.getByRole('textbox')
+        await user.type(input, 'CS102')
+
+        const clearBtn = screen.getByRole('button', { name: 'ล้างการค้นหา' })
+        await user.click(clearBtn)
+
+        expect(input).toHaveValue('')
+        const pinned = document.querySelectorAll('[role="button"][aria-pressed="true"]')
+        expect(pinned).toHaveLength(1)
+        expect(pinned[0]).toHaveTextContent('105')
+      })
+    })
+
+    it('mobile results panel can be dismissed via close button without losing selected room', async () => {
+      mockViewport(false)
+      const user = userEvent.setup()
+      renderMap('/map?room=LC3-F1-R105')
+
+      // Close the bottom detail sheet so results panel can be opened
+      await user.click(screen.getByRole('button', { name: 'ปิดรายละเอียดห้อง' }))
+
+      // Search for CS102
+      await user.type(screen.getByRole('textbox'), 'CS102')
+      expect(screen.getByTestId('mobile-search-results')).toBeInTheDocument()
+
+      // Click "ปิด" button in search results panel
+      const closeResultsBtn = within(screen.getByTestId('mobile-search-results')).getByRole('button', {
+        name: 'ปิด',
+      })
+      await user.click(closeResultsBtn)
+
+      // Search results dropdown is dismissed
+      expect(screen.queryByTestId('mobile-search-results')).not.toBeInTheDocument()
+
+      // The selected room remains pinned
+      const pinned = document.querySelectorAll('[role="button"][aria-pressed="true"]')
+      expect(pinned).toHaveLength(1)
+      expect(pinned[0]).toHaveTextContent('105')
+    })
+
+    it('mobile results panel can be dismissed via backdrop click without losing selected room', async () => {
+      mockViewport(false)
+      const user = userEvent.setup()
+      renderMap('/map?room=LC3-F1-R105')
+
+      await user.click(screen.getByRole('button', { name: 'ปิดรายละเอียดห้อง' }))
+
+      await user.type(screen.getByRole('textbox'), 'CS102')
+      const backdrop = screen.getByTestId('mobile-search-backdrop')
+      expect(backdrop).toBeInTheDocument()
+
+      await user.click(backdrop)
+
+      expect(screen.queryByTestId('mobile-search-results')).not.toBeInTheDocument()
+
+      const pinned = document.querySelectorAll('[role="button"][aria-pressed="true"]')
+      expect(pinned).toHaveLength(1)
+      expect(pinned[0]).toHaveTextContent('105')
+    })
+  })
 })
