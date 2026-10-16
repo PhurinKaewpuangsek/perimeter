@@ -15,7 +15,6 @@
  *    (bottom-6 left-6) for unobstructed map exploration.
  */
 import { useState, useCallback, useMemo, useRef, useId, createElement } from 'react'
-import { Link } from 'react-router-dom'
 import {
   CaretLeft,
   CaretRight,
@@ -31,11 +30,8 @@ import {
   Warning,
   FloppyDisk,
   MagnifyingGlass,
-  ArrowSquareOut,
   Door,
   Sparkle,
-  SignOut,
-  Shield,
 } from '@phosphor-icons/react'
 import { useRooms } from '../hooks/useRooms'
 import { useSchedules } from '../hooks/useSchedules'
@@ -43,16 +39,12 @@ import { usePreloadImages } from '../hooks/usePreloadImages'
 import MapContainer from './map/MapContainer'
 import { FLOOR_CONFIGS } from './map/floorConfig'
 import LoadingScreen from './LoadingScreen'
+import AccountMenu from './AccountMenu'
 import type { Room } from '../types/room'
 import type { ScheduleSlot } from '../types/schedule'
-import type { AuthSession } from '../types/auth'
 import {
   getSession,
-  signIn,
-  completeNewPassword,
-  signOut,
   isAdmin,
-  getUserRole,
 } from '../services/authService'
 import {
   updateRoom,
@@ -1285,207 +1277,6 @@ function AllSchedulesView({
 }
 
 // ---------------------------------------------------------------------------
-// Staff Login Form Component
-// ---------------------------------------------------------------------------
-
-interface StaffLoginFormProps {
-  onSuccess: () => void
-}
-
-function StaffLoginForm({ onSuccess }: StaffLoginFormProps) {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  // First-time login challenge state
-  const [isNewPasswordRequired, setIsNewPasswordRequired] = useState(false)
-  const [challengeSession, setChallengeSession] = useState('')
-  const [challengeEmail, setChallengeEmail] = useState('')
-  const [newPassword, setNewPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setError(null)
-    setLoading(true)
-    try {
-      const res = await signIn(email, password)
-      if (res.challenge === 'NEW_PASSWORD_REQUIRED') {
-        setChallengeEmail(res.email)
-        setChallengeSession(res.session)
-        setIsNewPasswordRequired(true)
-      } else {
-        onSuccess()
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'เข้าสู่ระบบไม่สำเร็จ กรุณาตรวจสอบข้อมูล')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  async function handleNewPasswordSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setError(null)
-    if (newPassword !== confirmPassword) {
-      setError('รหัสผ่านใหม่และการยืนยันรหัสผ่านไม่ตรงกัน')
-      return
-    }
-    setLoading(true)
-    try {
-      await completeNewPassword(challengeEmail, newPassword, challengeSession)
-      setIsNewPasswordRequired(false)
-      onSuccess()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'ไม่สามารถตั้งรหัสผ่านใหม่ได้')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  return (
-    <div className="min-h-screen bg-slate-900 flex flex-col justify-center items-center p-4">
-      <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-2xl border border-slate-100">
-        <div className="text-center mb-6">
-          <img
-            src={perimeterLogoNoBg}
-            alt="Perimeter"
-            className="h-14 mx-auto mb-3 object-contain"
-          />
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-50 text-rose-700 text-xs font-bold uppercase tracking-wider mb-2">
-            <Shield size={14} weight="bold" />
-            Staff Console
-          </div>
-          <h1 className="text-xl font-bold text-slate-900">
-            {isNewPasswordRequired ? 'ตั้งรหัสผ่านใหม่' : 'เข้าสู่ระบบสำหรับเจ้าหน้าที่'}
-          </h1>
-          <p className="text-xs text-slate-500 mt-1">
-            {isNewPasswordRequired
-              ? `บัญชี ${challengeEmail} เข้าสู่ระบบเป็นครั้งแรก กรุณาตั้งรหัสผ่านใหม่เพื่อเปิดใช้งาน`
-              : 'กรุณาเข้าสู่ระบบด้วยบัญชี Staff หรือ Admin เพื่อจัดการข้อมูล'}
-          </p>
-        </div>
-
-        {error && (
-          <div
-            role="alert"
-            className="mb-4 rounded-xl bg-rose-50 border border-rose-200 p-3 text-xs text-rose-700 flex items-start gap-2"
-          >
-            <Warning size={16} className="shrink-0 mt-0.5" weight="bold" />
-            <span>{error}</span>
-          </div>
-        )}
-
-        {isNewPasswordRequired ? (
-          <form onSubmit={handleNewPasswordSubmit} className="space-y-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1" htmlFor="staff-new-password">
-                รหัสผ่านใหม่
-              </label>
-              <input
-                id="staff-new-password"
-                type="password"
-                required
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="อย่างน้อย 8 ตัวอักษร"
-                className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-800 transition-all font-mono"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1" htmlFor="staff-confirm-password">
-                ยืนยันรหัสผ่านใหม่
-              </label>
-              <input
-                id="staff-confirm-password"
-                type="password"
-                required
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="พิมพ์รหัสผ่านใหม่อีกครั้ง"
-                className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-800 transition-all font-mono"
-              />
-            </div>
-
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsNewPasswordRequired(false)
-                  setError(null)
-                }}
-                disabled={loading}
-                className="w-1/3 rounded-xl border border-slate-300 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-all cursor-pointer disabled:opacity-50"
-              >
-                ย้อนกลับ
-              </button>
-              <button
-                type="submit"
-                disabled={loading}
-                className="flex-1 rounded-xl bg-slate-900 py-2.5 text-xs font-bold text-white shadow-md hover:bg-slate-800 active:scale-[0.99] cursor-pointer transition-all disabled:opacity-50"
-              >
-                {loading ? 'กำลังบันทึก...' : 'บันทึกและเข้าใช้งาน'}
-              </button>
-            </div>
-          </form>
-        ) : (
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1" htmlFor="staff-email">
-                อีเมล / ชื่อผู้ใช้
-              </label>
-              <input
-                id="staff-email"
-                type="text"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="staff@torch.dev"
-                className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-800 transition-all font-mono"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1" htmlFor="staff-password">
-                รหัสผ่าน
-              </label>
-              <input
-                id="staff-password"
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-800 transition-all font-mono"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full rounded-xl bg-slate-900 py-2.5 text-xs font-bold text-white shadow-md hover:bg-slate-800 active:scale-[0.99] cursor-pointer transition-all disabled:opacity-50"
-            >
-              {loading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}
-            </button>
-          </form>
-        )}
-
-        <div className="mt-6 pt-4 border-t border-slate-100 text-center">
-          <Link
-            to="/map"
-            className="text-xs font-semibold text-slate-500 hover:text-slate-900 transition-colors inline-flex items-center gap-1"
-          >
-            ← กลับสู่หน้าแผนที่ทั่วไป
-          </Link>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
 // Main AdminPage Component
 // ---------------------------------------------------------------------------
 
@@ -1493,9 +1284,8 @@ type LeftPanelMode = 'list' | 'room'
 type LeftTab = 'rooms' | 'schedules'
 
 export default function AdminPage() {
-  const [session, setSession] = useState<AuthSession | null>(() => getSession())
+  const session = getSession()
 
-  const currentUserRole = useMemo(() => getUserRole(session), [session])
   const isUserAdmin = useMemo(() => isAdmin(session), [session])
 
   const { rooms, loading: roomsLoading, error: roomsError, reload: reloadRooms } = useRooms()
@@ -1590,10 +1380,6 @@ export default function AdminPage() {
   const floor1Count = useMemo(() => rooms.filter((r) => r.floor === 1).length, [rooms])
   const floor2Count = useMemo(() => rooms.filter((r) => r.floor === 2).length, [rooms])
 
-  if (!session) {
-    return <StaffLoginForm onSuccess={() => setSession(getSession())} />
-  }
-
   if (roomsError) {
     return <LoadingScreen error={roomsError} onRetry={reloadRooms} />
   }
@@ -1660,46 +1446,7 @@ export default function AdminPage() {
               <span className="text-xs font-extrabold tracking-tight text-rose-600 select-none">
                 Staff Console
               </span>
-              <span
-                data-testid="user-role-badge"
-                className={`px-2 py-0.5 text-[10px] font-bold rounded-full uppercase ${
-                  isUserAdmin
-                    ? 'bg-rose-100 text-rose-700'
-                    : currentUserRole === 'staff'
-                      ? 'bg-amber-100 text-amber-800'
-                      : 'bg-slate-100 text-slate-600'
-                }`}
-              >
-                {currentUserRole}
-              </span>
-              {isUserAdmin && (
-                <Link
-                  to="/admin"
-                  title="ไปยังหน้าผู้ดูแลระบบ (Admin Console)"
-                  className="flex h-8 w-8 items-center justify-center rounded-xl text-rose-600 hover:bg-rose-50 transition-colors"
-                >
-                  <Shield size={16} weight="bold" />
-                </Link>
-              )}
-              <button
-                type="button"
-                onClick={() => {
-                  signOut()
-                  setSession(null)
-                }}
-                title="ออกจากระบบ"
-                aria-label="ออกจากระบบ"
-                className="flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
-              >
-                <SignOut size={16} weight="bold" />
-              </button>
-              <Link
-                to="/map"
-                title="ไปยังหน้าแผนที่ผู้ใช้ทั่วไป (Public Map)"
-                className="flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition-colors"
-              >
-                <ArrowSquareOut size={16} weight="bold" />
-              </Link>
+              <AccountMenu />
             </div>
           </div>
 

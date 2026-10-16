@@ -9,6 +9,7 @@ import {
   isUser,
   getUserRole,
   getIdToken,
+  checkSession,
 } from '../authService'
 import type { AuthSession } from '../../types/auth'
 
@@ -126,4 +127,40 @@ describe('authService', () => {
     signOut()
     expect(getSession()).toBeNull()
   })
+
+  describe('checkSession', () => {
+    it('returns null session and expired false when storage is empty', () => {
+      const res = checkSession()
+      expect(res.session).toBeNull()
+      expect(res.expired).toBe(false)
+    })
+
+    it('returns session and expired false when session is active', () => {
+      const session: AuthSession = {
+        idToken: 'token',
+        accessToken: 'token',
+        expiresAt: Date.now() + 60000,
+        user: { email: 'staff@torch.dev', sub: '1', groups: ['staff'] },
+      }
+      saveSession(session)
+      const res = checkSession()
+      expect(res.session).toEqual(session)
+      expect(res.expired).toBe(false)
+    })
+
+    it('returns null session and expired true when session is expired', () => {
+      const session: AuthSession = {
+        idToken: 'token',
+        accessToken: 'token',
+        expiresAt: Date.now() - 1000,
+        user: { email: 'staff@torch.dev', sub: '1', groups: ['staff'] },
+      }
+      saveSession(session)
+      const res = checkSession()
+      expect(res.session).toBeNull()
+      expect(res.expired).toBe(true)
+      expect(getSession()).toBeNull()
+    })
+  })
 })
+
