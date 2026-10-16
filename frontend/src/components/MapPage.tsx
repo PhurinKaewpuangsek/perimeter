@@ -17,6 +17,7 @@ import {
   MapPin,
   Calendar,
   Clock,
+  ArrowCounterClockwise,
   BookOpen,
   GraduationCap,
   Sparkle,
@@ -506,6 +507,14 @@ export default function MapPage() {
     setSelectedDayFilter('ALL')
   }
 
+  function handleResetMap() {
+    setSelectedRoomId(null)
+    setIsDetailOpen(false)
+    setSelectedDayFilter('ALL')
+    setQuery('')
+    setIsDropdownOpen(false)
+  }
+
   function handleMapBackgroundClick() {
     if (isDropdownOpen) {
       setIsDropdownOpen(false)
@@ -695,28 +704,41 @@ export default function MapPage() {
 
                 {/* Search Controls (Pinned at top of sidebar) */}
                 <div className="p-3 border-b border-slate-200/80 bg-slate-50/50">
-                  <SearchBar
-                    inputRef={inputRef}
-                    value={query}
-                    onChange={(newQuery) => {
-                      setQuery(newQuery)
-                      setIsDropdownOpen(true)
-                      if (isDetailOpen) setIsDetailOpen(false)
-                    }}
-                    onClear={() => {
-                      setQuery('')
-                      setIsDropdownOpen(false)
-                    }}
-                    onFocus={() => {
-                      setIsDropdownOpen(true)
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Escape') setIsDropdownOpen(false)
-                    }}
-                    isFilterOpen={isFilterExpanded}
-                    hasActiveFilter={hasActiveFilter}
-                    onToggleFilter={() => setIsFilterExpanded((prev) => !prev)}
-                  />
+                  <div className="flex items-center gap-2">
+                    <div className="min-w-0 flex-1">
+                      <SearchBar
+                        inputRef={inputRef}
+                        value={query}
+                        onChange={(newQuery) => {
+                          setQuery(newQuery)
+                          setIsDropdownOpen(true)
+                          if (isDetailOpen) setIsDetailOpen(false)
+                        }}
+                        onClear={() => {
+                          setQuery('')
+                          setIsDropdownOpen(false)
+                        }}
+                        onFocus={() => {
+                          setIsDropdownOpen(true)
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Escape') setIsDropdownOpen(false)
+                        }}
+                        isFilterOpen={isFilterExpanded}
+                        hasActiveFilter={hasActiveFilter}
+                        onToggleFilter={() => setIsFilterExpanded((prev) => !prev)}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleResetMap}
+                      aria-label="รีเซ็ตแผนที่"
+                      title="รีเซ็ตแผนที่"
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition-colors cursor-pointer"
+                    >
+                      <ArrowCounterClockwise size={16} weight="bold" />
+                    </button>
+                  </div>
 
                 {/* Category Filter Pills Collapsible */}
                 <div
@@ -877,29 +899,40 @@ export default function MapPage() {
               ========================================================================= */}
           <div className="absolute top-2.5 inset-x-2.5 z-30 pointer-events-none">
             <div className="relative z-40 flex flex-col rounded-2xl bg-white shadow-xl border border-slate-200 p-2 pointer-events-auto">
-              <div className="w-full">
-                <SearchBar
-                  inputRef={inputRef}
-                  value={query}
-                  onChange={(newQuery) => {
-                    setQuery(newQuery)
-                    setIsDropdownOpen(true)
-                    if (isDetailOpen) setIsDetailOpen(false)
-                  }}
-                  onClear={() => {
-                    setQuery('')
-                    setIsDropdownOpen(false)
-                  }}
-                  onFocus={() => {
-                    setIsDropdownOpen(true)
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Escape') setIsDropdownOpen(false)
-                  }}
-                  isFilterOpen={isFilterExpanded}
-                  hasActiveFilter={hasActiveFilter}
-                  onToggleFilter={() => setIsFilterExpanded((prev) => !prev)}
-                />
+              <div className="flex w-full items-center gap-2">
+                <div className="min-w-0 flex-1">
+                  <SearchBar
+                    inputRef={inputRef}
+                    value={query}
+                    onChange={(newQuery) => {
+                      setQuery(newQuery)
+                      setIsDropdownOpen(true)
+                      if (isDetailOpen) setIsDetailOpen(false)
+                    }}
+                    onClear={() => {
+                      setQuery('')
+                      setIsDropdownOpen(false)
+                    }}
+                    onFocus={() => {
+                      setIsDropdownOpen(true)
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Escape') setIsDropdownOpen(false)
+                    }}
+                    isFilterOpen={isFilterExpanded}
+                    hasActiveFilter={hasActiveFilter}
+                    onToggleFilter={() => setIsFilterExpanded((prev) => !prev)}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleResetMap}
+                  aria-label="รีเซ็ตแผนที่"
+                  title="รีเซ็ตแผนที่"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition-colors cursor-pointer"
+                >
+                  <ArrowCounterClockwise size={16} weight="bold" />
+                </button>
               </div>
 
               {/* Collapsible Category Filter on Mobile */}

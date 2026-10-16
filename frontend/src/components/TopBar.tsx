@@ -1,8 +1,10 @@
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { CaretLeft, Calendar, SignIn } from '@phosphor-icons/react'
 import perimeterLogoNoBg from '../assets/perimeter_logo_negative_nobg.png'
 import AccountMenu from './AccountMenu'
 import { getSession } from '../services/authService'
+import type { AuthSession } from '../types/auth'
 
 export interface TopBarProps {
   className?: string
@@ -17,7 +19,32 @@ export interface TopBarProps {
  * 3. Login entry linking to /login (unauthenticated) or shared AccountMenu (authenticated)
  */
 export default function TopBar({ className = '' }: TopBarProps) {
-  const session = getSession()
+  const [session, setSession] = useState<AuthSession | null>(() => getSession())
+
+  useEffect(() => {
+    function refreshSession() {
+      setSession(getSession())
+    }
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === 'visible') refreshSession()
+    }
+
+    const expiryTimer = session
+      ? window.setTimeout(refreshSession, Math.max(0, session.expiresAt - Date.now() + 1))
+      : undefined
+
+    window.addEventListener('storage', refreshSession)
+    window.addEventListener('focus', refreshSession)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      if (expiryTimer !== undefined) window.clearTimeout(expiryTimer)
+      window.removeEventListener('storage', refreshSession)
+      window.removeEventListener('focus', refreshSession)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [session])
 
   return (
     <header

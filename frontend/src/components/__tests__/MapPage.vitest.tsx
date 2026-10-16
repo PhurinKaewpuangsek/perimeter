@@ -181,6 +181,20 @@ describe('MapPage course search (issue #91)', () => {
         expect(loginLink).toHaveAttribute('href', '/login')
       })
 
+      it('resets the selected room and search from the map controls', async () => {
+        const user = userEvent.setup()
+        renderMap('/map?room=LC3-F1-R105&q=CS102')
+
+        expect(screen.getByRole('textbox')).toHaveValue('CS102')
+        expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent('105')
+
+        await user.click(screen.getByRole('button', { name: 'รีเซ็ตแผนที่' }))
+
+        expect(screen.getByRole('textbox')).toHaveValue('')
+        expect(screen.queryByRole('heading', { level: 2 })).not.toBeInTheDocument()
+        expect(document.querySelectorAll('[role="button"][aria-pressed="true"]')).toHaveLength(0)
+      })
+
       it('search bar clear (X) button empties query and dismisses search results', async () => {
         const user = userEvent.setup()
         renderMap()

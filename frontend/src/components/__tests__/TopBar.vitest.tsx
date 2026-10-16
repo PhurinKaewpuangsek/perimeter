@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import TopBar from '../TopBar'
@@ -17,7 +17,12 @@ vi.mock('react-router-dom', async () => {
 })
 
 vi.mock('../../services/authService', () => ({
-  getSession: () => mockSession,
+  getSession: () => {
+    if (mockSession && mockSession.expiresAt <= Date.now()) {
+      mockSession = null
+    }
+    return mockSession
+  },
   signOut: vi.fn(() => {
     mockSession = null
   }),
@@ -44,6 +49,10 @@ describe('TopBar (Shared Component)', () => {
     vi.clearAllMocks()
   })
 
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
   it('renders back-to-home link pointing directly to /', () => {
     renderTopBar()
     const homeLink = screen.getByTestId('back-to-home')
@@ -65,7 +74,7 @@ describe('TopBar (Shared Component)', () => {
     expect(loginLink).toHaveAttribute('href', '/login')
   })
 
-  it('shows the login entry after the session expires and TopBar rerenders', () => {
+  it('refreshes the session when the window regains focus', () => {
     mockSession = {
       idToken: 'mock-id-token',
       accessToken: 'mock-access-token',
@@ -77,15 +86,36 @@ describe('TopBar (Shared Component)', () => {
       },
     }
 
-    const view = renderTopBar()
+    renderTopBar()
     expect(screen.getByRole('button', { name: /staff@example.com/i })).toBeInTheDocument()
 
     mockSession = null
-    view.rerender(
-      <MemoryRouter>
-        <TopBar />
-      </MemoryRouter>
-    )
+    fireEvent(window, new Event('focus'))
+
+    expect(screen.getByTestId('login-link')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /staff@example.com/i })).not.toBeInTheDocument()
+  })
+
+  it('switches to the login entry when the session expires without another render', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-16T00:00:00.000Z'))
+    mockSession = {
+      idToken: 'mock-id-token',
+      accessToken: 'mock-access-token',
+      expiresAt: Date.now() + 1000,
+      user: {
+        email: 'staff@example.com',
+        sub: 'mock-sub-1',
+        groups: ['staff'],
+      },
+    }
+
+    renderTopBar()
+    expect(screen.getByRole('button', { name: /staff@example.com/i })).toBeInTheDocument()
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1001)
+    })
 
     expect(screen.getByTestId('login-link')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /staff@example.com/i })).not.toBeInTheDocument()
