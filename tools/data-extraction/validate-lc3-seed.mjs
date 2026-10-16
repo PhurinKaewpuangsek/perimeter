@@ -284,6 +284,7 @@ test('no routing topology leaked into the seed', () => {
 const ALLOWED_DAYS = new Set(['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN']);
 const ALLOWED_EVENT_TYPES = new Set(['class', 'exam', 'activity']);
 const TIME_RE = /^\d{2}:\d{2}$/;
+const EVENT_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const SCHEDULE_REQUIRED_FIELDS = ['event_code', 'event_name', 'room_code', 'day_of_week', 'start_time', 'end_time', 'event_type'];
 
 // Build room_code → location_id lookup from the locations seed (rooms only).
@@ -346,7 +347,7 @@ test('schedule seed — CSV exists and has the required header columns', () => {
   const rawText = read('lc3-schedules.seed.csv');
   const headerLine = rawText.split('\n')[0].replace(/\r/, '');
   const actualHeaders = headerLine.split(',');
-  for (const field of SCHEDULE_REQUIRED_FIELDS) {
+  for (const field of [...SCHEDULE_REQUIRED_FIELDS, 'event_date']) {
     assert.ok(actualHeaders.includes(field), `lc3-schedules.seed.csv is missing required column: "${field}"`);
   }
 });
@@ -371,6 +372,45 @@ test('schedule seed — day_of_week values are valid', () => {
     assert.ok(
       ALLOWED_DAYS.has(day_of_week),
       `lc3-schedules.seed.csv row ${i + 2}: invalid day_of_week "${day_of_week}" — must be one of ${[...ALLOWED_DAYS].join(', ')}`
+    );
+  }
+});
+
+test('schedule seed — exams have valid event_date values matching day_of_week', () => {
+  if (!scheduleDataExists) return;
+  const weekdayByDate = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+
+  for (let i = 0; i < scheduleRows.length; i += 1) {
+    const { day_of_week, event_date, event_name, event_type } = scheduleRows[i];
+    if (event_type !== 'exam') continue;
+
+    assert.ok(
+      EVENT_DATE_RE.test(event_date),
+      `lc3-schedules.seed.csv row ${i + 2}: exam event_date "${event_date}" must be YYYY-MM-DD`
+    );
+
+    const [year, month, day] = event_date.split('-').map(Number);
+    const parsedDate = new Date(Date.UTC(year, month - 1, day));
+    assert.equal(
+      parsedDate.toISOString().slice(0, 10),
+      event_date,
+      `lc3-schedules.seed.csv row ${i + 2}: exam event_date "${event_date}" is not a real date`
+    );
+    const thaiDate = /(\d{1,2}) พ\.ค\. (\d{4})/.exec(event_name);
+    assert.ok(
+      thaiDate,
+      `lc3-schedules.seed.csv row ${i + 2}: exam event_name does not include its source date`
+    );
+    const sourceDate = `${Number(thaiDate[2]) - 543}-05-${thaiDate[1].padStart(2, '0')}`;
+    assert.equal(
+      event_date,
+      sourceDate,
+      `lc3-schedules.seed.csv row ${i + 2}: event_date does not match the Thai date in event_name`
+    );
+    assert.equal(
+      weekdayByDate[parsedDate.getUTCDay()],
+      day_of_week,
+      `lc3-schedules.seed.csv row ${i + 2}: ${event_date} is ${weekdayByDate[parsedDate.getUTCDay()]}, not ${day_of_week}`
     );
   }
 });
@@ -451,4 +491,3 @@ test('schedule seed — generated DynamoDB room_code + schedule_slot keys are un
     seen.set(key, i + 2);
   }
 });
-

@@ -138,6 +138,7 @@
       "start_time": "13:00",
       "end_time": "16:00",
       "event_type": "exam",
+      "event_date": "2026-05-18",
       "schedule_slot": "MON#13:00#BAS350"
     },
     {
@@ -188,6 +189,7 @@
       "start_time": "09:00",
       "end_time": "12:00",
       "event_type": "exam",
+      "event_date": "2026-05-06",
       "schedule_slot": "WED#09:00#BAS353"
     },
     {
@@ -228,6 +230,7 @@
       "start_time": "09:00",
       "end_time": "12:00",
       "event_type": "exam",
+      "event_date": "2026-05-07",
       "schedule_slot": "THU#09:00#ASC332"
     },
     {
@@ -268,6 +271,7 @@
       "start_time": "09:00",
       "end_time": "12:00",
       "event_type": "exam",
+      "event_date": "2026-05-15",
       "schedule_slot": "FRI#09:00#AT407"
     },
     {
@@ -278,6 +282,7 @@
       "start_time": "09:00",
       "end_time": "12:00",
       "event_type": "exam",
+      "event_date": "2026-05-15",
       "schedule_slot": "FRI#09:00#ST326"
     },
     {
@@ -428,6 +433,7 @@
       "start_time": "09:00",
       "end_time": "12:00",
       "event_type": "exam",
+      "event_date": "2026-05-08",
       "schedule_slot": "FRI#09:00#NP307"
     },
     {
@@ -438,6 +444,7 @@
       "start_time": "09:00",
       "end_time": "12:00",
       "event_type": "exam",
+      "event_date": "2026-05-08",
       "schedule_slot": "FRI#09:00#CS352"
     },
     {
@@ -448,6 +455,7 @@
       "start_time": "09:00",
       "end_time": "12:00",
       "event_type": "exam",
+      "event_date": "2026-05-15",
       "schedule_slot": "FRI#09:00#ST218"
     },
     {
@@ -588,6 +596,7 @@
       "start_time": "09:00",
       "end_time": "12:00",
       "event_type": "exam",
+      "event_date": "2026-05-08",
       "schedule_slot": "FRI#09:00#CS140"
     },
     {
@@ -2188,6 +2197,7 @@
       "start_time": "09:00",
       "end_time": "12:00",
       "event_type": "exam",
+      "event_date": "2026-05-07",
       "schedule_slot": "THU#09:00#MMA446"
     }
   ]

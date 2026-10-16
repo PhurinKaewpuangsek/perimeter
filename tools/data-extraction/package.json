@@ -6,6 +6,7 @@
   "description": "LC3 dataset extraction, validation, and DynamoDB seeding scripts",
   "scripts": {
     "validate": "node --test validate-lc3-seed.mjs",
+    "test": "node --test validate-lc3-seed.mjs lc3/seed-dynamodb.test.mjs",
     "seed:dry-run": "node lc3/seed-dynamodb.mjs --dry-run --table SmartFacultyLocations-dev"
   },
   "dependencies": {

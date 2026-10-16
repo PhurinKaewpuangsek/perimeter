@@ -7,8 +7,9 @@
  * pointed at a personal Learner Lab sandbox table explicitly; production data reaches
  * the shared stack through the CD pipeline, not from someone's laptop.
  *
- * Uses BatchWriteItem (25 items per request, the DynamoDB hard limit) and retries
- * whatever the service hands back as UnprocessedItems with exponential backoff.
+ * Writes records with a condition that preserves items edited by an administrator.
+ * Dry-run scans the target table read-only so its write/skip counts reflect current
+ * updatedBy attributes.
  */
 
 import { readFileSync } from 'node:fs';
@@ -17,9 +18,7 @@ import { fileURLToPath } from 'node:url';
 import { parseCsv } from './csv.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-/** DynamoDB caps BatchWriteItem at 25 requests. */
-const BATCH_SIZE = 25;
-const MAX_RETRIES = 5;
+const WRITE_CONCURRENCY = 25;
 
 /**
  * Parses command-line tokens into the target table, region, dataset type, and mode.
@@ -53,8 +52,8 @@ function parseArgs(argv) {
   return args;
 }
 
-/** Splits records into BatchWriteItem-sized chunks. */
-export function chunk(items, size = BATCH_SIZE) {
+/** Splits records into bounded concurrent write groups. */
+export function chunk(items, size = WRITE_CONCURRENCY) {
   const chunks = [];
   for (let i = 0; i < items.length; i += size) {
     chunks.push(items.slice(i, i + size));
@@ -83,10 +82,13 @@ export function readSeedRecords(type = 'locations') {
   const pk = type === 'schedules' ? 'room_code' : 'location_id';
 
   const records = type === 'schedules'
-    ? parseCsv(readFileSync(seedPath, 'utf8')).map((record) => ({
-        ...record,
-        schedule_slot: `${record.day_of_week}#${record.start_time}#${record.event_code}`,
-      }))
+    ? parseCsv(readFileSync(seedPath, 'utf8')).map((record) => {
+        if (!record.event_date) delete record.event_date;
+        return {
+          ...record,
+          schedule_slot: `${record.day_of_week}#${record.start_time}#${record.event_code}`,
+        };
+      })
     : JSON.parse(readFileSync(seedPath, 'utf8')).records;
 
   if (!Array.isArray(records) || records.length === 0) {
@@ -121,75 +123,123 @@ export function readSeedRecords(type = 'locations') {
   return { records, seedPath, pk };
 }
 
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+function recordKey(record, pk, sk) {
+  return JSON.stringify(sk ? [record[pk], record[sk]] : [record[pk]]);
+}
 
-async function writeBatch(docClient, BatchWriteCommand, tableName, batch, batchNumber) {
-  let requestItems = {
-    [tableName]: batch.map((record) => ({ PutRequest: { Item: toItem(record) } })),
-  };
+/** Reads all current keys and updatedBy attributes to calculate a dry-run plan. */
+export async function readExistingItems(docClient, ScanCommand, tableName, pk, sk) {
+  const items = [];
+  let exclusiveStartKey;
 
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt += 1) {
-    const result = await docClient.send(new BatchWriteCommand({ RequestItems: requestItems }));
-    const unprocessed = result.UnprocessedItems?.[tableName] ?? [];
-
-    if (unprocessed.length === 0) return;
-
-    if (attempt === MAX_RETRIES) {
-      throw new Error(
-        `Batch ${batchNumber}: ${unprocessed.length} items still unprocessed after ${MAX_RETRIES} retries`
-      );
-    }
-
-    const backoffMs = 2 ** attempt * 100;
-    console.warn(
-      `  batch ${batchNumber}: ${unprocessed.length} unprocessed, retrying in ${backoffMs}ms`
+  do {
+    const page = await docClient.send(
+      new ScanCommand({
+        TableName: tableName,
+        ProjectionExpression: sk ? '#pk, #sk, #updatedBy' : '#pk, #updatedBy',
+        ExpressionAttributeNames: {
+          '#pk': pk,
+          ...(sk ? { '#sk': sk } : {}),
+          '#updatedBy': 'updatedBy',
+        },
+        ConsistentRead: true,
+        ...(exclusiveStartKey ? { ExclusiveStartKey: exclusiveStartKey } : {}),
+      })
     );
-    await sleep(backoffMs);
-    requestItems = { [tableName]: unprocessed };
+
+    if (Array.isArray(page.Items)) items.push(...page.Items);
+    exclusiveStartKey = page.LastEvaluatedKey;
+  } while (exclusiveStartKey);
+
+  return items;
+}
+
+/** Counts seed records blocked from replacement by an existing updatedBy field. */
+export function planSeedWrites(records, existingItems, pk, sk) {
+  const existingByKey = new Map(
+    existingItems.map((item) => [recordKey(item, pk, sk), item])
+  );
+
+  return records.reduce(
+    (counts, record) => {
+      const existing = existingByKey.get(recordKey(record, pk, sk));
+      if (existing && Object.hasOwn(existing, 'updatedBy')) counts.skipped += 1;
+      else counts.written += 1;
+      return counts;
+    },
+    { written: 0, skipped: 0 }
+  );
+}
+
+/** Writes each record without replacing any item marked as edited by an admin. */
+export async function writeRecords(docClient, PutCommand, tableName, records) {
+  const counts = { written: 0, skipped: 0 };
+
+  for (const batch of chunk(records)) {
+    const results = await Promise.allSettled(
+      batch.map(async (record) => {
+        try {
+          await docClient.send(
+            new PutCommand({
+              TableName: tableName,
+              Item: toItem(record),
+              ConditionExpression: 'attribute_not_exists(updatedBy)',
+            })
+          );
+          return 'written';
+        } catch (error) {
+          if (error?.name === 'ConditionalCheckFailedException') return 'skipped';
+          throw error;
+        }
+      })
+    );
+
+    for (const result of results) {
+      if (result.status === 'rejected') throw result.reason;
+      counts[result.value] += 1;
+    }
   }
+
+  return counts;
 }
 
 /**
- * Seeds the dataset selected by the command line, or only prints its planned batches
- * in dry-run mode. Write mode sends each batch to DynamoDB and propagates failures.
+ * Seeds the dataset selected by the command line. Dry-run performs a read-only scan;
+ * write mode conditionally puts each record and propagates non-conflict failures.
  */
 async function main() {
   const { table, dryRun, region, type } = parseArgs(process.argv.slice(2));
   const { records, seedPath, pk } = readSeedRecords(type);
+  const sk = type === 'schedules' ? 'schedule_slot' : undefined;
   const batches = chunk(records);
 
   console.log(`Seed file : ${resolve(seedPath)}`);
   console.log(`Table     : ${table}`);
   console.log(`Records   : ${records.length}`);
   console.log(`Batches   : ${batches.length} (${batches.map((b) => b.length).join('/')})`);
-  console.log(`Mode      : ${dryRun ? 'DRY RUN — no AWS calls will be made' : 'WRITE'}`);
+  console.log(`Mode      : ${dryRun ? 'DRY RUN — read-only AWS scan, no writes' : 'WRITE'}`);
   console.log('');
 
-  if (dryRun) {
-    batches.forEach((batch, i) => {
-      console.log(
-        `batch ${i + 1}: ${batch.length} items  ${batch[0][pk]} … ${batch[batch.length - 1][pk]}`
-      );
-    });
-    console.log(`\nDry run complete. ${records.length} items would be written to "${table}".`);
-    return;
-  }
-
-  // Imported lazily so --dry-run works without AWS SDK credentials or network.
+  // Imported lazily so reading the seed remains testable without AWS dependencies.
   const { DynamoDBClient } = await import('@aws-sdk/client-dynamodb');
-  const { DynamoDBDocumentClient, BatchWriteCommand } = await import('@aws-sdk/lib-dynamodb');
+  const { DynamoDBDocumentClient, PutCommand, ScanCommand } = await import('@aws-sdk/lib-dynamodb');
 
   const docClient = DynamoDBDocumentClient.from(
     new DynamoDBClient(region ? { region } : {}),
     { marshallOptions: { removeUndefinedValues: true } }
   );
 
-  for (const [i, batch] of batches.entries()) {
-    await writeBatch(docClient, BatchWriteCommand, table, batch, i + 1);
-    console.log(`batch ${i + 1}/${batches.length}: wrote ${batch.length} items`);
+  if (dryRun) {
+    const existingItems = await readExistingItems(docClient, ScanCommand, table, pk, sk);
+    const counts = planSeedWrites(records, existingItems, pk, sk);
+    console.log(`Dry run complete. ${counts.written} items would be written; ${counts.skipped} admin-edited items would be skipped.`);
+    return;
   }
 
-  console.log(`\nDone. ${records.length} items written to "${table}".`);
+  const counts = await writeRecords(docClient, PutCommand, table, records);
+  console.log(
+    `\nDone. ${counts.written} items written and ${counts.skipped} admin-edited items skipped in "${table}".`
+  );
 }
 
 // Only run when invoked directly, so the helpers above stay unit-testable.
