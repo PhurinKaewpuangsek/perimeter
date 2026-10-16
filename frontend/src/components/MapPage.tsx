@@ -373,6 +373,11 @@ function RoomDetailContent({
                               {slot.eventName}
                             </p>
                           )}
+                          {slot.eventType.toLowerCase() === 'exam' && (
+                            <p className="mt-1 text-xs font-semibold text-rose-700">
+                              {slot.eventDate || 'date to be announced'}
+                            </p>
+                          )}
                         </div>
                       )
                     })}

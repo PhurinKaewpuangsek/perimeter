@@ -116,7 +116,10 @@ export default function SearchResultList({
                       className="text-xs text-slate-500"
                     >
                       {schedule.eventCode} · {schedule.eventName || 'ไม่มีชื่อวิชา'} ·{' '}
-                      {schedule.dayOfWeek} {schedule.startTime}-{schedule.endTime} · {room.code}
+                      {schedule.dayOfWeek} {schedule.startTime}-{schedule.endTime}
+                      {schedule.eventType.toLowerCase() === 'exam' &&
+                        ` · ${schedule.eventDate || 'date to be announced'}`}
+                      {' · '}{room.code}
                     </span>
                   ))}
               </button>
@@ -213,8 +216,15 @@ export default function SearchResultList({
                               </span>
                             )}
                           </div>
-                          <span className="shrink-0 text-[10px] font-semibold text-slate-500 font-mono">
-                            {dayTh} {schedule.startTime}-{schedule.endTime}
+                          <span className="shrink-0 text-right text-[10px] font-semibold text-slate-500 font-mono">
+                            <span className="block">
+                              {dayTh} {schedule.startTime}-{schedule.endTime}
+                            </span>
+                            {schedule.eventType.toLowerCase() === 'exam' && (
+                              <span className="block text-rose-700">
+                                {schedule.eventDate || 'date to be announced'}
+                              </span>
+                            )}
                           </span>
                         </div>
                       )

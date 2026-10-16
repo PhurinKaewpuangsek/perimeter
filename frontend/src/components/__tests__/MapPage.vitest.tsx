@@ -20,6 +20,7 @@ const room = (id: string, code: string, x: number, y: number): Room => ({
 
 const ROOMS: Room[] = [
   room('LC3-F1-R105', 'LC3-105', 318, 148),
+  room('LC3-F1-R103', 'LC3-103', 320, 180),
   room('LC3-F1-R121', 'LC3-121', 408, 531),
   room('LC3-F1-R122', 'LC3-122', 408, 458),
 ]
@@ -40,12 +41,13 @@ const SCHEDULES: ScheduleSlot[] = [
   slot('LC3-122', 'TUE'),
   slot('LC3-122', 'THU'),
 ]
+let schedulesForTest = SCHEDULES
 
 vi.mock('../../hooks/useRooms', () => ({
   useRooms: () => ({ rooms: ROOMS, loading: false, error: null, reload: vi.fn() }),
 }))
 vi.mock('../../hooks/useSchedules', () => ({
-  useSchedules: () => ({ schedules: SCHEDULES, loading: false, error: null, reload: vi.fn() }),
+  useSchedules: () => ({ schedules: schedulesForTest, loading: false, error: null, reload: vi.fn() }),
 }))
 vi.mock('../../hooks/usePreloadImages', () => ({
   usePreloadImages: () => true,
@@ -93,6 +95,7 @@ const originalMatchMedia = window.matchMedia
 describe('MapPage course search (issue #91)', () => {
   afterEach(() => {
     window.matchMedia = originalMatchMedia
+    schedulesForTest = SCHEDULES
   })
 
   describe.each([
@@ -151,5 +154,30 @@ describe('MapPage course search (issue #91)', () => {
     expect(effectivePointerEvents(screen.getByTestId('mobile-search-results'))).toBe('auto')
     // The search box must stay usable above the backdrop.
     expect(effectivePointerEvents(screen.getByRole('textbox'))).toBe('auto')
+  })
+
+  it('shows exam dates and the announcement fallback in the room schedule', async () => {
+    schedulesForTest = [
+      {
+        ...slot('LC3-103', 'MON'),
+        eventCode: 'EXAM-A',
+        eventName: 'Exam A',
+        eventType: 'exam',
+        eventDate: '2026-05-18',
+      },
+      {
+        ...slot('LC3-103', 'MON'),
+        eventCode: 'EXAM-B',
+        eventName: 'Exam B',
+        eventType: 'exam',
+      },
+    ]
+    const user = userEvent.setup()
+    renderMap('/map?room=LC3-F1-R103')
+
+    await user.click(screen.getByRole('button', { name: /ตารางสอบ/ }))
+
+    expect(screen.getByText('2026-05-18')).toBeInTheDocument()
+    expect(screen.getByText('date to be announced')).toBeInTheDocument()
   })
 })
