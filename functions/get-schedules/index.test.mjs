@@ -18,7 +18,7 @@ function fakeDocClient(pages) {
 describe('GetSchedulesFunction Lambda Handler', () => {
   test('returns 200 with every scanned item wrapped in a records array', async () => {
     const items = [
-      { room_code: 'LC3-101/1', schedule_slot: 'MON#11:00#MA624' },
+      { room_code: 'LC3-101/1', schedule_slot: 'MON#11:00#MA624', event_date: '2026-05-18' },
       { room_code: 'LC3-101/1', schedule_slot: 'TUE#11:00#ST447' },
     ];
     const docClient = fakeDocClient([{ Items: items }]);
@@ -30,6 +30,7 @@ describe('GetSchedulesFunction Lambda Handler', () => {
     const body = JSON.parse(response.body);
     assert.equal(body.count, 2);
     assert.deepEqual(body.records, items);
+    assert.equal(body.records[0].event_date, '2026-05-18');
   });
 
   test('follows LastEvaluatedKey until the whole table is read', async () => {
