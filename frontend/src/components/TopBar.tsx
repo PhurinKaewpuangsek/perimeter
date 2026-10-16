@@ -49,7 +49,7 @@ export default function TopBar({ className = '' }: TopBarProps) {
   return (
     <header
       data-testid="map-top-bar"
-      className={`h-13 sm:h-14 w-full bg-white/95 backdrop-blur-md border-b border-slate-200/90 px-3 sm:px-4 flex items-center justify-between select-none shrink-0 ${className}`}
+      className={`relative z-50 h-13 sm:h-14 w-full bg-white/95 backdrop-blur-md border-b border-slate-200/90 px-3 sm:px-4 flex items-center justify-between select-none shrink-0 ${className}`}
     >
       {/* 1. Back-to-home Link (Single click back to / on desktop & mobile) */}
       <Link
