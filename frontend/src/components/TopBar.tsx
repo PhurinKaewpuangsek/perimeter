@@ -1,10 +1,8 @@
-import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { CaretLeft, Calendar, SignIn } from '@phosphor-icons/react'
 import perimeterLogoNoBg from '../assets/perimeter_logo_negative_nobg.png'
 import AccountMenu from './AccountMenu'
 import { getSession } from '../services/authService'
-import type { AuthSession } from '../types/auth'
 
 export interface TopBarProps {
   className?: string
@@ -19,15 +17,7 @@ export interface TopBarProps {
  * 3. Login entry linking to /login (unauthenticated) or shared AccountMenu (authenticated)
  */
 export default function TopBar({ className = '' }: TopBarProps) {
-  const [session, setSession] = useState<AuthSession | null>(() => getSession())
-
-  useEffect(() => {
-    function handleStorageChange() {
-      setSession(getSession())
-    }
-    window.addEventListener('storage', handleStorageChange)
-    return () => window.removeEventListener('storage', handleStorageChange)
-  }, [])
+  const session = getSession()
 
   return (
     <header

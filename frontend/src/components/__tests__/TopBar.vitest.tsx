@@ -65,6 +65,32 @@ describe('TopBar (Shared Component)', () => {
     expect(loginLink).toHaveAttribute('href', '/login')
   })
 
+  it('shows the login entry after the session expires and TopBar rerenders', () => {
+    mockSession = {
+      idToken: 'mock-id-token',
+      accessToken: 'mock-access-token',
+      expiresAt: Date.now() + 3600000,
+      user: {
+        email: 'staff@example.com',
+        sub: 'mock-sub-1',
+        groups: ['staff'],
+      },
+    }
+
+    const view = renderTopBar()
+    expect(screen.getByRole('button', { name: /staff@example.com/i })).toBeInTheDocument()
+
+    mockSession = null
+    view.rerender(
+      <MemoryRouter>
+        <TopBar />
+      </MemoryRouter>
+    )
+
+    expect(screen.getByTestId('login-link')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /staff@example.com/i })).not.toBeInTheDocument()
+  })
+
   it('mounts AccountMenu with user role and options when user is logged in as staff', async () => {
     const user = userEvent.setup()
     mockSession = {
