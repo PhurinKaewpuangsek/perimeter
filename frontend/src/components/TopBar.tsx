@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { CaretLeft, Calendar, SignIn } from '@phosphor-icons/react'
+import { CaretLeft, SignIn } from '@phosphor-icons/react'
 import perimeterLogoNoBg from '../assets/perimeter_logo_negative_nobg.png'
 import AccountMenu from './AccountMenu'
+import MyScheduleDrawer from './MyScheduleDrawer'
 import { getSession } from '../services/authService'
 import type { AuthSession } from '../types/auth'
 
@@ -74,15 +75,8 @@ export default function TopBar({ className = '' }: TopBarProps) {
 
       {/* 2. Right Side: My Schedule Slot & Login / AccountMenu */}
       <div className="flex items-center gap-2 sm:gap-3">
-        {/* Placeholder slot for My Schedule issue */}
-        <div
-          data-testid="my-schedule-placeholder"
-          className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200/90 bg-slate-50 px-2.5 sm:px-3 py-1.5 text-xs font-semibold text-slate-500 select-none shadow-2xs"
-          title="My Schedule"
-        >
-          <Calendar size={14} weight="bold" className="text-slate-400" />
-          <span>My Schedule</span>
-        </div>
+        {/* My Schedule Drawer */}
+        <MyScheduleDrawer />
 
         {/* Account Menu (authenticated) or Login Entry (unauthenticated) */}
         {session ? (

@@ -8,11 +8,13 @@ import AdminPage from './components/AdminPage.tsx'
 import AdminManagementPage from './components/AdminManagementPage.tsx'
 import LoginPage from './components/LoginPage.tsx'
 import RouteGuard from './components/RouteGuard.tsx'
+import { PinsProvider } from './context/PinsProvider.tsx'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
-      <Routes>
+      <PinsProvider>
+        <Routes>
         {/* /: Official Landing Page (Split Portal on Desktop, Regular Login on Mobile) */}
         <Route path="/" element={<LandingPage />} />
 
@@ -45,6 +47,7 @@ createRoot(document.getElementById('root')!).render(
           }
         />
       </Routes>
+      </PinsProvider>
     </BrowserRouter>
   </StrictMode>,
 )

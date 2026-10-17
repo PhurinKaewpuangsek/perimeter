@@ -27,6 +27,14 @@ Parameters:
       account. Changing it on a live stack REPLACES the table.
     AllowedPattern: "^[A-Za-z0-9_.-]{3,255}$"
 
+  PinsTableName:
+    Type: String
+    Default: SmartFacultyPins
+    Description: >
+      Name of the pins table storing personal timetables. Change it only when two people share
+      one AWS account. Changing it on a live stack REPLACES the table.
+    AllowedPattern: "^[A-Za-z0-9_.-]{3,255}$"
+
   ExistingLambdaRoleName:
     Type: String
     Default: LabRole
@@ -632,6 +640,167 @@ Resources:
             Path: /api/admin/users/{username}
             Method: delete
 
+  # ---------------------------------------------------------------------------
+  # My Schedule Pins endpoints — issue #97.
+  # GET    /api/pins
+  # POST   /api/pins
+  # DELETE /api/pins/{room_code}/{schedule_slot}
+  # ---------------------------------------------------------------------------
+
+  SmartFacultyPins:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Ref PinsTableName
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: user_id
+          AttributeType: S
+        - AttributeName: pin_key
+          AttributeType: S
+      KeySchema:
+        - AttributeName: user_id
+          KeyType: HASH
+        - AttributeName: pin_key
+          KeyType: RANGE
+
+  GetPinsRole:
+    Type: AWS::IAM::Role
+    Condition: CreateLambdaRoles
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: QueryPinsOnly
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: dynamodb:Query
+                Resource: !GetAtt SmartFacultyPins.Arn
+
+  GetPinsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/get-pins/
+      Handler: index.handler
+      Role: !If
+        - UseExistingLambdaRole
+        - !Sub "arn:aws:iam::${AWS::AccountId}:role/${ExistingLambdaRoleName}"
+        - !GetAtt GetPinsRole.Arn
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref SmartFacultyPins
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: dynamodb:Query
+              Resource: !GetAtt SmartFacultyPins.Arn
+      Events:
+        GetPins:
+          Type: Api
+          Properties:
+            Path: /api/pins
+            Method: get
+
+  CreatePinRole:
+    Type: AWS::IAM::Role
+    Condition: CreateLambdaRoles
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: PutPinOnly
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: dynamodb:PutItem
+                Resource: !GetAtt SmartFacultyPins.Arn
+
+  CreatePinFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/create-pin/
+      Handler: index.handler
+      Role: !If
+        - UseExistingLambdaRole
+        - !Sub "arn:aws:iam::${AWS::AccountId}:role/${ExistingLambdaRoleName}"
+        - !GetAtt CreatePinRole.Arn
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref SmartFacultyPins
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: dynamodb:PutItem
+              Resource: !GetAtt SmartFacultyPins.Arn
+      Events:
+        CreatePin:
+          Type: Api
+          Properties:
+            Path: /api/pins
+            Method: post
+
+  DeletePinRole:
+    Type: AWS::IAM::Role
+    Condition: CreateLambdaRoles
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: DeletePinOnly
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: dynamodb:DeleteItem
+                Resource: !GetAtt SmartFacultyPins.Arn
+
+  DeletePinFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/delete-pin/
+      Handler: index.handler
+      Role: !If
+        - UseExistingLambdaRole
+        - !Sub "arn:aws:iam::${AWS::AccountId}:role/${ExistingLambdaRoleName}"
+        - !GetAtt DeletePinRole.Arn
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref SmartFacultyPins
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: dynamodb:DeleteItem
+              Resource: !GetAtt SmartFacultyPins.Arn
+      Events:
+        DeletePin:
+          Type: Api
+          Properties:
+            Path: /api/pins/{room_code}/{schedule_slot}
+            Method: delete
+
 
 # ---------------------------------------------------------------------------
 # Outputs — the scripts under scripts/ read these instead of hardcoding names,
@@ -657,6 +826,10 @@ Outputs:
   SchedulesTableName:
     Description: DynamoDB table the schedules seed script and the API read
     Value: !Ref SmartFacultySchedules
+
+  PinsTableName:
+    Description: DynamoDB table storing user-pinned schedule slots
+    Value: !Ref SmartFacultyPins
 
   UserPoolId:
     Description: Cognito User Pool ID
