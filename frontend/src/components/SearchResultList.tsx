@@ -1,5 +1,6 @@
 import type { Room } from '../types/room.ts'
 import type { ScheduleSlot } from '../types/schedule.ts'
+import { getExamDateLabel, isExamSchedule } from '../services/scheduleDisplay.ts'
 
 interface SearchResultListProps {
   rooms: Room[]
@@ -117,8 +118,7 @@ export default function SearchResultList({
                     >
                       {schedule.eventCode} · {schedule.eventName || 'ไม่มีชื่อวิชา'} ·{' '}
                       {schedule.dayOfWeek} {schedule.startTime}-{schedule.endTime}
-                      {schedule.eventType.toLowerCase() === 'exam' &&
-                        ` · ${schedule.eventDate || 'date to be announced'}`}
+                      {getExamDateLabel(schedule) && ` · ${getExamDateLabel(schedule)}`}
                       {' · '}{room.code}
                     </span>
                   ))}
@@ -205,7 +205,7 @@ export default function SearchResultList({
                             <span className="font-bold font-mono text-slate-900 text-[11px]">
                               {schedule.eventCode}
                             </span>
-                            {schedule.eventType.toLowerCase() === 'exam' && (
+                            {isExamSchedule(schedule) && (
                               <span className="rounded bg-rose-100 px-1 py-0.2 text-[9px] font-bold text-rose-700">
                                 สอบ
                               </span>
@@ -220,9 +220,9 @@ export default function SearchResultList({
                             <span className="block">
                               {dayTh} {schedule.startTime}-{schedule.endTime}
                             </span>
-                            {schedule.eventType.toLowerCase() === 'exam' && (
+                            {getExamDateLabel(schedule) && (
                               <span className="block text-rose-700">
-                                {schedule.eventDate || 'date to be announced'}
+                                {getExamDateLabel(schedule)}
                               </span>
                             )}
                           </span>

@@ -46,6 +46,7 @@ import {
   getCategoryColor,
 } from '../services/roomDisplay'
 import { getCategoryIcon } from './categoryIcon'
+import { getExamDateLabel, isExamSchedule } from '../services/scheduleDisplay'
 import type { Room } from '../types/room'
 import type { ScheduleSlot } from '../types/schedule'
 
@@ -374,9 +375,9 @@ function RoomDetailContent({
                               {slot.eventName}
                             </p>
                           )}
-                          {slot.eventType.toLowerCase() === 'exam' && (
+                          {getExamDateLabel(slot) && (
                             <p className="mt-1 text-xs font-semibold text-rose-700">
-                              {slot.eventDate || 'date to be announced'}
+                              {getExamDateLabel(slot)}
                             </p>
                           )}
                         </div>
@@ -449,7 +450,7 @@ export default function MapPage() {
     [roomSchedules]
   )
   const examSchedules = useMemo(
-    () => roomSchedules.filter((s) => s.eventType.toLowerCase() === 'exam'),
+    () => roomSchedules.filter(isExamSchedule),
     [roomSchedules]
   )
 

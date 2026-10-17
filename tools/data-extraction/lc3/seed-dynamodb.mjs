@@ -15,7 +15,7 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseCsv } from './csv.mjs';
+import { normalizeScheduleRecord, parseCsv } from './csv.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WRITE_CONCURRENCY = 25;
@@ -61,6 +61,10 @@ export function chunk(items, size = WRITE_CONCURRENCY) {
   return chunks;
 }
 
+export function createDynamoDBClientOptions(region) {
+  return { ...(region ? { region } : {}), maxAttempts: 6 };
+}
+
 /**
  * DynamoDB rejects empty strings inside sets and undefined values outright.
  * The seed only ever carries JSON scalars, arrays, and plain objects, so a
@@ -79,24 +83,21 @@ export function readSeedRecords(type = 'locations') {
   const seedPath = type === 'schedules'
     ? join(HERE, 'lc3-schedules.seed.csv')
     : join(HERE, 'lc3-locations.seed.json');
-  const pk = type === 'schedules' ? 'room_code' : 'location_id';
+  const keyAttributes = {
+    pk: type === 'schedules' ? 'room_code' : 'location_id',
+    sk: type === 'schedules' ? 'schedule_slot' : undefined,
+  };
 
   const records = type === 'schedules'
-    ? parseCsv(readFileSync(seedPath, 'utf8')).map((record) => {
-        if (!record.event_date) delete record.event_date;
-        return {
-          ...record,
-          schedule_slot: `${record.day_of_week}#${record.start_time}#${record.event_code}`,
-        };
-      })
+    ? parseCsv(readFileSync(seedPath, 'utf8')).map(normalizeScheduleRecord)
     : JSON.parse(readFileSync(seedPath, 'utf8')).records;
 
   if (!Array.isArray(records) || records.length === 0) {
     throw new Error(`No records found in ${seedPath}`);
   }
-  const missingKey = records.find((r) => !r[pk]);
+  const missingKey = records.find((r) => !r[keyAttributes.pk]);
   if (missingKey) {
-    throw new Error(`Every record needs a ${pk} (partition key); found one without.`);
+    throw new Error(`Every record needs a ${keyAttributes.pk} (partition key); found one without.`);
   }
 
   if (type === 'schedules') {
@@ -115,20 +116,20 @@ export function readSeedRecords(type = 'locations') {
 
   const seen = new Set();
   for (const r of records) {
-    const key = type === 'schedules' ? `${r[pk]}#${r.schedule_slot}` : r[pk];
+    const key = recordKey(r, keyAttributes);
     if (seen.has(key)) throw new Error(`Duplicate DynamoDB key found: ${key}`);
     seen.add(key);
   }
 
-  return { records, seedPath, pk };
+  return { records, seedPath, keyAttributes };
 }
 
-function recordKey(record, pk, sk) {
+function recordKey(record, { pk, sk }) {
   return JSON.stringify(sk ? [record[pk], record[sk]] : [record[pk]]);
 }
 
 /** Reads all current keys and updatedBy attributes to calculate a dry-run plan. */
-export async function readExistingItems(docClient, ScanCommand, tableName, pk, sk) {
+export async function readExistingItems(docClient, ScanCommand, tableName, { pk, sk }) {
   const items = [];
   let exclusiveStartKey;
 
@@ -155,14 +156,14 @@ export async function readExistingItems(docClient, ScanCommand, tableName, pk, s
 }
 
 /** Counts seed records blocked from replacement by an existing updatedBy field. */
-export function planSeedWrites(records, existingItems, pk, sk) {
+export function planSeedWrites(records, existingItems, keyAttributes) {
   const existingByKey = new Map(
-    existingItems.map((item) => [recordKey(item, pk, sk), item])
+    existingItems.map((item) => [recordKey(item, keyAttributes), item])
   );
 
   return records.reduce(
     (counts, record) => {
-      const existing = existingByKey.get(recordKey(record, pk, sk));
+      const existing = existingByKey.get(recordKey(record, keyAttributes));
       if (existing && Object.hasOwn(existing, 'updatedBy')) counts.skipped += 1;
       else counts.written += 1;
       return counts;
@@ -209,8 +210,7 @@ export async function writeRecords(docClient, PutCommand, tableName, records) {
  */
 async function main() {
   const { table, dryRun, region, type } = parseArgs(process.argv.slice(2));
-  const { records, seedPath, pk } = readSeedRecords(type);
-  const sk = type === 'schedules' ? 'schedule_slot' : undefined;
+  const { records, seedPath, keyAttributes } = readSeedRecords(type);
   const batches = chunk(records);
 
   console.log(`Seed file : ${resolve(seedPath)}`);
@@ -225,13 +225,13 @@ async function main() {
   const { DynamoDBDocumentClient, PutCommand, ScanCommand } = await import('@aws-sdk/lib-dynamodb');
 
   const docClient = DynamoDBDocumentClient.from(
-    new DynamoDBClient(region ? { region } : {}),
+    new DynamoDBClient(createDynamoDBClientOptions(region)),
     { marshallOptions: { removeUndefinedValues: true } }
   );
 
   if (dryRun) {
-    const existingItems = await readExistingItems(docClient, ScanCommand, table, pk, sk);
-    const counts = planSeedWrites(records, existingItems, pk, sk);
+    const existingItems = await readExistingItems(docClient, ScanCommand, table, keyAttributes);
+    const counts = planSeedWrites(records, existingItems, keyAttributes);
     console.log(`Dry run complete. ${counts.written} items would be written; ${counts.skipped} admin-edited items would be skipped.`);
     return;
   }

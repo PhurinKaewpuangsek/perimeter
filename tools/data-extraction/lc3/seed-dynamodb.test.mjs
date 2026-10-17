@@ -1,6 +1,12 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { planSeedWrites, readSeedRecords, writeRecords } from './seed-dynamodb.mjs';
+import { normalizeScheduleRecord } from './csv.mjs';
+import {
+  createDynamoDBClientOptions,
+  planSeedWrites,
+  readSeedRecords,
+  writeRecords,
+} from './seed-dynamodb.mjs';
 
 class FakePutCommand {
   constructor(input) {
@@ -9,6 +15,14 @@ class FakePutCommand {
 }
 
 describe('schedule seeder', () => {
+  test('configures six total DynamoDB request attempts and preserves the selected region', () => {
+    assert.deepEqual(createDynamoDBClientOptions(), { maxAttempts: 6 });
+    assert.deepEqual(createDynamoDBClientOptions('ap-southeast-1'), {
+      region: 'ap-southeast-1',
+      maxAttempts: 6,
+    });
+  });
+
   test('skips admin-edited records and writes records that remain seed-managed', async () => {
     const writes = [];
     const docClient = {
@@ -63,8 +77,27 @@ describe('schedule seeder', () => {
     ];
 
     assert.deepEqual(
-      planSeedWrites(records, existingItems, 'room_code', 'schedule_slot'),
+      planSeedWrites(records, existingItems, { pk: 'room_code', sk: 'schedule_slot' }),
       { written: 2, skipped: 1 }
+    );
+  });
+
+  test('normalizes schedule records consistently for generated JSON and DynamoDB seeding', () => {
+    assert.deepEqual(
+      normalizeScheduleRecord({
+        room_code: 'LC3-103',
+        event_code: 'CS102',
+        day_of_week: 'MON',
+        start_time: '09:00',
+        event_date: '',
+      }),
+      {
+        room_code: 'LC3-103',
+        event_code: 'CS102',
+        day_of_week: 'MON',
+        start_time: '09:00',
+        schedule_slot: 'MON#09:00#CS102',
+      }
     );
   });
 

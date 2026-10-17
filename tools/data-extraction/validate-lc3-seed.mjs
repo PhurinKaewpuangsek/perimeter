@@ -286,6 +286,30 @@ const ALLOWED_EVENT_TYPES = new Set(['class', 'exam', 'activity']);
 const TIME_RE = /^\d{2}:\d{2}$/;
 const EVENT_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const SCHEDULE_REQUIRED_FIELDS = ['event_code', 'event_name', 'room_code', 'day_of_week', 'start_time', 'end_time', 'event_type'];
+const THAI_MONTH_NUMBERS = new Map([
+  ['ม.ค.', 1], ['มกราคม', 1],
+  ['ก.พ.', 2], ['กุมภาพันธ์', 2],
+  ['มี.ค.', 3], ['มีนาคม', 3],
+  ['เม.ย.', 4], ['เมษายน', 4],
+  ['พ.ค.', 5], ['พฤษภาคม', 5],
+  ['มิ.ย.', 6], ['มิถุนายน', 6],
+  ['ก.ค.', 7], ['กรกฎาคม', 7],
+  ['ส.ค.', 8], ['สิงหาคม', 8],
+  ['ก.ย.', 9], ['กันยายน', 9],
+  ['ต.ค.', 10], ['ตุลาคม', 10],
+  ['พ.ย.', 11], ['พฤศจิกายน', 11],
+  ['ธ.ค.', 12], ['ธันวาคม', 12],
+]);
+const THAI_DATE_RE = /(\d{1,2})\s+(ม\.ค\.|มกราคม|ก\.พ\.|กุมภาพันธ์|มี\.ค\.|มีนาคม|เม\.ย\.|เมษายน|พ\.ค\.|พฤษภาคม|มิ\.ย\.|มิถุนายน|ก\.ค\.|กรกฎาคม|ส\.ค\.|สิงหาคม|ก\.ย\.|กันยายน|ต\.ค\.|ตุลาคม|พ\.ย\.|พฤศจิกายน|ธ\.ค\.|ธันวาคม)\s+(\d{4})/u;
+
+export function parseThaiDateFromEventName(eventName) {
+  const match = THAI_DATE_RE.exec(eventName);
+  if (!match) return null;
+  const [, day, thaiMonth, buddhistYear] = match;
+  const month = THAI_MONTH_NUMBERS.get(thaiMonth);
+  if (!month) return null;
+  return `${Number(buddhistYear) - 543}-${String(month).padStart(2, '0')}-${day.padStart(2, '0')}`;
+}
 
 // Build room_code → location_id lookup from the locations seed (rooms only).
 const roomCodeToLocationId = new Map(
@@ -396,12 +420,11 @@ test('schedule seed — exams have valid event_date values matching day_of_week'
       event_date,
       `lc3-schedules.seed.csv row ${i + 2}: exam event_date "${event_date}" is not a real date`
     );
-    const thaiDate = /(\d{1,2}) พ\.ค\. (\d{4})/.exec(event_name);
+    const sourceDate = parseThaiDateFromEventName(event_name);
     assert.ok(
-      thaiDate,
+      sourceDate,
       `lc3-schedules.seed.csv row ${i + 2}: exam event_name does not include its source date`
     );
-    const sourceDate = `${Number(thaiDate[2]) - 543}-05-${thaiDate[1].padStart(2, '0')}`;
     assert.equal(
       event_date,
       sourceDate,
@@ -413,6 +436,24 @@ test('schedule seed — exams have valid event_date values matching day_of_week'
       `lc3-schedules.seed.csv row ${i + 2}: ${event_date} is ${weekdayByDate[parsedDate.getUTCDay()]}, not ${day_of_week}`
     );
   }
+});
+
+test('Thai exam dates are parsed for every month and supported month-name form', () => {
+  const abbreviations = [
+    'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
+    'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.',
+  ];
+  const fullNames = [
+    'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+    'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม',
+  ];
+
+  for (let month = 1; month <= 12; month += 1) {
+    const expected = `2026-${String(month).padStart(2, '0')}-08`;
+    assert.equal(parseThaiDateFromEventName(`Exam (8 ${abbreviations[month - 1]} 2569)`), expected);
+    assert.equal(parseThaiDateFromEventName(`Exam (8 ${fullNames[month - 1]} 2569)`), expected);
+  }
+  assert.equal(parseThaiDateFromEventName('Exam date not announced'), null);
 });
 
 test('schedule seed — start_time and end_time are in HH:MM format and end > start', () => {
