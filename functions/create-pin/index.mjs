@@ -53,6 +53,10 @@ export function createHandler({ docClient = defaultDocClient, tableName = TABLE_
       body = event.body;
     }
 
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      body = {};
+    }
+
     const room_code = normalizeText(body.room_code || body.roomCode);
     const schedule_slot = normalizeText(body.schedule_slot || body.scheduleSlot);
 

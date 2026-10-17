@@ -178,4 +178,52 @@ describe('PinButton Component', () => {
 
     expect(addPinMock).toHaveBeenCalledWith(slotWithAnnouncedDate)
   })
+
+  it('reports failure when automatic eventDate resync fails', async () => {
+    const addPinMock = vi.fn().mockRejectedValue(new Error('Resync failed'))
+    const storedPinWithoutDate = {
+      userId: 'sub-1',
+      pinKey: 'LC3-105#MON#09:00#CS333',
+      roomCode: 'LC3-105',
+      scheduleSlot: 'MON#09:00#CS333',
+      eventCode: 'CS333',
+      eventName: 'Software Engineering',
+      dayOfWeek: 'MON',
+      startTime: '09:00',
+      endTime: '12:00',
+      eventType: 'exam',
+      eventDate: '',
+    }
+
+    const slotWithAnnouncedDate: ScheduleSlot = {
+      ...sampleSlot,
+      eventType: 'exam',
+      eventDate: '2026-10-21',
+    }
+
+    render(
+      <MemoryRouter>
+        <PinsContext.Provider
+          value={{
+            pins: [storedPinWithoutDate],
+            loading: false,
+            error: null,
+            isPinned: vi.fn().mockReturnValue(true),
+            togglePin: vi.fn(),
+            addPin: addPinMock,
+            removePin: vi.fn(),
+            reloadPins: vi.fn(),
+            isDrawerOpen: false,
+            setIsDrawerOpen: vi.fn(),
+          }}
+        >
+          <PinButton slot={slotWithAnnouncedDate} />
+        </PinsContext.Provider>
+      </MemoryRouter>
+    )
+
+    expect(addPinMock).toHaveBeenCalledWith(slotWithAnnouncedDate)
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(/บันทึกไม่สำเร็จ.*ลอง.*อีกครั้ง/i)
+  })
 })

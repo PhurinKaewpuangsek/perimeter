@@ -29,7 +29,10 @@ export default function PinButton({ slot, className = '', showLabel = false }: P
         (p.scheduleSlot === scheduleSlot || p.pinKey === `${slot.roomCode}#${scheduleSlot}`),
     )
     if (storedPin && (storedPin.eventDate || '') !== slot.eventDate) {
-      void addPin(slot)
+      void addPin(slot).catch((err) => {
+        console.error('Failed to refresh pin event date:', err)
+        setError('บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง')
+      })
     }
   }, [pinned, slot, scheduleSlot, pins, addPin])
 

@@ -19,10 +19,16 @@ export function PinsProvider({ children }: { children: ReactNode }) {
     const sub = session?.user?.sub ?? null
 
     if (!session || !sub) {
+      lastSubRef.current = null
       setPins([])
       setError(null)
       setLoading(false)
       return
+    }
+
+    if (lastSubRef.current !== sub) {
+      lastSubRef.current = sub
+      setPins([])
     }
 
     setLoading(true)
@@ -47,6 +53,7 @@ export function PinsProvider({ children }: { children: ReactNode }) {
     const sub = getSession()?.user?.sub ?? null
     if (sub !== lastSubRef.current) {
       lastSubRef.current = sub
+      setPins([])
       void reloadPins()
     }
 
@@ -77,6 +84,8 @@ export function PinsProvider({ children }: { children: ReactNode }) {
   )
 
   const addPin = useCallback(async (slot: ScheduleSlot | PinnedSchedule) => {
+    const subBefore = getSession()?.user?.sub ?? null
+    if (!subBefore) return
     const roomCode = slot.roomCode
     const scheduleSlot = computeScheduleSlot(slot)
     const newPin = await createPin({
@@ -90,19 +99,25 @@ export function PinsProvider({ children }: { children: ReactNode }) {
       eventType: slot.eventType,
       eventDate: slot.eventDate,
     })
-    setPins((prev) => {
-      const filtered = prev.filter(
-        (p) => !(p.roomCode === roomCode && p.scheduleSlot === scheduleSlot),
-      )
-      return [...filtered, newPin]
-    })
+    if (getSession()?.user?.sub === subBefore) {
+      setPins((prev) => {
+        const filtered = prev.filter(
+          (p) => !(p.roomCode === roomCode && p.scheduleSlot === scheduleSlot),
+        )
+        return [...filtered, newPin]
+      })
+    }
   }, [])
 
   const removePin = useCallback(async (roomCode: string, scheduleSlot: string) => {
+    const subBefore = getSession()?.user?.sub ?? null
+    if (!subBefore) return
     await deletePin(roomCode, scheduleSlot)
-    setPins((prev) =>
-      prev.filter((p) => !(p.roomCode === roomCode && p.scheduleSlot === scheduleSlot)),
-    )
+    if (getSession()?.user?.sub === subBefore) {
+      setPins((prev) =>
+        prev.filter((p) => !(p.roomCode === roomCode && p.scheduleSlot === scheduleSlot)),
+      )
+    }
   }, [])
 
   const togglePin = useCallback(

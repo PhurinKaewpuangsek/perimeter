@@ -56,6 +56,22 @@ describe('CreatePinFunction Lambda Handler', () => {
     });
     assert.equal(res3.statusCode, 400);
     assert.match(JSON.parse(res3.body).error, /schedule_slot/);
+
+    // JSON null body
+    const res4 = await handler({
+      ...authContext,
+      body: 'null',
+    });
+    assert.equal(res4.statusCode, 400);
+    assert.match(JSON.parse(res4.body).error, /room_code/);
+
+    // JSON array body
+    const res5 = await handler({
+      ...authContext,
+      body: JSON.stringify(['not-an-object']),
+    });
+    assert.equal(res5.statusCode, 400);
+    assert.match(JSON.parse(res5.body).error, /room_code/);
   });
 
   test('successfully creates a pin and enforces user isolation (ignores body.user_id)', async () => {
