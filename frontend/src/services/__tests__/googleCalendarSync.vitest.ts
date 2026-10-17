@@ -156,6 +156,21 @@ describe('googleCalendarSync service', () => {
     expect(calls(fetchMock).filter((c) => c.includes('/import'))).toHaveLength(1)
   })
 
+  it('revives a cancelled event when import answers 409 after a re-pin', async () => {
+    installGis(grant)
+    const fetchMock = mockFetch((method, url, init) => {
+      if (url.endsWith('/import')) return json({}, 409)
+      if (method === 'GET') return url.includes('showDeleted=true') ? json({ items: [{ id: 'gone-1' }] }) : json({ items: [] })
+      return json({ id: 'gone-1' })
+    })
+
+    const result = await sync.syncPinsToGoogleCalendar([classPin])
+
+    expect(result).toMatchObject({ upserted: 1, failed: 0 })
+    const patch = fetchMock.mock.calls.find(([url, init]) => url.endsWith('/gone-1') && init?.method === 'PATCH')
+    expect(JSON.parse(patch![1].body as string).status).toBe('confirmed')
+  })
+
   it('prunes duplicate tagged events that share the same iCalUID', async () => {
     installGis(grant)
     const fetchMock = mockFetch((method, url) => {

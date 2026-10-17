@@ -122,7 +122,7 @@ export default function MyScheduleDrawer() {
       // Must run synchronously from the click so the browser allows Google's consent popup.
       const result = await syncPinsToGoogleCalendar(pins, { userId })
       if (result.skippedExams.length > 0) setSkippedNotice(formatSkippedNotice(result.skippedExams))
-      setSyncResult({ kind: result.failed > 0 ? 'error' : 'success', message: formatSyncSummary(result) })
+      setSyncResult({ kind: result.failed > 0 || result.pruneSkipped ? 'error' : 'success', message: formatSyncSummary(result) })
     } catch (err) {
       const code = err instanceof GoogleSyncError ? err.code : 'api'
       setSyncResult({ kind: 'error', message: SYNC_ERROR_MESSAGES[code] })

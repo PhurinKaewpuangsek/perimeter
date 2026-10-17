@@ -40,7 +40,7 @@ The `.ics` download and per-event "Google Calendar" links keep working without a
    - **Production:** GitHub → Settings → Secrets and variables → Actions → *Variables* →
      `VITE_GOOGLE_CLIENT_ID`. `cd-frontend.yml` passes it to the build.
    - **Local:** put `VITE_GOOGLE_CLIENT_ID=...` in `frontend/.env.local`
-     (`scripts/write-env.mjs` leaves lines it does not own untouched). See `frontend/.env.example`.
+     (`npm run env:pull` keeps an existing `VITE_GOOGLE_CLIENT_ID` line, or writes it empty). See `frontend/.env.example`.
 
 If the variable is unset the sync button is hidden and nothing else changes.
 

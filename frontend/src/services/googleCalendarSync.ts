@@ -172,6 +172,26 @@ async function listTaggedEvents(token: string, torchUser: string): Promise<{ id:
   return events
 }
 
+/**
+ * Imports an event. A previously deleted event keeps its iCalUID as a cancelled entry, so a re-pin makes
+ * import answer 409; in that case revive the cancelled event instead.
+ */
+async function importEvent(token: string, body: GoogleCalendarEventBody): Promise<Response> {
+  const res = await calendarFetch(token, `${EVENTS_URL}/import`, { method: 'POST', body: JSON.stringify(body) })
+  if (res.status !== 409) return res
+  const lookup = await calendarFetch(
+    token,
+    `${EVENTS_URL}?${new URLSearchParams({ iCalUID: body.iCalUID, showDeleted: 'true' })}`,
+  )
+  const found = lookup.ok ? ((await lookup.json()) as { items?: { id: string }[] }).items?.[0] : undefined
+  if (!found) return res
+  const { iCalUID: _iCalUID, ...updateBody } = body
+  return calendarFetch(token, `${EVENTS_URL}/${encodeURIComponent(found.id)}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ ...updateBody, status: 'confirmed' }),
+  })
+}
+
 /** True when the request succeeded. Network errors count as failed; only an expired token aborts the run. */
 async function attempt(request: () => Promise<Response>, okStatuses: number[] = []): Promise<boolean> {
   try {
@@ -200,6 +220,7 @@ export async function syncPinsToGoogleCalendar(
   if (!torchUser) throw new GoogleSyncError('auth_expired')
 
   const tokenPromise = requestAccessToken(torchUser)
+  tokenPromise.catch(() => {}) // awaited below; this only avoids an unhandled rejection if building events throws first
 
   const events: GoogleCalendarEventBody[] = []
   const skippedExams: PinnedSchedule[] = []
@@ -249,9 +270,7 @@ export async function syncPinsToGoogleCalendar(
             body: JSON.stringify(updateBody),
           })
         })
-      : await attempt(() =>
-          calendarFetch(token, `${EVENTS_URL}/import`, { method: 'POST', body: JSON.stringify(body) }),
-        )
+      : await attempt(() => importEvent(token, body))
     if (ok) summary.upserted++
     else summary.failed++
   }
