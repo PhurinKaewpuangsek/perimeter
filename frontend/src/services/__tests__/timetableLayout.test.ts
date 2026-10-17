@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import {
+  blockHeight,
   buildTimetableLayout,
   formatMinutes,
   normalizeDay,
@@ -133,5 +134,54 @@ describe('timetableLayout', () => {
     assert.equal(layout.startMinute, 0)
     assert.equal(layout.endMinute, 0)
     assert.equal(layout.skipped.length, 0)
+  })
+
+  describe('blockHeight()', () => {
+    it('uses the real duration when it is long enough', () => {
+      assert.equal(blockHeight({ startMinute: 540, endMinute: 630, nextStartInLane: null }, 1, 1200), 88)
+    })
+
+    it('stretches a very short entry to the minimum so it stays tappable', () => {
+      assert.equal(blockHeight({ startMinute: 540, endMinute: 550, nextStartInLane: null }, 0.8, 1200), 16)
+    })
+
+    it('never grows into the next entry in the same lane', () => {
+      const layout = buildTimetableLayout([
+        slot({ eventCode: 'SHORT', startTime: '10:00', endTime: '10:10' }),
+        slot({ eventCode: 'NEXT', startTime: '10:10', endTime: '11:00' }),
+      ])
+      const short = layout.days.MON.find((p) => p.slot.eventCode === 'SHORT')!
+      assert.equal(short.nextStartInLane, 600 + 10)
+      const height = blockHeight(short, 0.8, layout.endMinute)
+      assert.ok(height <= 10 * 0.8, `height ${height} must stop before NEXT starts`)
+    })
+
+    it('never grows past the end of the grid', () => {
+      assert.ok(blockHeight({ startMinute: 1195, endMinute: 1200, nextStartInLane: null }, 0.8, 1200) <= 4)
+    })
+
+    it('stops a short entry from growing into the next overlap group', () => {
+      const layout = buildTimetableLayout([
+        slot({ eventCode: 'LONG', startTime: '09:00', endTime: '10:00' }),
+        slot({ eventCode: 'SHORT', startTime: '09:50', endTime: '10:00' }),
+        slot({ eventCode: 'AFTER', startTime: '10:00', endTime: '11:00' }),
+      ])
+      const short = layout.days.MON.find((p) => p.slot.eventCode === 'SHORT')!
+      assert.equal(short.lane, 1)
+      assert.equal(short.nextStartInLane, 600, 'AFTER spans the full column from 10:00')
+      assert.ok(blockHeight(short, 0.8, layout.endMinute) <= 10 * 0.8)
+    })
+
+    it('records the next start only within the same lane', () => {
+      const layout = buildTimetableLayout([
+        slot({ eventCode: 'A', startTime: '09:00', endTime: '12:00' }),
+        slot({ eventCode: 'B', startTime: '09:00', endTime: '10:00' }),
+        slot({ eventCode: 'C', startTime: '10:00', endTime: '11:00' }),
+      ])
+      const byCode = Object.fromEntries(layout.days.MON.map((p) => [p.slot.eventCode, p]))
+      assert.equal(byCode.A.nextStartInLane, null)
+      assert.equal(byCode.B.nextStartInLane, 600)
+      assert.equal(byCode.C.nextStartInLane, null)
+    })
   })
 })

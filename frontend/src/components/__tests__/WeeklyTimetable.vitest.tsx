@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import WeeklyTimetable from '../WeeklyTimetable'
@@ -76,13 +76,39 @@ describe('WeeklyTimetable', () => {
       const card = screen.getByTestId('timetable-entry-card')
       expect(card).toHaveTextContent('Exam - BAS350')
       expect(card).toHaveTextContent('วันจันทร์ 13:00–16:00')
-      expect(card).toHaveTextContent('สอบ 2026-05-18')
+      expect(card).toHaveTextContent('วันสอบ: 2026-05-18')
       expect(within(card).getByRole('button', { name: 'pin BAS350' })).toBeInTheDocument()
     })
 
     it('labels an exam without a date as date to be announced', () => {
       render(<WeeklyTimetable slots={SLOTS} layout="grid" />)
       expect(screen.getByRole('button', { name: /CS140.*date to be announced/ })).toBeInTheDocument()
+    })
+
+    it('shows an undated exam as "date to be announced" without a "สอบ" prefix', async () => {
+      const user = userEvent.setup()
+      render(<WeeklyTimetable slots={SLOTS} layout="grid" />)
+      await user.click(screen.getByRole('button', { name: /CS140/ }))
+      const card = screen.getByTestId('timetable-entry-card')
+      expect(card).toHaveTextContent('date to be announced')
+      expect(card).not.toHaveTextContent('สอบ date')
+    })
+
+    it('keeps the opened details when the parent passes a fresh copy of the same slots', async () => {
+      const user = userEvent.setup()
+      const { rerender } = render(<WeeklyTimetable slots={SLOTS} layout="grid" />)
+      await user.click(screen.getByRole('button', { name: /BAS350/ }))
+      rerender(<WeeklyTimetable slots={SLOTS.map((s) => ({ ...s }))} layout="grid" />)
+      expect(screen.getByTestId('timetable-entry-card')).toHaveTextContent('BAS350')
+    })
+
+    it('never puts action buttons inside a grid block (no nested buttons)', async () => {
+      const user = userEvent.setup()
+      render(<WeeklyTimetable slots={SLOTS} layout="grid" renderActions={actions} />)
+      const block = screen.getByRole('button', { name: /BAS350/ })
+      expect(within(block).queryByRole('button')).not.toBeInTheDocument()
+      await user.click(block)
+      expect(screen.getByRole('button', { name: 'pin BAS350' })).toBeInTheDocument()
     })
   })
 
@@ -95,7 +121,7 @@ describe('WeeklyTimetable', () => {
       const monday = screen.getByRole('tabpanel', { name: 'วันจันทร์' })
       expect(within(monday).getByRole('listitem', { name: /CS101/ })).toBeInTheDocument()
       expect(within(monday).getByRole('button', { name: 'pin CS101' })).toBeInTheDocument()
-      expect(within(monday).getByText('สอบ 2026-05-18')).toBeInTheDocument()
+      expect(within(monday).getByText('วันสอบ: 2026-05-18')).toBeInTheDocument()
 
       await user.click(screen.getByRole('tab', { name: /วันพุธ/ }))
       const wednesday = screen.getByRole('tabpanel', { name: 'วันพุธ' })
@@ -122,5 +148,27 @@ describe('WeeklyTimetable', () => {
     const skipped = screen.getByTestId('timetable-skipped')
     expect(skipped).toHaveTextContent('CS345')
     expect(within(skipped).getByRole('button', { name: 'pin CS345' })).toBeInTheDocument()
+  })
+
+  describe('auto layout', () => {
+    afterEach(() => vi.restoreAllMocks())
+
+    const mockContainerWidth = (width: number) =>
+      vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+        width, height: 0, top: 0, left: 0, right: width, bottom: 0, x: 0, y: 0, toJSON: () => ({}),
+      } as DOMRect)
+
+    it('uses day tabs in a narrow container such as the 400px room panel', () => {
+      mockContainerWidth(400)
+      render(<WeeklyTimetable slots={SLOTS} />)
+      expect(screen.getByTestId('timetable-day')).toBeInTheDocument()
+      expect(screen.queryByTestId('timetable-grid')).not.toBeInTheDocument()
+    })
+
+    it('uses the Mon–Sun grid when the container is wide', () => {
+      mockContainerWidth(800)
+      render(<WeeklyTimetable slots={SLOTS} />)
+      expect(screen.getByTestId('timetable-grid')).toBeInTheDocument()
+    })
   })
 })

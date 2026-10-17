@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { ScheduleSlot } from '../types/schedule'
 import {
   TIMETABLE_DAYS,
+  blockHeight,
   buildTimetableLayout,
   formatMinutes,
   type PlacedSlot,
@@ -13,9 +14,18 @@ import { getExamDateLabel, isExamSchedule } from '../services/scheduleDisplay'
 export interface WeeklyTimetableProps {
   /** Entries to show. The grid never fetches data itself. */
   slots: ScheduleSlot[]
-  /** Buttons for one entry, e.g. pin and add-to-calendar (supplied by the caller). */
+  /**
+   * Buttons for one entry, e.g. pin and add-to-calendar (supplied by the caller).
+   * In the grid view each block is itself a button, so actions are never rendered inside it:
+   * they appear in the details card below the grid once a block is tapped (no nested buttons).
+   * In the day view they sit inside each block.
+   */
   renderActions?: (slot: ScheduleSlot) => ReactNode
-  /** 'grid' = Mon–Sun columns, 'day' = one day at a time with tabs, 'auto' = pick by screen width. */
+  /**
+   * 'grid' = Mon–Sun columns, 'day' = one day at a time with tabs,
+   * 'auto' (default) = grid only when the timetable's own container is wide enough
+   * (so a 400px side panel gets the day view even on a desktop screen).
+   */
   layout?: 'auto' | 'grid' | 'day'
 }
 
@@ -33,35 +43,54 @@ const DAY_LABELS: Record<TimetableDay, { short: string; full: string }> = {
 const GRID_PX_PER_MINUTE = 0.8
 const DAY_PX_PER_MINUTE = 1.4
 
-/** True on screens at least 640px wide (Tailwind `sm`), matching the map page. */
-function useIsWideScreen(): boolean {
-  const query = '(min-width: 640px)'
-  const [isWide, setIsWide] = useState(() =>
-    typeof window !== 'undefined' && typeof window.matchMedia === 'function'
-      ? window.matchMedia(query).matches
-      : true
-  )
+/** Container width (px) from which the 'auto' layout switches to the Mon–Sun grid. */
+const GRID_MIN_WIDTH = 560
+
+/**
+ * Width of the timetable's own container, so 'auto' reacts to the space it really has
+ * (e.g. the 400px room panel) rather than the window size. 0 until measured.
+ */
+function useContainerWidth<T extends HTMLElement>() {
+  const ref = useRef<T>(null)
+  const [width, setWidth] = useState(0)
 
   useEffect(() => {
-    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return
-    const mql = window.matchMedia(query)
-    const handler = (e: MediaQueryListEvent) => setIsWide(e.matches)
-    mql.addEventListener?.('change', handler)
-    return () => mql.removeEventListener?.('change', handler)
+    const el = ref.current
+    if (!el) return
+    setWidth(el.getBoundingClientRect().width)
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0]
+      if (entry) setWidth(entry.contentRect.width)
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
   }, [])
 
-  return isWide
+  return { ref, width }
+}
+
+/** Stable identity of an entry, so a selection survives the parent re-fetching its slots. */
+function slotKey(slot: ScheduleSlot): string {
+  return `${slot.roomCode}#${slot.dayOfWeek}#${slot.startTime}#${slot.eventCode}`
+}
+
+/** Exam line in the same wording as the map page: "วันสอบ: 2026-05-18" or "date to be announced". */
+function examText(slot: ScheduleSlot): string | null {
+  const label = getExamDateLabel(slot)
+  if (!label) return null
+  return slot.eventDate ? `วันสอบ: ${slot.eventDate}` : label
 }
 
 /** Full description of one entry for screen readers and tooltips (code, name, day, time, exam date). */
 function entryLabel(item: PlacedSlot): string {
-  const examDate = getExamDateLabel(item.slot)
+  const exam = examText(item.slot)
   return [
     item.slot.eventCode,
     item.slot.eventName && item.slot.eventName !== item.slot.eventCode ? item.slot.eventName : '',
     DAY_LABELS[item.day].full,
     `${formatMinutes(item.startMinute)}–${formatMinutes(item.endMinute)}`,
-    examDate ? `สอบ ${examDate}` : '',
+    exam ?? '',
   ]
     .filter(Boolean)
     .join(' · ')
@@ -75,11 +104,10 @@ function entryColors(slot: ScheduleSlot): string {
 }
 
 /** Absolute position of one entry inside a day column. */
-function entryStyle(item: PlacedSlot, startMinute: number, pxPerMinute: number) {
-  const gap = 2
+function entryStyle(item: PlacedSlot, startMinute: number, endMinute: number, pxPerMinute: number) {
   return {
     top: (item.startMinute - startMinute) * pxPerMinute,
-    height: Math.max((item.endMinute - item.startMinute) * pxPerMinute - gap, 16),
+    height: blockHeight(item, pxPerMinute, endMinute),
     left: `calc(${(item.lane / item.laneCount) * 100}% + 1px)`,
     width: `calc(${100 / item.laneCount}% - 2px)`,
   }
@@ -125,12 +153,14 @@ function TimeGutter({ startMinute, endMinute, pxPerMinute }: { startMinute: numb
 /** Mon–Sun overview. Blocks are compact; tapping one shows its details and actions below. */
 function GridView({ slots, renderActions }: Pick<WeeklyTimetableProps, 'slots' | 'renderActions'>) {
   const layout = useMemo(() => buildTimetableLayout(slots), [slots])
-  const [selected, setSelected] = useState<PlacedSlot | null>(null)
+  const [selectedKey, setSelectedKey] = useState<string | null>(null)
   const { startMinute, endMinute } = layout
   const height = (endMinute - startMinute) * GRID_PX_PER_MINUTE
 
   const selectedStillShown =
-    selected && layout.days[selected.day].some((item) => item.slot === selected.slot) ? selected : null
+    selectedKey === null
+      ? null
+      : (TIMETABLE_DAYS.flatMap((day) => layout.days[day]).find((item) => slotKey(item.slot) === selectedKey) ?? null)
 
   return (
     <div data-testid="timetable-grid" className="space-y-3">
@@ -158,7 +188,7 @@ function GridView({ slots, renderActions }: Pick<WeeklyTimetableProps, 'slots' |
             >
               <HourLines startMinute={startMinute} endMinute={endMinute} pxPerMinute={GRID_PX_PER_MINUTE} />
               {layout.days[day].map((item) => {
-                const isSelected = selectedStillShown?.slot === item.slot
+                const isSelected = selectedStillShown !== null && slotKey(selectedStillShown.slot) === slotKey(item.slot)
                 return (
                   <button
                     key={`${item.slot.eventCode}-${item.startMinute}-${item.lane}`}
@@ -166,11 +196,11 @@ function GridView({ slots, renderActions }: Pick<WeeklyTimetableProps, 'slots' |
                     aria-label={entryLabel(item)}
                     aria-pressed={isSelected}
                     title={entryLabel(item)}
-                    onClick={() => setSelected(isSelected ? null : item)}
+                    onClick={() => setSelectedKey(isSelected ? null : slotKey(item.slot))}
                     className={`absolute overflow-hidden rounded-md border px-0.5 text-left leading-tight cursor-pointer transition-shadow ${entryColors(item.slot)} ${
                       isSelected ? 'ring-2 ring-slate-900 z-10' : 'hover:ring-1 hover:ring-slate-400'
                     }`}
-                    style={entryStyle(item, startMinute, GRID_PX_PER_MINUTE)}
+                    style={entryStyle(item, startMinute, endMinute, GRID_PX_PER_MINUTE)}
                   >
                     <span className="block truncate font-mono text-[9px] font-bold">{item.slot.eventCode}</span>
                     <span className="block truncate font-mono text-[8px] opacity-70">{formatMinutes(item.startMinute)}</span>
@@ -193,7 +223,7 @@ function GridView({ slots, renderActions }: Pick<WeeklyTimetableProps, 'slots' |
 
 /** Details of one entry (code, name, day, time, exam date) with its actions. */
 function EntryCard({ item, renderActions }: { item: PlacedSlot; renderActions?: WeeklyTimetableProps['renderActions'] }) {
-  const examDate = getExamDateLabel(item.slot)
+  const exam = examText(item.slot)
   return (
     <div data-testid="timetable-entry-card" className={`rounded-xl border p-3 ${entryColors(item.slot)}`}>
       <div className="flex items-start justify-between gap-2">
@@ -205,7 +235,7 @@ function EntryCard({ item, renderActions }: { item: PlacedSlot; renderActions?: 
           <p className="mt-0.5 font-mono text-[11px] opacity-80">
             {DAY_LABELS[item.day].full} {formatMinutes(item.startMinute)}–{formatMinutes(item.endMinute)}
           </p>
-          {examDate && <p className="mt-0.5 text-[11px] font-semibold">สอบ {examDate}</p>}
+          {exam && <p className="mt-0.5 text-[11px] font-semibold">{exam}</p>}
         </div>
         {renderActions && <div className="flex shrink-0 items-center gap-1">{renderActions(item.slot)}</div>}
       </div>
@@ -258,14 +288,14 @@ function DayView({ slots, renderActions }: Pick<WeeklyTimetableProps, 'slots' | 
           >
             <HourLines startMinute={startMinute} endMinute={endMinute} pxPerMinute={DAY_PX_PER_MINUTE} />
             {items.map((item) => {
-              const examDate = getExamDateLabel(item.slot)
+              const exam = examText(item.slot)
               return (
                 <div
                   key={`${item.slot.eventCode}-${item.startMinute}-${item.lane}`}
                   role="listitem"
                   aria-label={entryLabel(item)}
                   className={`absolute overflow-hidden rounded-md border p-1.5 ${entryColors(item.slot)}`}
-                  style={entryStyle(item, startMinute, DAY_PX_PER_MINUTE)}
+                  style={entryStyle(item, startMinute, endMinute, DAY_PX_PER_MINUTE)}
                 >
                   <div className="flex items-start justify-between gap-1">
                     <div className="min-w-0">
@@ -273,7 +303,7 @@ function DayView({ slots, renderActions }: Pick<WeeklyTimetableProps, 'slots' | 
                       <p className="truncate font-mono text-[10px] opacity-80">
                         {formatMinutes(item.startMinute)}–{formatMinutes(item.endMinute)}
                       </p>
-                      {examDate && <p className="truncate text-[10px] font-semibold">สอบ {examDate}</p>}
+                      {exam && <p className="truncate text-[10px] font-semibold">{exam}</p>}
                     </div>
                     {renderActions && <div className="flex shrink-0 items-center">{renderActions(item.slot)}</div>}
                   </div>
@@ -310,20 +340,22 @@ function SkippedList({ slots, renderActions }: Pick<WeeklyTimetableProps, 'slots
 
 /** Weekly timetable (Mon–Sun by time) for one room's schedule. */
 export default function WeeklyTimetable({ slots, renderActions, layout = 'auto' }: WeeklyTimetableProps) {
-  const isWide = useIsWideScreen()
+  const { ref, width } = useContainerWidth<HTMLDivElement>()
 
   if (slots.length === 0) {
     return (
-      <p data-testid="timetable-empty" className="py-6 text-center text-xs text-slate-500">
-        ห้องนี้ยังไม่มีตารางการใช้ห้อง
-      </p>
+      <div ref={ref}>
+        <p data-testid="timetable-empty" className="py-6 text-center text-xs text-slate-500">
+          ห้องนี้ยังไม่มีตารางการใช้ห้อง
+        </p>
+      </div>
     )
   }
 
-  const useGrid = layout === 'grid' || (layout === 'auto' && isWide)
+  const useGrid = layout === 'grid' || (layout === 'auto' && width >= GRID_MIN_WIDTH)
 
   return (
-    <div className="space-y-3">
+    <div ref={ref} className="space-y-3">
       {useGrid ? (
         <GridView slots={slots} renderActions={renderActions} />
       ) : (
