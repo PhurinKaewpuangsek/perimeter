@@ -168,7 +168,7 @@ describe('googleCalendarSync service', () => {
 
     expect(result).toMatchObject({ upserted: 1, failed: 0 })
     const patch = fetchMock.mock.calls.find(([url, init]) => url.endsWith('/gone-1') && init?.method === 'PATCH')
-    expect(JSON.parse(patch![1].body as string).status).toBe('confirmed')
+    expect(JSON.parse(patch![1]!.body as string).status).toBe('confirmed')
   })
 
   it('prunes duplicate tagged events that share the same iCalUID', async () => {
