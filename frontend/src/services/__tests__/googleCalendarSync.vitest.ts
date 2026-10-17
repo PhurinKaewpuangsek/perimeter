@@ -127,23 +127,54 @@ describe('googleCalendarSync service', () => {
     const result = await sync.syncPinsToGoogleCalendar([classPin])
 
     expect(result).toMatchObject({ upserted: 1, deleted: 1, failed: 0 })
+    expect(calls(fetchMock)).toContain('PATCH /keep')
     const deletes = calls(fetchMock).filter((c) => c.startsWith('DELETE'))
     expect(deletes).toEqual(['DELETE /stale'])
+  })
+
+  it('does not reuse a cached token for a different TORCH user, even when syncing zero pins', async () => {
+    const initTokenClient = installGis(grant)
+    mockFetch((method) => (method === 'GET' ? json({ items: [] }) : json({ id: 'g1' })))
+
+    await sync.syncPinsToGoogleCalendar([classPin], { userId: 'user-1' })
+    await sync.syncPinsToGoogleCalendar([], { userId: 'user-2' })
+
+    expect(initTokenClient).toHaveBeenCalledTimes(2)
   })
 
   it('continues after a failed import, counts it, and never deletes that pin\'s existing copy', async () => {
     installGis(grant)
     const fetchMock = mockFetch((method, url) => {
       if (method === 'GET') return json({ items: [{ id: 'old-exam', iCalUID: 'LC3-201#WED#13:30#CS102@perimeter' }] })
-      if (url.endsWith('/import')) return json({}, 500)
-      return new Response(null, { status: 204 })
+      return url.endsWith('/old-exam') || url.endsWith('/import') ? json({}, 500) : new Response(null, { status: 204 })
     })
 
     const result = await sync.syncPinsToGoogleCalendar([classPin, examPin])
 
     expect(result).toMatchObject({ upserted: 0, deleted: 0, failed: 2 })
     expect(calls(fetchMock).filter((c) => c.startsWith('DELETE'))).toEqual([])
-    expect(calls(fetchMock).filter((c) => c.includes('/import'))).toHaveLength(2)
+    expect(calls(fetchMock).filter((c) => c.includes('/import'))).toHaveLength(1)
+  })
+
+  it('prunes duplicate tagged events that share the same iCalUID', async () => {
+    installGis(grant)
+    const fetchMock = mockFetch((method, url) => {
+      if (method === 'GET') {
+        return json({
+          items: [
+            { id: 'keep', iCalUID: 'LC3-105#MON#09:30#CS333@perimeter' },
+            { id: 'dup', iCalUID: 'LC3-105#MON#09:30#CS333@perimeter' },
+          ],
+        })
+      }
+      return url.includes('/dup') || url.includes('/keep') ? new Response(null, { status: 204 }) : json({ id: 'g1' })
+    })
+
+    const result = await sync.syncPinsToGoogleCalendar([classPin])
+
+    expect(result).toMatchObject({ upserted: 1, deleted: 1, failed: 0 })
+    expect(calls(fetchMock)).toContain('PATCH /keep')
+    expect(calls(fetchMock)).toContain('DELETE /dup')
   })
 
   it('skips the delete step when the existing events cannot be listed', async () => {

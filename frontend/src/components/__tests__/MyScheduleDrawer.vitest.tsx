@@ -269,7 +269,7 @@ describe('MyScheduleDrawer Component', () => {
       await waitFor(() => expect(syncBtn).toBeEnabled())
       await user.click(syncBtn)
 
-      expect(googleSync.syncPinsToGoogleCalendar).toHaveBeenCalledWith([])
+      expect(googleSync.syncPinsToGoogleCalendar).toHaveBeenCalledWith([], { userId: '' })
       expect(await screen.findByTestId('sync-google-result')).toHaveTextContent('เพิ่ม/อัปเดต 0 ลบ 1')
     })
 
@@ -282,7 +282,7 @@ describe('MyScheduleDrawer Component', () => {
       await waitFor(() => expect(syncBtn).toBeEnabled())
       await user.click(syncBtn)
 
-      expect(googleSync.syncPinsToGoogleCalendar).toHaveBeenCalledWith([samplePin, sampleExamPin])
+      expect(googleSync.syncPinsToGoogleCalendar).toHaveBeenCalledWith([samplePin, sampleExamPin], { userId: '' })
       expect(await screen.findByTestId('sync-google-result')).toHaveTextContent('เพิ่ม/อัปเดต 2 ลบ 1')
     })
 

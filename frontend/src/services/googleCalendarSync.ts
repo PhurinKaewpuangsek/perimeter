@@ -112,6 +112,7 @@ function requestAccessToken(torchUser: string): Promise<string> {
   if (cachedToken && cachedToken.torchUser === torchUser && cachedToken.expiresAt - EXPIRY_MARGIN_MS > Date.now()) {
     return Promise.resolve(cachedToken.value)
   }
+  if (cachedToken && cachedToken.torchUser !== torchUser) cachedToken = null
   const clientId = getClientId()
   if (!clientId) return Promise.reject(new GoogleSyncError('not_configured'))
   const oauth2 = window.google?.accounts?.oauth2
@@ -143,7 +144,7 @@ function requestAccessToken(torchUser: string): Promise<string> {
 async function calendarFetch(token: string, url: string, init: RequestInit = {}): Promise<Response> {
   const res = await fetch(url, {
     ...init,
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', ...init.headers },
+    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json', ...init.headers },
   })
   // Re-prompting here would lose the click gesture, so ask the user to press Sync again.
   if (res.status === 401) {
@@ -183,16 +184,21 @@ async function attempt(request: () => Promise<Response>, okStatuses: number[] = 
 }
 
 /**
- * Upserts every announced pin into the user's primary calendar (events.import keyed by iCalUID, so
- * repeated syncs never duplicate) and deletes previously synced events that are no longer pinned.
+ * Upserts every announced pin into the user's primary calendar (update when an event with the same
+ * iCalUID already exists; import only when missing) and deletes previously synced events that are no longer pinned.
  * Only events carrying our private tag are ever deleted.
  */
+export interface GoogleSyncOptions extends CalendarExportOptions {
+  userId?: string
+}
+
 export async function syncPinsToGoogleCalendar(
   pins: PinnedSchedule[],
-  options: CalendarExportOptions = {},
+  options: GoogleSyncOptions = {},
 ): Promise<SyncSummary> {
-  const torchUser = getSession()?.user.sub
+  const torchUser = options.userId || getSession()?.user.sub || pins[0]?.userId
   if (!torchUser) throw new GoogleSyncError('auth_expired')
+
   const tokenPromise = requestAccessToken(torchUser)
 
   const events: GoogleCalendarEventBody[] = []
@@ -212,14 +218,6 @@ export async function syncPinsToGoogleCalendar(
   const token = await tokenPromise
   const summary: SyncSummary = { upserted: 0, deleted: 0, failed: 0, skippedExams, pruneSkipped: false }
 
-  for (const body of events) {
-    const ok = await attempt(() =>
-      calendarFetch(token, `${EVENTS_URL}/import`, { method: 'POST', body: JSON.stringify(body) }),
-    )
-    if (ok) summary.upserted++
-    else summary.failed++
-  }
-
   let existing: { id: string; iCalUID: string }[] = []
   try {
     existing = await listTaggedEvents(token, torchUser)
@@ -228,11 +226,45 @@ export async function syncPinsToGoogleCalendar(
     summary.pruneSkipped = true
   }
 
+  const currentByUid = new Map<string, string>()
+  const duplicateIdsByUid = new Map<string, string[]>()
+  for (const event of existing) {
+    const primary = currentByUid.get(event.iCalUID)
+    if (!primary) {
+      currentByUid.set(event.iCalUID, event.id)
+      continue
+    }
+    const duplicates = duplicateIdsByUid.get(event.iCalUID)
+    if (duplicates) duplicates.push(event.id)
+    else duplicateIdsByUid.set(event.iCalUID, [event.id])
+  }
+
+  for (const body of events) {
+    const existingId = currentByUid.get(body.iCalUID)
+    const ok = existingId
+      ? await attempt(() => {
+          const { iCalUID: _iCalUID, ...updateBody } = body
+          return calendarFetch(token, `${EVENTS_URL}/${encodeURIComponent(existingId)}`, {
+            method: 'PATCH',
+            body: JSON.stringify(updateBody),
+          })
+        })
+      : await attempt(() =>
+          calendarFetch(token, `${EVENTS_URL}/import`, { method: 'POST', body: JSON.stringify(body) }),
+        )
+    if (ok) summary.upserted++
+    else summary.failed++
+  }
+
   // Uses every built UID (even ones whose import failed) so a transient failure never deletes the old copy.
   const wanted = new Set(events.map((e) => e.iCalUID))
-  for (const stale of existing.filter((e) => !wanted.has(e.iCalUID))) {
+  const staleEventIds = existing.filter((e) => !wanted.has(e.iCalUID)).map((e) => e.id)
+  for (const [uid, duplicateIds] of duplicateIdsByUid) {
+    if (wanted.has(uid)) staleEventIds.push(...duplicateIds)
+  }
+  for (const staleEventId of staleEventIds) {
     const ok = await attempt(
-      () => calendarFetch(token, `${EVENTS_URL}/${encodeURIComponent(stale.id)}`, { method: 'DELETE' }),
+      () => calendarFetch(token, `${EVENTS_URL}/${encodeURIComponent(staleEventId)}`, { method: 'DELETE' }),
       [404, 410],
     )
     if (ok) summary.deleted++
