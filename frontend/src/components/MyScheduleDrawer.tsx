@@ -13,17 +13,52 @@ import {
   GraduationCap,
   BookOpen,
   CircleNotch,
+  GoogleLogo,
 } from '@phosphor-icons/react'
 import { usePins } from '../hooks/usePins'
 import { getSession } from '../services/authService'
 import { generateIcsContent, buildGoogleCalendarUrl, downloadIcsFile } from '../services/calendarExport'
+import {
+  GoogleSyncError,
+  isGoogleSyncConfigured,
+  loadGisScript,
+  syncPinsToGoogleCalendar,
+  type GoogleSyncErrorCode,
+  type SyncSummary,
+} from '../services/googleCalendarSync'
+import type { PinnedSchedule } from '../types/pin'
+
+const SYNC_ERROR_MESSAGES: Record<GoogleSyncErrorCode, string> = {
+  not_configured: 'ยังไม่ได้ตั้งค่า Google Calendar ในระบบนี้',
+  script_unavailable: 'โหลดบริการ Google ไม่สำเร็จ ตรวจสอบอินเทอร์เน็ตแล้วลองเปิดหน้านี้ใหม่',
+  denied: 'ไม่ได้รับอนุญาตจาก Google จึงยังไม่ซิงก์ (ยังดาวน์โหลด .ics หรือใช้ลิงก์ Google Calendar ได้ตามปกติ)',
+  popup_blocked: 'เบราว์เซอร์บล็อกหน้าต่างขออนุญาตของ Google กรุณาอนุญาต pop-up แล้วลองใหม่',
+  auth_expired: 'เซสชัน Google หมดอายุ กรุณากดซิงก์อีกครั้ง',
+  api: 'เรียก Google Calendar ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง',
+}
+
+function formatSkippedNotice(skipped: PinnedSchedule[]): string {
+  const skippedCodes = skipped.map((e) => e.eventCode || 'ไม่ระบุรหัส').join(', ')
+  return `ข้ามการสอบที่ยังไม่ระบุวันจัดสอบจริง (${skippedCodes}) เพื่อไม่ให้ระบุวันที่ผิดพลาด`
+}
+
+function formatSyncSummary(result: SyncSummary): string {
+  let message = `ซิงก์เสร็จแล้ว: เพิ่ม/อัปเดต ${result.upserted} ลบ ${result.deleted}`
+  if (result.failed > 0) message += ` ล้มเหลว ${result.failed} (กดซิงก์อีกครั้งเพื่อลองใหม่)`
+  if (result.pruneSkipped) message += ' — ข้ามขั้นลบเพราะดึงรายการเดิมจาก Google ไม่สำเร็จ'
+  return message
+}
 
 export default function MyScheduleDrawer() {
   const navigate = useNavigate()
-  const { pins, removePin, isDrawerOpen, setIsDrawerOpen } = usePins()
+  const { pins, loading, error, removePin, isDrawerOpen, setIsDrawerOpen } = usePins()
   const [skippedNotice, setSkippedNotice] = useState<string | null>(null)
   const [deletingKey, setDeletingKey] = useState<string | null>(null)
   const [removeError, setRemoveError] = useState<string | null>(null)
+  const [gisReady, setGisReady] = useState(false)
+  const [syncing, setSyncing] = useState(false)
+  const [syncResult, setSyncResult] = useState<{ kind: 'success' | 'error'; message: string } | null>(null)
+  const syncEnabled = isGoogleSyncConfigured()
 
   const handleRemovePin = async (roomCode: string, scheduleSlot: string) => {
     const key = `${roomCode}#${scheduleSlot}`
@@ -55,13 +90,45 @@ export default function MyScheduleDrawer() {
     const { ics, skippedUnannouncedExams } = generateIcsContent(pins)
 
     if (skippedUnannouncedExams.length > 0) {
-      const skippedCodes = skippedUnannouncedExams.map((e) => e.eventCode || 'ไม่ระบุรหัส').join(', ')
-      setSkippedNotice(
-        `ข้ามการสอบที่ยังไม่ระบุวันจัดสอบจริง (${skippedCodes}) เพื่อไม่ให้ระบุวันที่ผิดพลาด`,
-      )
+      setSkippedNotice(formatSkippedNotice(skippedUnannouncedExams))
     }
 
     downloadIcsFile('my-schedule.ics', ics)
+  }
+
+  // Preload the Google script so the click handler can open the consent popup synchronously.
+  useEffect(() => {
+    if (!isDrawerOpen || !syncEnabled) return
+    let cancelled = false
+    loadGisScript()
+      .then(() => {
+        if (!cancelled) setGisReady(true)
+      })
+      .catch(() => {
+        if (!cancelled) setSyncResult({ kind: 'error', message: SYNC_ERROR_MESSAGES.script_unavailable })
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [isDrawerOpen, syncEnabled])
+
+  const handleSyncGoogle = async () => {
+    if (syncing) return
+    setSkippedNotice(null)
+    setSyncResult(null)
+    setSyncing(true)
+    try {
+      const userId = getSession()?.user.sub || ''
+      // Must run synchronously from the click so the browser allows Google's consent popup.
+      const result = await syncPinsToGoogleCalendar(pins, { userId })
+      if (result.skippedExams.length > 0) setSkippedNotice(formatSkippedNotice(result.skippedExams))
+      setSyncResult({ kind: result.failed > 0 || result.pruneSkipped ? 'error' : 'success', message: formatSyncSummary(result) })
+    } catch (err) {
+      const code = err instanceof GoogleSyncError ? err.code : 'api'
+      setSyncResult({ kind: 'error', message: SYNC_ERROR_MESSAGES[code] })
+    } finally {
+      setSyncing(false)
+    }
   }
 
   // Close drawer on Escape key press
@@ -143,20 +210,60 @@ export default function MyScheduleDrawer() {
               </div>
 
               {/* Export Toolbar */}
-              {pins.length > 0 && (
-                <div className="border-b border-slate-100 bg-slate-50/70 px-5 py-3 flex items-center justify-between gap-3 shrink-0">
-                  <span className="text-xs text-slate-600 font-medium">
-                    ส่งออกไปยังแอปปฏิทิน
-                  </span>
+              {/* Always rendered: sync stays usable with zero pins (removing the last pin must still be syncable). */}
+              <div className="border-b border-slate-100 bg-slate-50/70 px-5 py-3 space-y-2 shrink-0">
+                <span className="block text-xs text-slate-600 font-medium">
+                  ส่งออกไปยังแอปปฏิทิน
+                </span>
+                {/* Fixed two-column grid with constant labels so buttons never reflow while syncing or when pins change. */}
+                <div className="grid grid-cols-2 gap-2">
+                  {syncEnabled && (
+                    <button
+                      type="button"
+                      onClick={handleSyncGoogle}
+                      disabled={!gisReady || syncing || loading || Boolean(error)}
+                      data-testid="sync-google-button"
+                      title="เพิ่ม/อัปเดตตารางทั้งหมดลง Google Calendar และลบรายการที่นำออกจากตารางแล้ว"
+                      className="inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs font-semibold text-slate-800 shadow-xs hover:bg-slate-50 active:bg-slate-100 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {syncing ? (
+                        <CircleNotch size={14} weight="bold" className="animate-spin" />
+                      ) : (
+                        <GoogleLogo size={14} weight="bold" />
+                      )}
+                      <span>ซิงก์ Google Calendar</span>
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={handleExportIcs}
+                    disabled={pins.length === 0}
                     data-testid="export-ics-button"
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-slate-800 active:bg-slate-950 transition-all cursor-pointer"
+                    className="col-start-2 inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-slate-900 px-2 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-slate-800 active:bg-slate-950 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <DownloadSimple size={14} weight="bold" />
                     <span>ดาวน์โหลด (.ics)</span>
                   </button>
+                </div>
+              </div>
+
+              {/* Google Calendar sync result */}
+              {syncResult && (
+                <div
+                  role={syncResult.kind === 'error' ? 'alert' : 'status'}
+                  data-testid="sync-google-result"
+                  className={`mx-5 mt-3 flex items-start gap-2 rounded-xl border p-3 text-xs shrink-0 ${
+                    syncResult.kind === 'error'
+                      ? 'border-rose-200 bg-rose-50 text-rose-800'
+                      : 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                  }`}
+                >
+                  <WarningCircle
+                    size={16}
+                    weight="fill"
+                    className={`shrink-0 mt-0.5 ${syncResult.kind === 'error' ? 'text-rose-600' : 'text-emerald-600'}`}
+                  />
+                  <p className="leading-relaxed">{syncResult.message}</p>
                 </div>
               )}
 

@@ -64,6 +64,11 @@ export function formatEventMetadata(item: PinnedSchedule, isExam: boolean): { ti
   return { title, details }
 }
 
+/** Stable per-pin identifier shared by the .ics UID and the Google Calendar iCalUID. */
+export function getEventUid(item: PinnedSchedule): string {
+  return `${item.pinKey || `${item.roomCode}#${item.scheduleSlot}`}@perimeter`
+}
+
 function escapeIcsText(text: string): string {
   return text
     .replace(/\\/g, '\\\\')
@@ -110,8 +115,7 @@ export function generateIcsContent(
 
     const startTime = formatTime(item.startTime)
     const endTime = formatTime(item.endTime)
-    const stableId = item.pinKey || `${item.roomCode}#${item.scheduleSlot}`
-    const uid = `${stableId}@perimeter`
+    const uid = getEventUid(item)
     const { title: summary, details: description } = formatEventMetadata(item, isExam)
     const location = `ห้อง ${item.roomCode}`
 
@@ -210,6 +214,57 @@ export function buildGoogleCalendarUrl(
   }
 
   return `https://calendar.google.com/calendar/render?${params.toString()}`
+}
+
+/** Private extended property stamped on every event we create, so a sync can find (and only touch) its own events. */
+export const GOOGLE_EVENT_TAG = { key: 'source', value: 'torch' } as const
+
+export interface GoogleCalendarEventBody {
+  iCalUID: string
+  summary: string
+  description: string
+  location: string
+  start: { dateTime: string; timeZone: string }
+  end: { dateTime: string; timeZone: string }
+  recurrence?: string[]
+  extendedProperties: { private: Record<string, string> }
+}
+
+function toLocalDateTime(datePart: string, time: string): string {
+  return `${datePart.slice(0, 4)}-${datePart.slice(4, 6)}-${datePart.slice(6, 8)}T${time.slice(0, 2)}:${time.slice(2, 4)}:${time.slice(4, 6)}`
+}
+
+/**
+ * Builds the Google Calendar API (events.import) body for a pinned item, mirroring the .ics output.
+ * Returns null for an unannounced exam so no date is invented.
+ */
+export function buildGoogleCalendarEvent(
+  item: PinnedSchedule,
+  options: CalendarExportOptions = {},
+): GoogleCalendarEventBody | null {
+  const isExam = item.eventType?.toLowerCase() === 'exam'
+  if (isExam && !item.eventDate) return null
+
+  const timeZone = options.timezone || TIMEZONE
+  const datePart =
+    isExam && item.eventDate
+      ? item.eventDate.replace(/-/g, '').trim()
+      : findFirstOccurrenceDate(options.semesterStart || SEMESTER_START, item.dayOfWeek)
+
+  const { title, details } = formatEventMetadata(item, isExam)
+
+  return {
+    iCalUID: getEventUid(item),
+    summary: title,
+    description: details,
+    location: `ห้อง ${item.roomCode}`,
+    start: { dateTime: toLocalDateTime(datePart, formatTime(item.startTime)), timeZone },
+    end: { dateTime: toLocalDateTime(datePart, formatTime(item.endTime)), timeZone },
+    ...(isExam
+      ? {}
+      : { recurrence: [`RRULE:FREQ=WEEKLY;UNTIL=${formatUntilDate(options.semesterEnd || SEMESTER_END)}`] }),
+    extendedProperties: { private: { [GOOGLE_EVENT_TAG.key]: GOOGLE_EVENT_TAG.value } },
+  }
 }
 
 /**
