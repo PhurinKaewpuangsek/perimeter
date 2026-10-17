@@ -1,0 +1,14 @@
+{
+  "name": "create-pin",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Lambda function to pin a schedule slot for an authenticated user in DynamoDB",
+  "main": "index.mjs",
+  "scripts": {
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.758.0",
+    "@aws-sdk/lib-dynamodb": "^3.758.0"
+  }
+}

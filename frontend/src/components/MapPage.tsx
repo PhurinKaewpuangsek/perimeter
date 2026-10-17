@@ -33,6 +33,7 @@ import TopBar from './TopBar'
 import SearchBar from './SearchBar'
 import CategoryFilter from './CategoryFilter'
 import SearchResultList from './SearchResultList'
+import PinButton from './PinButton'
 import {
   filterRooms,
   getExpandedSearchTerms,
@@ -365,19 +366,28 @@ function RoomDetailContent({
                             <span className="text-xs font-bold font-mono tracking-tight text-slate-900">
                               {slot.eventCode || '-'}
                             </span>
-                            <span className="inline-flex items-center gap-1 rounded-md bg-slate-50 border border-slate-200/70 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
-                              <Clock size={12} weight="bold" className="text-slate-400" />
-                              {slot.startTime} - {slot.endTime}
-                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <span className="inline-flex items-center gap-1 rounded-md bg-slate-50 border border-slate-200/70 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+                                <Clock size={12} weight="bold" className="text-slate-400" />
+                                {slot.startTime} - {slot.endTime}
+                              </span>
+                              <PinButton slot={slot} />
+                            </div>
                           </div>
+                          {slot.eventDate && (
+                            <div className="mt-1 flex items-center gap-1 text-[11px] font-medium text-rose-700">
+                              <Calendar size={12} weight="bold" className="text-rose-500" />
+                              <span>วันสอบ: {slot.eventDate}</span>
+                            </div>
+                          )}
+                          {!slot.eventDate && getExamDateLabel(slot) && (
+                            <p className="mt-1 text-xs font-semibold text-rose-700">
+                              {getExamDateLabel(slot)}
+                            </p>
+                          )}
                           {slot.eventName && !isCodeNameDuplicate && (
                             <p className="mt-1 text-xs text-slate-600 line-clamp-1 font-medium">
                               {slot.eventName}
-                            </p>
-                          )}
-                          {getExamDateLabel(slot) && (
-                            <p className="mt-1 text-xs font-semibold text-rose-700">
-                              {getExamDateLabel(slot)}
                             </p>
                           )}
                         </div>
