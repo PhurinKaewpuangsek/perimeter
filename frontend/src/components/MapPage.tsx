@@ -380,14 +380,14 @@ function RoomDetailContent({
                               <span>วันสอบ: {slot.eventDate}</span>
                             </div>
                           )}
+                          {!slot.eventDate && getExamDateLabel(slot) && (
+                            <p className="mt-1 text-xs font-semibold text-rose-700">
+                              {getExamDateLabel(slot)}
+                            </p>
+                          )}
                           {slot.eventName && !isCodeNameDuplicate && (
                             <p className="mt-1 text-xs text-slate-600 line-clamp-1 font-medium">
                               {slot.eventName}
-                            </p>
-                          )}
-                          {getExamDateLabel(slot) && (
-                            <p className="mt-1 text-xs font-semibold text-rose-700">
-                              {getExamDateLabel(slot)}
                             </p>
                           )}
                         </div>

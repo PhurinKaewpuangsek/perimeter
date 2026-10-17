@@ -88,7 +88,7 @@ export function generateIcsContent(
 
   const dtstamp = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z'
 
-  items.forEach((item, index) => {
+  items.forEach((item) => {
     const isExam = item.eventType?.toLowerCase() === 'exam'
 
     if (isExam && !item.eventDate) {
@@ -110,7 +110,8 @@ export function generateIcsContent(
 
     const startTime = formatTime(item.startTime)
     const endTime = formatTime(item.endTime)
-    const uid = `${item.roomCode}-${item.scheduleSlot}-${index}@perimeter`
+    const stableId = item.pinKey || `${item.roomCode}#${item.scheduleSlot}`
+    const uid = `${stableId}@perimeter`
     const { title: summary, details: description } = formatEventMetadata(item, isExam)
     const location = `ห้อง ${item.roomCode}`
 
@@ -131,12 +132,30 @@ export function generateIcsContent(
     vEvents.push(eventLines.join('\r\n'))
   })
 
+  const timezoneComponents: string[] = []
+  if (timezone === 'Asia/Bangkok') {
+    timezoneComponents.push(
+      [
+        'BEGIN:VTIMEZONE',
+        'TZID:Asia/Bangkok',
+        'BEGIN:STANDARD',
+        'DTSTART:19700101T000000',
+        'TZOFFSETFROM:+0700',
+        'TZOFFSETTO:+0700',
+        'TZNAME:ICT',
+        'END:STANDARD',
+        'END:VTIMEZONE',
+      ].join('\r\n')
+    )
+  }
+
   const header = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
     'PRODID:-//Perimeter//Smart Faculty Navigator//EN',
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
+    ...timezoneComponents,
   ].join('\r\n')
 
   const footer = 'END:VCALENDAR'

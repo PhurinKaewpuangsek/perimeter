@@ -90,7 +90,6 @@ export function createHandler({ docClient = defaultDocClient, tableName = TABLE_
         headers: CORS_HEADERS,
         body: JSON.stringify({
           error: 'Failed to delete pin',
-          message: error.message,
         }),
       };
     }

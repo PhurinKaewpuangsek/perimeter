@@ -128,6 +128,6 @@ describe('GetPinsFunction Lambda Handler', () => {
     assert.equal(response.headers['Access-Control-Allow-Origin'], '*');
     const body = JSON.parse(response.body);
     assert.match(body.error, /Failed to fetch pins/);
-    assert.equal(body.message, 'DynamoDB connection timeout');
+    assert.equal(body.message, undefined);
   });
 });

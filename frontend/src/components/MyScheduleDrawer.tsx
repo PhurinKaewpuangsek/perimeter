@@ -12,6 +12,7 @@ import {
   WarningCircle,
   GraduationCap,
   BookOpen,
+  CircleNotch,
 } from '@phosphor-icons/react'
 import { usePins } from '../hooks/usePins'
 import { getSession } from '../services/authService'
@@ -21,6 +22,23 @@ export default function MyScheduleDrawer() {
   const navigate = useNavigate()
   const { pins, removePin, isDrawerOpen, setIsDrawerOpen } = usePins()
   const [skippedNotice, setSkippedNotice] = useState<string | null>(null)
+  const [deletingKey, setDeletingKey] = useState<string | null>(null)
+  const [removeError, setRemoveError] = useState<string | null>(null)
+
+  const handleRemovePin = async (roomCode: string, scheduleSlot: string) => {
+    const key = `${roomCode}#${scheduleSlot}`
+    if (deletingKey) return
+    setDeletingKey(key)
+    setRemoveError(null)
+    try {
+      await removePin(roomCode, scheduleSlot)
+    } catch (err) {
+      console.error('Failed to remove pin:', err)
+      setRemoveError('ลบรายการไม่สำเร็จ กรุณาลองใหม่อีกครั้ง')
+    } finally {
+      setDeletingKey(null)
+    }
+  }
 
   const handleOpenClick = () => {
     const session = getSession()
@@ -158,10 +176,30 @@ export default function MyScheduleDrawer() {
 
               {/* Body: List of Pins */}
               <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3 min-h-0">
+                {removeError && (
+                  <div
+                    role="alert"
+                    className="flex items-center justify-between gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-medium text-rose-800 shrink-0"
+                  >
+                    <div className="flex items-center gap-2">
+                      <WarningCircle size={16} weight="fill" className="text-rose-600 shrink-0" />
+                      <span>{removeError}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setRemoveError(null)}
+                      aria-label="ปิดข้อความแจ้งเตือน"
+                      className="text-rose-500 hover:text-rose-700 p-0.5 cursor-pointer"
+                    >
+                      <X size={14} weight="bold" />
+                    </button>
+                  </div>
+                )}
+
               {pins.length === 0 ? (
                 <div className="flex h-full flex-col items-center justify-center text-center p-6 space-y-3">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
-                    <Calendar size={28} weight="duotone" />
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
+                    <Calendar size={24} weight="duotone" />
                   </div>
                   <div className="space-y-1 max-w-xs">
                     <p className="text-sm font-bold text-slate-700">
@@ -176,6 +214,8 @@ export default function MyScheduleDrawer() {
                 pins.map((pin) => {
                   const isExam = pin.eventType?.toLowerCase() === 'exam'
                   const gCalUrl = buildGoogleCalendarUrl(pin)
+                  const pinKey = pin.pinKey || `${pin.roomCode}#${pin.scheduleSlot}`
+                  const isDeleting = deletingKey === pinKey
 
                   return (
                     <div
@@ -219,13 +259,22 @@ export default function MyScheduleDrawer() {
                         {/* Remove pin button */}
                         <button
                           type="button"
-                          onClick={() => removePin(pin.roomCode, pin.scheduleSlot)}
+                          onClick={() => handleRemovePin(pin.roomCode, pin.scheduleSlot)}
+                          disabled={isDeleting || Boolean(deletingKey)}
                           data-testid={`remove-pin-${pin.roomCode}-${pin.scheduleSlot}`}
                           aria-label={`นำ ${pin.eventCode} ออกจากตาราง`}
                           title="นำออกจากตารางของฉัน"
-                          className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors cursor-pointer shrink-0"
+                          className={`flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors shrink-0 ${
+                            isDeleting || Boolean(deletingKey)
+                              ? 'opacity-50 cursor-not-allowed'
+                              : 'cursor-pointer'
+                          }`}
                         >
-                          <Trash size={14} weight="bold" />
+                          {isDeleting ? (
+                            <CircleNotch size={14} weight="bold" className="animate-spin text-rose-500" />
+                          ) : (
+                            <Trash size={14} weight="bold" />
+                          )}
                         </button>
                       </div>
 

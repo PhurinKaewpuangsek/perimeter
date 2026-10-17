@@ -121,7 +121,6 @@ export function createHandler({ docClient = defaultDocClient, tableName = TABLE_
         headers: CORS_HEADERS,
         body: JSON.stringify({
           error: 'Failed to pin schedule',
-          message: error.message,
         }),
       };
     }

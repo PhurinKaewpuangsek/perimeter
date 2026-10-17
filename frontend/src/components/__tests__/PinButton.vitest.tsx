@@ -112,4 +112,70 @@ describe('PinButton Component', () => {
     await user.click(button)
     expect(mockContext.togglePin).toHaveBeenCalledWith(sampleSlot)
   })
+
+  it('displays an error message with a retry hint when togglePin fails', async () => {
+    vi.spyOn(authService, 'getSession').mockReturnValue({
+      idToken: 'token',
+      accessToken: 'token',
+      expiresAt: Date.now() + 100000,
+      user: { sub: 'sub-1', email: 'test@tu.ac.th', groups: ['user'] },
+    })
+
+    const togglePinMock = vi.fn().mockRejectedValue(new Error('Network error'))
+    renderPinButton({ togglePin: togglePinMock })
+    const user = userEvent.setup()
+
+    const button = screen.getByRole('button', { name: /บันทึกในตารางของฉัน/i })
+    await user.click(button)
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(/บันทึกไม่สำเร็จ.*ลอง.*อีกครั้ง/i)
+    expect(button).toBeEnabled()
+  })
+
+  it('resyncs pin by calling addPin when already pinned slot announces a new or different eventDate', () => {
+    const addPinMock = vi.fn().mockResolvedValue(undefined)
+    const storedPinWithoutDate = {
+      userId: 'sub-1',
+      pinKey: 'LC3-105#MON#09:00#CS333',
+      roomCode: 'LC3-105',
+      scheduleSlot: 'MON#09:00#CS333',
+      eventCode: 'CS333',
+      eventName: 'Software Engineering',
+      dayOfWeek: 'MON',
+      startTime: '09:00',
+      endTime: '12:00',
+      eventType: 'exam',
+      eventDate: '',
+    }
+
+    const slotWithAnnouncedDate: ScheduleSlot = {
+      ...sampleSlot,
+      eventType: 'exam',
+      eventDate: '2026-10-21',
+    }
+
+    render(
+      <MemoryRouter>
+        <PinsContext.Provider
+          value={{
+            pins: [storedPinWithoutDate],
+            loading: false,
+            error: null,
+            isPinned: vi.fn().mockReturnValue(true),
+            togglePin: vi.fn(),
+            addPin: addPinMock,
+            removePin: vi.fn(),
+            reloadPins: vi.fn(),
+            isDrawerOpen: false,
+            setIsDrawerOpen: vi.fn(),
+          }}
+        >
+          <PinButton slot={slotWithAnnouncedDate} />
+        </PinsContext.Provider>
+      </MemoryRouter>
+    )
+
+    expect(addPinMock).toHaveBeenCalledWith(slotWithAnnouncedDate)
+  })
 })

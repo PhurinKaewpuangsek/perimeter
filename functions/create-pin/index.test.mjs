@@ -166,6 +166,8 @@ describe('CreatePinFunction Lambda Handler', () => {
 
     assert.equal(response.statusCode, 500);
     assert.equal(response.headers['Access-Control-Allow-Origin'], '*');
-    assert.match(JSON.parse(response.body).error, /Failed to pin schedule/);
+    const body = JSON.parse(response.body);
+    assert.match(body.error, /Failed to pin schedule/);
+    assert.equal(body.message, undefined);
   });
 });

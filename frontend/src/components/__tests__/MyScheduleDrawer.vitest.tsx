@@ -183,4 +183,48 @@ describe('MyScheduleDrawer Component', () => {
 
     expect(screen.getByRole('status')).toHaveTextContent(/ข้ามการสอบที่ยังไม่ระบุวันจัดสอบจริง \(CS999\)/)
   })
+
+  it('disables remove button while removal is in progress to prevent duplicate clicks', async () => {
+    let resolveRemoval: () => void = () => {}
+    const slowRemovePin = vi.fn().mockImplementation(() => new Promise<void>((resolve) => {
+      resolveRemoval = resolve
+    }))
+
+    renderDrawer({
+      isDrawerOpen: true,
+      pins: [samplePin],
+      removePin: slowRemovePin,
+    })
+    const user = userEvent.setup()
+
+    const removeBtn = screen.getByTestId('remove-pin-LC3-105-MON#09:00#CS333')
+    await user.click(removeBtn)
+
+    expect(slowRemovePin).toHaveBeenCalledTimes(1)
+    expect(removeBtn).toBeDisabled()
+
+    // Clicking while pending should not trigger another call
+    await user.click(removeBtn)
+    expect(slowRemovePin).toHaveBeenCalledTimes(1)
+
+    resolveRemoval()
+  })
+
+  it('displays visible error message when removePin rejects and re-enables button', async () => {
+    const rejectingRemovePin = vi.fn().mockRejectedValue(new Error('Delete failed'))
+
+    renderDrawer({
+      isDrawerOpen: true,
+      pins: [samplePin],
+      removePin: rejectingRemovePin,
+    })
+    const user = userEvent.setup()
+
+    const removeBtn = screen.getByTestId('remove-pin-LC3-105-MON#09:00#CS333')
+    await user.click(removeBtn)
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(/ลบรายการไม่สำเร็จ.*ลองใหม่อีกครั้ง/i)
+    expect(removeBtn).toBeEnabled()
+  })
 })

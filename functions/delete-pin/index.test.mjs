@@ -112,6 +112,8 @@ describe('DeletePinFunction Lambda Handler', () => {
 
     assert.equal(response.statusCode, 500);
     assert.equal(response.headers['Access-Control-Allow-Origin'], '*');
-    assert.match(JSON.parse(response.body).error, /Failed to delete pin/);
+    const body = JSON.parse(response.body);
+    assert.match(body.error, /Failed to delete pin/);
+    assert.equal(body.message, undefined);
   });
 });

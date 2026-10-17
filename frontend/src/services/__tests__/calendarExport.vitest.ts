@@ -116,6 +116,39 @@ describe('calendarExport service', () => {
       expect(skippedUnannouncedExams).toHaveLength(1)
       expect(skippedUnannouncedExams[0].eventCode).toBe('CS999')
     })
+
+    it('includes standard RFC 5545 VTIMEZONE component for Asia/Bangkok', () => {
+      const { ics } = generateIcsContent([sampleClass], { timezone: 'Asia/Bangkok' })
+      expect(ics).toContain('BEGIN:VTIMEZONE')
+      expect(ics).toContain('TZID:Asia/Bangkok')
+      expect(ics).toContain('BEGIN:STANDARD')
+      expect(ics).toContain('DTSTART:19700101T000000')
+      expect(ics).toContain('TZOFFSETFROM:+0700')
+      expect(ics).toContain('TZOFFSETTO:+0700')
+      expect(ics).toContain('TZNAME:ICT')
+      expect(ics).toContain('END:STANDARD')
+      expect(ics).toContain('END:VTIMEZONE')
+    })
+
+    it('generates stable UID based on pinKey independent of array index', () => {
+      // Generate with single item
+      const { ics: icsSingle } = generateIcsContent([sampleClass])
+      // Generate with another item prepended so sampleClass has index 1 instead of 0
+      const { ics: icsPreceded } = generateIcsContent([sampleAnnouncedExam, sampleClass])
+
+      expect(icsSingle).toContain('UID:LC3-105#MON#09:30#CS333@perimeter')
+      expect(icsPreceded).toContain('UID:LC3-105#MON#09:30#CS333@perimeter')
+      expect(icsSingle).not.toContain('UID:LC3-105-MON#09:30#CS333-0@perimeter')
+    })
+
+    it('falls back to roomCode#scheduleSlot for stable UID when pinKey is missing', () => {
+      const itemWithoutPinKey = {
+        ...sampleClass,
+        pinKey: undefined as unknown as string,
+      }
+      const { ics } = generateIcsContent([itemWithoutPinKey])
+      expect(ics).toContain('UID:LC3-105#MON#09:30#CS333@perimeter')
+    })
   })
 
   describe('buildGoogleCalendarUrl', () => {
