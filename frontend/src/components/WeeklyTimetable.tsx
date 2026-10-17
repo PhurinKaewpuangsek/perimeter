@@ -53,6 +53,7 @@ function useIsWideScreen(): boolean {
   return isWide
 }
 
+/** Full description of one entry for screen readers and tooltips (code, name, day, time, exam date). */
 function entryLabel(item: PlacedSlot): string {
   const examDate = getExamDateLabel(item.slot)
   return [
@@ -66,6 +67,7 @@ function entryLabel(item: PlacedSlot): string {
     .join(' · ')
 }
 
+/** Tailwind colours for an entry: rose for exams, violet for classes. */
 function entryColors(slot: ScheduleSlot): string {
   return isExamSchedule(slot)
     ? 'bg-rose-50 border-rose-300 text-rose-900'
@@ -83,6 +85,7 @@ function entryStyle(item: PlacedSlot, startMinute: number, pxPerMinute: number) 
   }
 }
 
+/** Faint horizontal line at every whole hour, behind the entries. */
 function HourLines({ startMinute, endMinute, pxPerMinute }: { startMinute: number; endMinute: number; pxPerMinute: number }) {
   const hours: number[] = []
   for (let m = startMinute; m <= endMinute; m += 60) hours.push(m)
@@ -100,6 +103,7 @@ function HourLines({ startMinute, endMinute, pxPerMinute }: { startMinute: numbe
   )
 }
 
+/** Hour labels down the left edge of the grid. */
 function TimeGutter({ startMinute, endMinute, pxPerMinute }: { startMinute: number; endMinute: number; pxPerMinute: number }) {
   const hours: number[] = []
   for (let m = startMinute; m < endMinute; m += 60) hours.push(m)
@@ -187,6 +191,7 @@ function GridView({ slots, renderActions }: Pick<WeeklyTimetableProps, 'slots' |
   )
 }
 
+/** Details of one entry (code, name, day, time, exam date) with its actions. */
 function EntryCard({ item, renderActions }: { item: PlacedSlot; renderActions?: WeeklyTimetableProps['renderActions'] }) {
   const examDate = getExamDateLabel(item.slot)
   return (

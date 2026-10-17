@@ -83,6 +83,7 @@ function assignLanes(entries: Omit<PlacedSlot, 'lane' | 'laneCount'>[]): PlacedS
   let groupEnd = -1
   let laneEnds: number[] = []
 
+  /** Ends the current overlap group: every entry in it gets the group's lane count. */
   const closeGroup = () => {
     const laneCount = Math.max(1, laneEnds.length)
     for (const item of group) item.laneCount = laneCount
