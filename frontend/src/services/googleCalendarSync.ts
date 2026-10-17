@@ -172,6 +172,13 @@ async function listTaggedEvents(token: string, torchUser: string): Promise<{ id:
   return events
 }
 
+/** events.patch must not resend the immutable iCalUID. */
+function patchBody(body: GoogleCalendarEventBody): Omit<GoogleCalendarEventBody, 'iCalUID'> {
+  const copy: Partial<GoogleCalendarEventBody> = { ...body }
+  delete copy.iCalUID
+  return copy as Omit<GoogleCalendarEventBody, 'iCalUID'>
+}
+
 /**
  * Imports an event. A previously deleted event keeps its iCalUID as a cancelled entry, so a re-pin makes
  * import answer 409; in that case revive the cancelled event instead.
@@ -185,7 +192,7 @@ async function importEvent(token: string, body: GoogleCalendarEventBody): Promis
   )
   const found = lookup.ok ? ((await lookup.json()) as { items?: { id: string }[] }).items?.[0] : undefined
   if (!found) return res
-  const { iCalUID: _iCalUID, ...updateBody } = body
+  const updateBody = patchBody(body)
   return calendarFetch(token, `${EVENTS_URL}/${encodeURIComponent(found.id)}`, {
     method: 'PATCH',
     body: JSON.stringify({ ...updateBody, status: 'confirmed' }),
@@ -264,10 +271,9 @@ export async function syncPinsToGoogleCalendar(
     const existingId = currentByUid.get(body.iCalUID)
     const ok = existingId
       ? await attempt(() => {
-          const { iCalUID: _iCalUID, ...updateBody } = body
           return calendarFetch(token, `${EVENTS_URL}/${encodeURIComponent(existingId)}`, {
             method: 'PATCH',
-            body: JSON.stringify(updateBody),
+            body: JSON.stringify(patchBody(body)),
           })
         })
       : await attempt(() => importEvent(token, body))

@@ -158,7 +158,7 @@ describe('googleCalendarSync service', () => {
 
   it('revives a cancelled event when import answers 409 after a re-pin', async () => {
     installGis(grant)
-    const fetchMock = mockFetch((method, url, init) => {
+    const fetchMock = mockFetch((method, url) => {
       if (url.endsWith('/import')) return json({}, 409)
       if (method === 'GET') return url.includes('showDeleted=true') ? json({ items: [{ id: 'gone-1' }] }) : json({ items: [] })
       return json({ id: 'gone-1' })
