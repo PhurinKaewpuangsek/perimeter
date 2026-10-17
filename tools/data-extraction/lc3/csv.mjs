@@ -77,3 +77,11 @@ export function parseCsv(text) {
       return Object.fromEntries(headers.map((header, i) => [header, values[i]]))
     })
 }
+
+/** Adds DynamoDB's schedule sort key and omits an unannounced event date. */
+export function normalizeScheduleRecord(record) {
+  const normalized = { ...record };
+  if (!normalized.event_date) delete normalized.event_date;
+  normalized.schedule_slot = `${normalized.day_of_week}#${normalized.start_time}#${normalized.event_code}`;
+  return normalized;
+}

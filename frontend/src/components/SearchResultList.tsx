@@ -1,5 +1,6 @@
 import type { Room } from '../types/room.ts'
 import type { ScheduleSlot } from '../types/schedule.ts'
+import { getExamDateLabel, isExamSchedule } from '../services/scheduleDisplay.ts'
 
 interface SearchResultListProps {
   rooms: Room[]
@@ -116,7 +117,9 @@ export default function SearchResultList({
                       className="text-xs text-slate-500"
                     >
                       {schedule.eventCode} · {schedule.eventName || 'ไม่มีชื่อวิชา'} ·{' '}
-                      {schedule.dayOfWeek} {schedule.startTime}-{schedule.endTime} · {room.code}
+                      {schedule.dayOfWeek} {schedule.startTime}-{schedule.endTime}
+                      {getExamDateLabel(schedule) && ` · ${getExamDateLabel(schedule)}`}
+                      {' · '}{room.code}
                     </span>
                   ))}
               </button>
@@ -202,7 +205,7 @@ export default function SearchResultList({
                             <span className="font-bold font-mono text-slate-900 text-[11px]">
                               {schedule.eventCode}
                             </span>
-                            {schedule.eventType.toLowerCase() === 'exam' && (
+                            {isExamSchedule(schedule) && (
                               <span className="rounded bg-rose-100 px-1 py-0.2 text-[9px] font-bold text-rose-700">
                                 สอบ
                               </span>
@@ -213,8 +216,15 @@ export default function SearchResultList({
                               </span>
                             )}
                           </div>
-                          <span className="shrink-0 text-[10px] font-semibold text-slate-500 font-mono">
-                            {dayTh} {schedule.startTime}-{schedule.endTime}
+                          <span className="shrink-0 text-right text-[10px] font-semibold text-slate-500 font-mono">
+                            <span className="block">
+                              {dayTh} {schedule.startTime}-{schedule.endTime}
+                            </span>
+                            {getExamDateLabel(schedule) && (
+                              <span className="block text-rose-700">
+                                {getExamDateLabel(schedule)}
+                              </span>
+                            )}
                           </span>
                         </div>
                       )

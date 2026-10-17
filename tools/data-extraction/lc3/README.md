@@ -22,9 +22,15 @@ This directory is **data and assets only**. It contains no SQL, no importer, and
 ```bash
 node tools/data-extraction/extract-lc3.mjs                  # regenerate seed + inventory + survey template
 node tools/data-extraction/extract-lc3.mjs --verify-assets  # also re-check SHA-256 and viewBox
-node --test tools/data-extraction/validate-lc3-seed.mjs     # 22 checks over the generated dataset
+node --test tools/data-extraction/validate-lc3-seed.mjs     # validate the generated location and schedule data
+npm --prefix tools/data-extraction test                     # also test conditional seed writes
 node tools/data-extraction/preview-lc3-overlay.mjs          # write pin-baked QA SVGs to reports/qa/
 ```
+
+Schedule exam rows carry `event_date` as `YYYY-MM-DD`; class rows leave it empty.
+The DynamoDB seeder conditionally writes only items without `updatedBy`, preserving
+administrator-edited records. Its `--dry-run` scans the selected table read-only to
+report how many seed records would be written or skipped.
 
 Everything under "Generated" above comes out of `extract-lc3.mjs`. **Never hand-edit them** —
 the next run overwrites your change. Corrections belong in the generator or in the survey results.
