@@ -5,6 +5,7 @@ import {
   type GoogleCalendarEventBody,
 } from './calendarExport'
 import type { PinnedSchedule } from '../types/pin'
+import { getSession } from './authService'
 
 /**
  * One-click Google Calendar sync using the Google Identity Services token flow.
@@ -17,6 +18,7 @@ const GIS_SRC = 'https://accounts.google.com/gsi/client'
 const EVENTS_URL = 'https://www.googleapis.com/calendar/v3/calendars/primary/events'
 // Refresh slightly early so a token never expires mid-sync.
 const EXPIRY_MARGIN_MS = 60_000
+const TORCH_USER_KEY = 'torchUser'
 
 interface GisTokenResponse {
   access_token?: string
@@ -72,7 +74,8 @@ export interface SyncSummary {
   pruneSkipped: boolean
 }
 
-let cachedToken: { value: string; expiresAt: number } | null = null
+// Bound to the TORCH user so a token granted to one account is never reused for another.
+let cachedToken: { value: string; expiresAt: number; torchUser: string } | null = null
 let scriptPromise: Promise<void> | null = null
 
 // Read at call time (not module load) so the button hides cleanly when the client ID is unset.
@@ -105,8 +108,8 @@ export function loadGisScript(): Promise<void> {
 }
 
 /** Must be called synchronously from a click handler, otherwise the browser blocks the consent popup. */
-function requestAccessToken(): Promise<string> {
-  if (cachedToken && cachedToken.expiresAt - EXPIRY_MARGIN_MS > Date.now()) {
+function requestAccessToken(torchUser: string): Promise<string> {
+  if (cachedToken && cachedToken.torchUser === torchUser && cachedToken.expiresAt - EXPIRY_MARGIN_MS > Date.now()) {
     return Promise.resolve(cachedToken.value)
   }
   const clientId = getClientId()
@@ -126,6 +129,7 @@ function requestAccessToken(): Promise<string> {
         cachedToken = {
           value: response.access_token,
           expiresAt: Date.now() + Number(response.expires_in ?? 3600) * 1000,
+          torchUser,
         }
         resolve(response.access_token)
       },
@@ -149,14 +153,14 @@ async function calendarFetch(token: string, url: string, init: RequestInit = {})
   return res
 }
 
-async function listTaggedEvents(token: string): Promise<{ id: string; iCalUID: string }[]> {
+async function listTaggedEvents(token: string, torchUser: string): Promise<{ id: string; iCalUID: string }[]> {
   const events: { id: string; iCalUID: string }[] = []
   let pageToken: string | undefined
   do {
-    const params = new URLSearchParams({
-      privateExtendedProperty: `${GOOGLE_EVENT_TAG.key}=${GOOGLE_EVENT_TAG.value}`,
-      maxResults: '250',
-    })
+    // Repeated privateExtendedProperty params are ANDed: only this app's events for this TORCH user.
+    const params = new URLSearchParams({ maxResults: '250' })
+    params.append('privateExtendedProperty', `${GOOGLE_EVENT_TAG.key}=${GOOGLE_EVENT_TAG.value}`)
+    params.append('privateExtendedProperty', `${TORCH_USER_KEY}=${torchUser}`)
     if (pageToken) params.set('pageToken', pageToken)
     const res = await calendarFetch(token, `${EVENTS_URL}?${params.toString()}`)
     if (!res.ok) throw new GoogleSyncError('api')
@@ -187,14 +191,22 @@ export async function syncPinsToGoogleCalendar(
   pins: PinnedSchedule[],
   options: CalendarExportOptions = {},
 ): Promise<SyncSummary> {
-  const tokenPromise = requestAccessToken()
+  const torchUser = getSession()?.user.sub
+  if (!torchUser) throw new GoogleSyncError('auth_expired')
+  const tokenPromise = requestAccessToken(torchUser)
 
   const events: GoogleCalendarEventBody[] = []
   const skippedExams: PinnedSchedule[] = []
   for (const pin of pins) {
     const body = buildGoogleCalendarEvent(pin, options)
-    if (body) events.push(body)
-    else skippedExams.push(pin)
+    if (body) {
+      events.push({
+        ...body,
+        extendedProperties: { private: { ...body.extendedProperties.private, [TORCH_USER_KEY]: torchUser } },
+      })
+    } else {
+      skippedExams.push(pin)
+    }
   }
 
   const token = await tokenPromise
@@ -210,7 +222,7 @@ export async function syncPinsToGoogleCalendar(
 
   let existing: { id: string; iCalUID: string }[] = []
   try {
-    existing = await listTaggedEvents(token)
+    existing = await listTaggedEvents(token, torchUser)
   } catch (err) {
     if (err instanceof GoogleSyncError && err.code === 'auth_expired') throw err
     summary.pruneSkipped = true

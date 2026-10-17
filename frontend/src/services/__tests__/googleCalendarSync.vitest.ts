@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { PinnedSchedule } from '../../types/pin'
 
+const session = vi.hoisted(() => ({ sub: 'sub-1' }))
+vi.mock('../authService', () => ({ getSession: () => ({ user: { sub: session.sub } }) }))
+
 type SyncModule = typeof import('../googleCalendarSync')
 
 const EVENTS_URL = 'https://www.googleapis.com/calendar/v3/calendars/primary/events'
@@ -99,10 +102,12 @@ describe('googleCalendarSync service', () => {
     expect((firstInit?.headers as Record<string, string>).Authorization).toBe('Bearer tok-1')
     const body = JSON.parse(firstInit?.body as string)
     expect(body.iCalUID).toBe('LC3-105#MON#09:30#CS333@perimeter')
-    expect(body.extendedProperties.private).toEqual({ source: 'torch' })
+    expect(body.extendedProperties.private).toEqual({ source: 'torch', torchUser: 'sub-1' })
 
     const listCall = fetchMock.mock.calls.find(([url]) => url.includes('privateExtendedProperty'))
-    expect(decodeURIComponent(listCall![0])).toContain('privateExtendedProperty=source=torch')
+    const listUrl = decodeURIComponent(listCall![0])
+    expect(listUrl).toContain('privateExtendedProperty=source=torch')
+    expect(listUrl).toContain('privateExtendedProperty=torchUser=sub-1')
   })
 
   it('deletes tagged events whose pin was removed and keeps the ones still pinned', async () => {
@@ -204,6 +209,20 @@ describe('googleCalendarSync service', () => {
     await sync.syncPinsToGoogleCalendar([classPin])
 
     expect(initTokenClient).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not reuse a token or prune events when a different TORCH user syncs in the same tab', async () => {
+    const initTokenClient = installGis(grant)
+    const fetchMock = mockFetch((method) => (method === 'GET' ? json({ items: [] }) : json({ id: 'g1' })))
+
+    await sync.syncPinsToGoogleCalendar([classPin])
+    session.sub = 'sub-2'
+    await sync.syncPinsToGoogleCalendar([])
+
+    expect(initTokenClient).toHaveBeenCalledTimes(2)
+    const listUrls = fetchMock.mock.calls.map(([url]) => decodeURIComponent(url)).filter((u) => u.includes('privateExtendedProperty'))
+    expect(listUrls.at(-1)).toContain('privateExtendedProperty=torchUser=sub-2')
+    session.sub = 'sub-1'
   })
 
   it('follows list pagination so no tagged event is missed', async () => {
