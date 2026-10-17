@@ -1,12 +1,20 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import MyScheduleDrawer from '../MyScheduleDrawer'
 import { PinsContext, type PinsContextType } from '../../hooks/usePins'
 import * as authService from '../../services/authService'
 import * as calendarExport from '../../services/calendarExport'
+import * as googleSync from '../../services/googleCalendarSync'
 import type { PinnedSchedule } from '../../types/pin'
+
+vi.mock('../../services/googleCalendarSync', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../services/googleCalendarSync')>()),
+  isGoogleSyncConfigured: vi.fn(() => false),
+  loadGisScript: vi.fn(() => Promise.resolve()),
+  syncPinsToGoogleCalendar: vi.fn(),
+}))
 
 const mockedNavigate = vi.fn()
 vi.mock('react-router-dom', async () => {
@@ -226,5 +234,123 @@ describe('MyScheduleDrawer Component', () => {
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent(/ลบรายการไม่สำเร็จ.*ลองใหม่อีกครั้ง/i)
     expect(removeBtn).toBeEnabled()
+  })
+
+  describe('Google Calendar sync', () => {
+    const summary: googleSync.SyncSummary = {
+      upserted: 2,
+      deleted: 1,
+      failed: 0,
+      skippedExams: [],
+      pruneSkipped: false,
+    }
+
+    beforeEach(() => {
+      vi.mocked(googleSync.isGoogleSyncConfigured).mockReturnValue(true)
+      vi.mocked(googleSync.loadGisScript).mockResolvedValue(undefined)
+      vi.mocked(googleSync.syncPinsToGoogleCalendar).mockReset()
+    })
+
+    it('hides the sync button when no Google client ID is configured', () => {
+      vi.mocked(googleSync.isGoogleSyncConfigured).mockReturnValue(false)
+      renderDrawer({ isDrawerOpen: true, pins: [samplePin] })
+
+      expect(screen.queryByTestId('sync-google-button')).not.toBeInTheDocument()
+      expect(screen.getByTestId('export-ics-button')).toBeInTheDocument()
+    })
+
+    it('keeps sync available with no pins (so removing the last pin can be synced) and disables .ics', async () => {
+      vi.mocked(googleSync.syncPinsToGoogleCalendar).mockResolvedValue({ ...summary, upserted: 0, deleted: 1 })
+      renderDrawer({ isDrawerOpen: true, pins: [] })
+      const user = userEvent.setup()
+
+      expect(screen.getByTestId('export-ics-button')).toBeDisabled()
+      const syncBtn = screen.getByTestId('sync-google-button')
+      await waitFor(() => expect(syncBtn).toBeEnabled())
+      await user.click(syncBtn)
+
+      expect(googleSync.syncPinsToGoogleCalendar).toHaveBeenCalledWith([])
+      expect(await screen.findByTestId('sync-google-result')).toHaveTextContent('เพิ่ม/อัปเดต 0 ลบ 1')
+    })
+
+    it('syncs the pins on click and shows the add/update/delete summary', async () => {
+      vi.mocked(googleSync.syncPinsToGoogleCalendar).mockResolvedValue(summary)
+      renderDrawer({ isDrawerOpen: true, pins: [samplePin, sampleExamPin] })
+      const user = userEvent.setup()
+
+      const syncBtn = screen.getByTestId('sync-google-button')
+      await waitFor(() => expect(syncBtn).toBeEnabled())
+      await user.click(syncBtn)
+
+      expect(googleSync.syncPinsToGoogleCalendar).toHaveBeenCalledWith([samplePin, sampleExamPin])
+      expect(await screen.findByTestId('sync-google-result')).toHaveTextContent('เพิ่ม/อัปเดต 2 ลบ 1')
+    })
+
+    it('reports failed items as an error so the user can retry', async () => {
+      vi.mocked(googleSync.syncPinsToGoogleCalendar).mockResolvedValue({ ...summary, failed: 2 })
+      renderDrawer({ isDrawerOpen: true, pins: [samplePin] })
+      const user = userEvent.setup()
+
+      const syncBtn = screen.getByTestId('sync-google-button')
+      await waitFor(() => expect(syncBtn).toBeEnabled())
+      await user.click(syncBtn)
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(/ล้มเหลว 2/)
+    })
+
+    it('shows the skipped-exam notice for unannounced exams', async () => {
+      const unannounced = { ...sampleExamPin, pinKey: 'x', eventCode: 'CS999', eventDate: undefined }
+      vi.mocked(googleSync.syncPinsToGoogleCalendar).mockResolvedValue({ ...summary, skippedExams: [unannounced] })
+      renderDrawer({ isDrawerOpen: true, pins: [unannounced] })
+      const user = userEvent.setup()
+
+      const syncBtn = screen.getByTestId('sync-google-button')
+      await waitFor(() => expect(syncBtn).toBeEnabled())
+      await user.click(syncBtn)
+
+      expect(await screen.findByText(/ข้ามการสอบที่ยังไม่ระบุวันจัดสอบจริง \(CS999\)/)).toBeInTheDocument()
+    })
+
+    it('keeps the app usable and explains when the user denies consent', async () => {
+      vi.mocked(googleSync.syncPinsToGoogleCalendar).mockRejectedValue(new googleSync.GoogleSyncError('denied'))
+      renderDrawer({ isDrawerOpen: true, pins: [samplePin] })
+      const user = userEvent.setup()
+
+      const syncBtn = screen.getByTestId('sync-google-button')
+      await waitFor(() => expect(syncBtn).toBeEnabled())
+      await user.click(syncBtn)
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(/ไม่ได้รับอนุญาตจาก Google/)
+      expect(syncBtn).toBeEnabled()
+      expect(screen.getByTestId('export-ics-button')).toBeEnabled()
+    })
+
+    it('disables the button while the sync is running', async () => {
+      let finish: (value: googleSync.SyncSummary) => void = () => {}
+      vi.mocked(googleSync.syncPinsToGoogleCalendar).mockReturnValue(new Promise((resolve) => (finish = resolve)))
+      renderDrawer({ isDrawerOpen: true, pins: [samplePin] })
+      const user = userEvent.setup()
+
+      const syncBtn = screen.getByTestId('sync-google-button')
+      await waitFor(() => expect(syncBtn).toBeEnabled())
+      await user.click(syncBtn)
+
+      expect(syncBtn).toBeDisabled()
+      finish(summary)
+      await waitFor(() => expect(syncBtn).toBeEnabled())
+    })
+
+    // A failed/in-flight pins fetch leaves `pins` stale or empty; syncing then could delete synced events.
+    it('disables sync while pins are loading', async () => {
+      renderDrawer({ isDrawerOpen: true, pins: [samplePin], loading: true })
+      await waitFor(() => expect(googleSync.loadGisScript).toHaveBeenCalled())
+      expect(screen.getByTestId('sync-google-button')).toBeDisabled()
+    })
+
+    it('disables sync when pins failed to load', async () => {
+      renderDrawer({ isDrawerOpen: true, pins: [samplePin], error: new Error('fetch failed') })
+      await waitFor(() => expect(googleSync.loadGisScript).toHaveBeenCalled())
+      expect(screen.getByTestId('sync-google-button')).toBeDisabled()
+    })
   })
 })

@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest'
 import {
   generateIcsContent,
   buildGoogleCalendarUrl,
+  buildGoogleCalendarEvent,
+  getEventUid,
 } from '../calendarExport'
 import type { PinnedSchedule } from '../../types/pin'
 
@@ -182,6 +184,38 @@ describe('calendarExport service', () => {
     it('returns null for unannounced exams to prevent inventing fake calendar dates', () => {
       const url = buildGoogleCalendarUrl(sampleUnannouncedExam)
       expect(url).toBeNull()
+    })
+  })
+
+  describe('buildGoogleCalendarEvent', () => {
+    const options = { semesterStart: '2026-08-10', semesterEnd: '2026-12-18', timezone: 'Asia/Bangkok' }
+
+    it('builds a weekly recurring class event keyed by the same UID as the .ics', () => {
+      const body = buildGoogleCalendarEvent(sampleClass, options)
+
+      expect(body).toEqual({
+        iCalUID: 'LC3-105#MON#09:30#CS333@perimeter',
+        summary: 'CS333 - Software Engineering (LC3-105)',
+        description: expect.stringContaining('CS333'),
+        location: 'ห้อง LC3-105',
+        start: { dateTime: '2026-08-10T09:30:00', timeZone: 'Asia/Bangkok' },
+        end: { dateTime: '2026-08-10T12:30:00', timeZone: 'Asia/Bangkok' },
+        recurrence: ['RRULE:FREQ=WEEKLY;UNTIL=20261218T235959Z'],
+        extendedProperties: { private: { source: 'torch' } },
+      })
+      expect(body?.iCalUID).toBe(getEventUid(sampleClass))
+    })
+
+    it('builds a one-off exam event on its eventDate without recurrence', () => {
+      const body = buildGoogleCalendarEvent(sampleAnnouncedExam, options)
+
+      expect(body?.start.dateTime).toBe('2026-10-21T13:30:00')
+      expect(body?.end.dateTime).toBe('2026-10-21T16:30:00')
+      expect(body).not.toHaveProperty('recurrence')
+    })
+
+    it('returns null for an unannounced exam instead of inventing a date', () => {
+      expect(buildGoogleCalendarEvent(sampleUnannouncedExam, options)).toBeNull()
     })
   })
 })

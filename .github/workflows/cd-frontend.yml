@@ -56,6 +56,7 @@ jobs:
           VITE_API_BASE_URL: ${{ env.VITE_API_BASE_URL }}
           VITE_COGNITO_USER_POOL_ID: ${{ env.VITE_COGNITO_USER_POOL_ID }}
           VITE_COGNITO_CLIENT_ID: ${{ env.VITE_COGNITO_CLIENT_ID }}
+          VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
         run: npm run build
 
       - name: Sync to S3
