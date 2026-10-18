@@ -1,5 +1,5 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, ScanCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, QueryCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
 
 const client = new DynamoDBClient({});
 const defaultDocClient = DynamoDBDocumentClient.from(client);
@@ -35,11 +35,38 @@ async function scanAllSchedules(docClient, tableName) {
   return records;
 }
 
+/** Reads every schedule for one room by its partition key. */
+async function queryRoomSchedules(docClient, tableName, roomCode) {
+  const records = [];
+  let exclusiveStartKey;
+
+  do {
+    const page = await docClient.send(
+      new QueryCommand({
+        TableName: tableName,
+        KeyConditionExpression: 'room_code = :roomCode',
+        ExpressionAttributeValues: { ':roomCode': roomCode },
+        ...(exclusiveStartKey ? { ExclusiveStartKey: exclusiveStartKey } : {}),
+      })
+    );
+
+    if (Array.isArray(page.Items)) {
+      records.push(...page.Items);
+    }
+    exclusiveStartKey = page.LastEvaluatedKey;
+  } while (exclusiveStartKey);
+
+  return records;
+}
+
 /** Builds the Lambda handler around an injectable document client, for unit testing. */
 export function createHandler({ docClient = defaultDocClient, tableName = TABLE_NAME } = {}) {
-  return async function getSchedules() {
+  return async function getSchedules(event = {}) {
     try {
-      const records = await scanAllSchedules(docClient, tableName);
+      const roomCode = event.queryStringParameters?.room_code?.trim();
+      const records = roomCode
+        ? await queryRoomSchedules(docClient, tableName, roomCode)
+        : await scanAllSchedules(docClient, tableName);
 
       return {
         statusCode: 200,
@@ -47,7 +74,7 @@ export function createHandler({ docClient = defaultDocClient, tableName = TABLE_
         body: JSON.stringify({ count: records.length, records }),
       };
     } catch (error) {
-      console.error('Error scanning schedules:', error);
+      console.error('Error fetching schedules:', error);
       return {
         statusCode: 500,
         headers: CORS_HEADERS,
@@ -61,7 +88,8 @@ export function createHandler({ docClient = defaultDocClient, tableName = TABLE_
 }
 
 /**
- * Lambda handler for reading every class/exam schedule slot from DynamoDB.
+ * Lambda handler for reading class/exam schedule slots from DynamoDB.
+ * A room_code query parameter reads only that room; without it, all records are returned.
  * Path: GET /api/schedules
  */
 export const handler = createHandler();

@@ -113,6 +113,25 @@ describe('schedulesService - Data Access Layer', () => {
       }
     })
 
+    it('sends the selected room as the room_code query parameter', async () => {
+      const originalFetch = globalThis.fetch
+      try {
+        globalThis.fetch = async (input: RequestInfo | URL) => {
+          assert.strictEqual(String(input), `${SCHEDULES_ENDPOINT}?room_code=LC3-103%2F1`)
+          return {
+            ok: true,
+            status: 200,
+            statusText: 'OK',
+            json: async () => API_RESPONSE,
+          } as Response
+        }
+
+        await getSchedules({ roomCode: 'LC3-103/1' })
+      } finally {
+        globalThis.fetch = originalFetch
+      }
+    })
+
     it('throws when the HTTP response is not successful', async () => {
       const originalFetch = globalThis.fetch
       try {

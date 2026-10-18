@@ -16,7 +16,7 @@ import {
   X,
   MapPin,
   Calendar,
-  Clock,
+  CalendarPlus,
   ArrowCounterClockwise,
   BookOpen,
   GraduationCap,
@@ -34,6 +34,7 @@ import SearchBar from './SearchBar'
 import CategoryFilter from './CategoryFilter'
 import SearchResultList from './SearchResultList'
 import PinButton from './PinButton'
+import WeeklyTimetable from './WeeklyTimetable'
 import {
   filterRooms,
   getExpandedSearchTerms,
@@ -47,9 +48,13 @@ import {
   getCategoryColor,
 } from '../services/roomDisplay'
 import { getCategoryIcon } from './categoryIcon'
-import { getExamDateLabel, isExamSchedule } from '../services/scheduleDisplay'
+import { buildGoogleCalendarUrl } from '../services/calendarExport'
+import { computeScheduleSlot } from '../hooks/usePins'
+import { isExamSchedule } from '../services/scheduleDisplay'
+import { useRoomSchedules } from '../hooks/useRoomSchedules'
 import type { Room } from '../types/room'
 import type { ScheduleSlot } from '../types/schedule'
+import type { PinnedSchedule } from '../types/pin'
 
 const FLOOR_PLAN_ASSETS = FLOOR_CONFIGS.map((config) => config.asset)
 
@@ -80,46 +85,6 @@ function useIsDesktop(): boolean {
   return isDesktop
 }
 
-interface DayConfig {
-  order: number
-  th: string
-  shortTh: string
-  color: string
-  dotColor: string
-  bgLight: string
-}
-
-const DAY_CONFIG: Record<string, DayConfig> = {
-  MON: { order: 1, th: 'วันจันทร์', shortTh: 'จันทร์', color: 'text-amber-800', dotColor: 'bg-amber-500', bgLight: 'bg-amber-50 border-amber-200' },
-  MONDAY: { order: 1, th: 'วันจันทร์', shortTh: 'จันทร์', color: 'text-amber-800', dotColor: 'bg-amber-500', bgLight: 'bg-amber-50 border-amber-200' },
-  TUE: { order: 2, th: 'วันอังคาร', shortTh: 'อังคาร', color: 'text-pink-800', dotColor: 'bg-pink-500', bgLight: 'bg-pink-50 border-pink-200' },
-  TUESDAY: { order: 2, th: 'วันอังคาร', shortTh: 'อังคาร', color: 'text-pink-800', dotColor: 'bg-pink-500', bgLight: 'bg-pink-50 border-pink-200' },
-  WED: { order: 3, th: 'วันพุธ', shortTh: 'พุธ', color: 'text-emerald-800', dotColor: 'bg-emerald-500', bgLight: 'bg-emerald-50 border-emerald-200' },
-  WEDNESDAY: { order: 3, th: 'วันพุธ', shortTh: 'พุธ', color: 'text-emerald-800', dotColor: 'bg-emerald-500', bgLight: 'bg-emerald-50 border-emerald-200' },
-  THU: { order: 4, th: 'วันพฤหัสบดี', shortTh: 'พฤหัสฯ', color: 'text-orange-800', dotColor: 'bg-orange-500', bgLight: 'bg-orange-50 border-orange-200' },
-  THURSDAY: { order: 4, th: 'วันพฤหัสบดี', shortTh: 'พฤหัสฯ', color: 'text-orange-800', dotColor: 'bg-orange-500', bgLight: 'bg-orange-50 border-orange-200' },
-  FRI: { order: 5, th: 'วันศุกร์', shortTh: 'ศุกร์', color: 'text-sky-800', dotColor: 'bg-sky-500', bgLight: 'bg-sky-50 border-sky-200' },
-  FRIDAY: { order: 5, th: 'วันศุกร์', shortTh: 'ศุกร์', color: 'text-sky-800', dotColor: 'bg-sky-500', bgLight: 'bg-sky-50 border-sky-200' },
-  SAT: { order: 6, th: 'วันเสาร์', shortTh: 'เสาร์', color: 'text-purple-800', dotColor: 'bg-purple-500', bgLight: 'bg-purple-50 border-purple-200' },
-  SATURDAY: { order: 6, th: 'วันเสาร์', shortTh: 'เสาร์', color: 'text-purple-800', dotColor: 'bg-purple-500', bgLight: 'bg-purple-50 border-purple-200' },
-  SUN: { order: 7, th: 'วันอาทิตย์', shortTh: 'อาทิตย์', color: 'text-rose-800', dotColor: 'bg-rose-500', bgLight: 'bg-rose-50 border-rose-200' },
-  SUNDAY: { order: 7, th: 'วันอาทิตย์', shortTh: 'อาทิตย์', color: 'text-rose-800', dotColor: 'bg-rose-500', bgLight: 'bg-rose-50 border-rose-200' },
-}
-
-function getDayInfo(rawDay: string): DayConfig {
-  const upper = (rawDay || '').toUpperCase().trim()
-  return (
-    DAY_CONFIG[upper] ?? {
-      order: 99,
-      th: rawDay || 'ไม่ระบุวัน',
-      shortTh: rawDay || 'ไม่ระบุ',
-      color: 'text-slate-800',
-      dotColor: 'bg-slate-400',
-      bgLight: 'bg-slate-50 border-slate-200',
-    }
-  )
-}
-
 function RoomCategoryBadge({ category, nameThai }: { category: string; nameThai?: string }) {
   const color = getCategoryColor(category)
   const Icon = getCategoryIcon(category, nameThai)
@@ -138,13 +103,11 @@ interface RoomDetailContentProps {
   onClose: () => void
   activeScheduleTab: 'class' | 'exam'
   setActiveScheduleTab: (tab: 'class' | 'exam') => void
-  selectedDayFilter: string
-  setSelectedDayFilter: (day: string) => void
   classSchedules: ScheduleSlot[]
   examSchedules: ScheduleSlot[]
-  groupedSchedules: [string, ScheduleSlot[]][]
-  displayedGroupedSchedules: [string, ScheduleSlot[]][]
-  activeSchedules: ScheduleSlot[]
+  schedulesLoading: boolean
+  schedulesError: Error | null
+  reloadSchedules: () => void
 }
 
 function RoomDetailContent({
@@ -152,14 +115,51 @@ function RoomDetailContent({
   onClose,
   activeScheduleTab,
   setActiveScheduleTab,
-  selectedDayFilter,
-  setSelectedDayFilter,
   classSchedules,
   examSchedules,
-  groupedSchedules,
-  displayedGroupedSchedules,
-  activeSchedules,
+  schedulesLoading,
+  schedulesError,
+  reloadSchedules,
 }: RoomDetailContentProps) {
+  const activeSchedules = activeScheduleTab === 'class' ? classSchedules : examSchedules
+
+  const renderScheduleActions = (slot: ScheduleSlot) => {
+    const scheduleSlot = computeScheduleSlot(slot)
+    const calendarSlot: PinnedSchedule = {
+      ...slot,
+      userId: '',
+      scheduleSlot,
+      pinKey: `${slot.roomCode}#${scheduleSlot}`,
+    }
+    const calendarUrl = buildGoogleCalendarUrl(calendarSlot)
+
+    return (
+      <>
+        <PinButton slot={slot} showLabel />
+        {calendarUrl ? (
+          <a
+            href={calendarUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={`เพิ่ม ${slot.eventCode} ลง Google Calendar`}
+            title="เพิ่มลง Google Calendar"
+            className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-slate-100 px-2 py-1 text-slate-600 transition-colors hover:bg-slate-200 hover:text-slate-900"
+          >
+            <CalendarPlus size={14} weight="bold" />
+          </a>
+        ) : (
+          <span
+            aria-label="ยังเพิ่มลง Google Calendar ไม่ได้จนกว่าจะประกาศวันสอบ"
+            title="ยังเพิ่มลง Google Calendar ไม่ได้จนกว่าจะประกาศวันสอบ"
+            className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-slate-300"
+          >
+            <CalendarPlus size={14} weight="bold" />
+          </span>
+        )}
+      </>
+    )
+  }
+
   return (
     <div className="space-y-4 animate-in fade-in duration-200">
       {/* ELEVATED ROOM HERO CARD (Prominent Room Number & Compact Meta) */}
@@ -238,7 +238,7 @@ function RoomDetailContent({
         )}
       </div>
 
-      {/* SCHEDULE SECTION (Chronological Day Grouping & Quick Day Filter) */}
+      {/* SCHEDULE SECTION */}
       <div className="border-t border-slate-200/80 pt-3.5">
         {/* Schedule Tabs Header */}
         <div className="flex items-center justify-between mb-3">
@@ -250,10 +250,7 @@ function RoomDetailContent({
           <div className="flex rounded-xl bg-slate-100 border border-slate-200/80 p-0.5 text-xs font-semibold">
             <button
               type="button"
-              onClick={() => {
-                setActiveScheduleTab('class')
-                setSelectedDayFilter('ALL')
-              }}
+              onClick={() => setActiveScheduleTab('class')}
               className={`flex items-center gap-1 rounded-lg px-2.5 py-1 transition-all cursor-pointer ${
                 activeScheduleTab === 'class'
                   ? 'bg-white text-slate-900 shadow-xs'
@@ -266,10 +263,7 @@ function RoomDetailContent({
             </button>
             <button
               type="button"
-              onClick={() => {
-                setActiveScheduleTab('exam')
-                setSelectedDayFilter('ALL')
-              }}
+              onClick={() => setActiveScheduleTab('exam')}
               className={`flex items-center gap-1 rounded-lg px-2.5 py-1 transition-all cursor-pointer ${
                 activeScheduleTab === 'exam'
                   ? 'bg-white text-rose-600 shadow-xs'
@@ -283,127 +277,27 @@ function RoomDetailContent({
           </div>
         </div>
 
-        {/* Quick Day Filter Pills */}
-        {groupedSchedules.length > 1 && (
-          <div
-            className="flex items-center gap-1.5 overflow-x-auto thin-scrollbar pb-2 mb-3"
-            onWheel={(e) => {
-              if (e.deltaY !== 0) {
-                e.currentTarget.scrollLeft += e.deltaY
-              }
-            }}
-          >
+        {schedulesError ? (
+          <div className="py-6 text-center">
+            <p className="text-sm text-rose-600">โหลดตารางห้องไม่สำเร็จ: {schedulesError.message}</p>
             <button
               type="button"
-              onClick={() => setSelectedDayFilter('ALL')}
-              className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold transition-all cursor-pointer ${
-                selectedDayFilter === 'ALL'
-                  ? 'bg-slate-900 text-white shadow-xs'
-                  : 'bg-slate-100/90 border border-slate-200/80 text-slate-600 hover:bg-slate-200/70'
-              }`}
+              onClick={() => reloadSchedules()}
+              className="mt-2 text-xs font-semibold text-blue-600 hover:text-blue-700"
             >
-              ทั้งหมด ({activeSchedules.length})
+              ลองอีกครั้ง
             </button>
-            {groupedSchedules.map(([dayKey, slots]) => {
-              const dayInfo = getDayInfo(dayKey)
-              const isSelected = selectedDayFilter === dayKey
-              return (
-                <button
-                  key={dayKey}
-                  type="button"
-                  onClick={() => setSelectedDayFilter(isSelected ? 'ALL' : dayKey)}
-                  className={`shrink-0 flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold transition-all cursor-pointer ${
-                    isSelected
-                      ? 'bg-slate-900 text-white shadow-xs'
-                      : 'bg-slate-100/90 border border-slate-200/80 text-slate-600 hover:bg-slate-200/70'
-                  }`}
-                >
-                  <span
-                    className={`h-1.5 w-1.5 rounded-full ${
-                      isSelected ? 'bg-white' : dayInfo.dotColor
-                    }`}
-                  />
-                  <span>{dayInfo.shortTh}</span>
-                  <span className="opacity-70 text-[10px]">({slots.length})</span>
-                </button>
-              )
-            })}
           </div>
-        )}
-
-        {/* Schedule Slots Grouped by Day */}
-        {displayedGroupedSchedules.length > 0 ? (
-          <div className="space-y-4">
-            {displayedGroupedSchedules.map(([dayKey, slots]) => {
-              const dayInfo = getDayInfo(dayKey)
-              return (
-                <div key={dayKey} className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className={`h-2.5 w-2.5 rounded-full ${dayInfo.dotColor}`} />
-                      <h4 className="text-xs font-bold text-slate-800 tracking-wide">
-                        {dayInfo.th}
-                      </h4>
-                    </div>
-                    <span className="text-[11px] font-medium text-slate-400">
-                      {slots.length} คาบ
-                    </span>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    {slots.map((slot, i) => {
-                      const isCodeNameDuplicate =
-                        slot.eventName &&
-                        slot.eventName.replace(/\s+/g, '').toLowerCase() ===
-                          slot.eventCode.replace(/\s+/g, '').toLowerCase()
-
-                      return (
-                        <div
-                          key={i}
-                          className="rounded-xl border border-slate-200/80 bg-white p-2.5 shadow-2xs hover:border-slate-300 hover:shadow-xs transition-all"
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-xs font-bold font-mono tracking-tight text-slate-900">
-                              {slot.eventCode || '-'}
-                            </span>
-                            <div className="flex items-center gap-1.5">
-                              <span className="inline-flex items-center gap-1 rounded-md bg-slate-50 border border-slate-200/70 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
-                                <Clock size={12} weight="bold" className="text-slate-400" />
-                                {slot.startTime} - {slot.endTime}
-                              </span>
-                              <PinButton slot={slot} />
-                            </div>
-                          </div>
-                          {slot.eventDate && (
-                            <div className="mt-1 flex items-center gap-1 text-[11px] font-medium text-rose-700">
-                              <Calendar size={12} weight="bold" className="text-rose-500" />
-                              <span>วันสอบ: {slot.eventDate}</span>
-                            </div>
-                          )}
-                          {!slot.eventDate && getExamDateLabel(slot) && (
-                            <p className="mt-1 text-xs font-semibold text-rose-700">
-                              {getExamDateLabel(slot)}
-                            </p>
-                          )}
-                          {slot.eventName && !isCodeNameDuplicate && (
-                            <p className="mt-1 text-xs text-slate-600 line-clamp-1 font-medium">
-                              {slot.eventName}
-                            </p>
-                          )}
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+        ) : schedulesLoading ? (
+          <p role="status" className="py-6 text-center text-sm text-slate-500">
+            กำลังโหลดตารางห้อง...
+          </p>
         ) : (
-          <div className="rounded-2xl border border-dashed border-slate-200 p-6 text-center text-xs text-slate-400">
-            {activeScheduleTab === 'class'
-              ? 'ไม่มีข้อมูลตารางเรียนในห้องนี้'
-              : 'ไม่มีข้อมูลตารางสอบในห้องนี้'}
-          </div>
+          <WeeklyTimetable
+            key={activeScheduleTab}
+            slots={activeSchedules}
+            renderActions={renderScheduleActions}
+          />
         )}
       </div>
     </div>
@@ -434,7 +328,6 @@ export default function MapPage() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(Boolean(initialQuery))
   const [isFilterExpanded, setIsFilterExpanded] = useState(false)
   const [activeScheduleTab, setActiveScheduleTab] = useState<'class' | 'exam'>('class')
-  const [selectedDayFilter, setSelectedDayFilter] = useState<string>('ALL')
 
   const inputRef = useRef<HTMLInputElement>(null)
   const sheetRef = useRef<HTMLDivElement>(null)
@@ -451,11 +344,12 @@ export default function MapPage() {
     [rooms, selectedRoomId]
   )
 
-  // Schedules matching the selected room
-  const roomSchedules = useMemo(() => {
-    if (!selectedRoom?.code) return []
-    return schedules.filter((s) => s.roomCode.toLowerCase() === selectedRoom.code.toLowerCase())
-  }, [schedules, selectedRoom])
+  const {
+    schedules: roomSchedules,
+    loading: roomSchedulesLoading,
+    error: roomSchedulesError,
+    reload: reloadRoomSchedules,
+  } = useRoomSchedules(selectedRoom?.code)
 
   // Split schedules into class and exam
   const classSchedules = useMemo(
@@ -466,30 +360,6 @@ export default function MapPage() {
     () => roomSchedules.filter(isExamSchedule),
     [roomSchedules]
   )
-
-  const activeSchedules = activeScheduleTab === 'class' ? classSchedules : examSchedules
-
-  // Group active schedules by dayOfWeek (sorted chronologically Mon -> Sun)
-  const groupedSchedules = useMemo(() => {
-    const groups: Record<string, ScheduleSlot[]> = {}
-    for (const slot of activeSchedules) {
-      const day = (slot.dayOfWeek || 'MON').toUpperCase().trim()
-      if (!groups[day]) groups[day] = []
-      groups[day].push(slot)
-    }
-    for (const day in groups) {
-      groups[day].sort((a, b) => a.startTime.localeCompare(b.startTime))
-    }
-    return Object.entries(groups).sort(
-      ([dayA], [dayB]) => getDayInfo(dayA).order - getDayInfo(dayB).order
-    )
-  }, [activeSchedules])
-
-  // Filter grouped schedules by selected day pill
-  const displayedGroupedSchedules = useMemo(() => {
-    if (selectedDayFilter === 'ALL') return groupedSchedules
-    return groupedSchedules.filter(([dayKey]) => dayKey === selectedDayFilter)
-  }, [groupedSchedules, selectedDayFilter])
 
   const hasActiveFilter = categoryKey !== DEFAULT_CATEGORY_KEY
   const hasActiveQueryOrFilter = query.trim() !== '' || hasActiveFilter
@@ -509,7 +379,6 @@ export default function MapPage() {
     setIsDetailOpen(true)
     setIsSidebarCollapsed(false)
     setIsDropdownOpen(false)
-    setSelectedDayFilter('ALL')
     const targetRoom = rooms.find((r) => r.id === roomId)
     if (targetRoom && targetRoom.floor !== currentFloor) {
       setCurrentFloor(targetRoom.floor)
@@ -523,13 +392,11 @@ export default function MapPage() {
   function handleUnpinRoom() {
     setSelectedRoomId(null)
     setIsDetailOpen(false)
-    setSelectedDayFilter('ALL')
   }
 
   function handleResetMap() {
     setSelectedRoomId(null)
     setIsDetailOpen(false)
-    setSelectedDayFilter('ALL')
     setQuery('')
     setIsDropdownOpen(false)
   }
@@ -788,13 +655,11 @@ export default function MapPage() {
                     onClose={handleCloseDetail}
                     activeScheduleTab={activeScheduleTab}
                     setActiveScheduleTab={setActiveScheduleTab}
-                    selectedDayFilter={selectedDayFilter}
-                    setSelectedDayFilter={setSelectedDayFilter}
                     classSchedules={classSchedules}
                     examSchedules={examSchedules}
-                    groupedSchedules={groupedSchedules}
-                    displayedGroupedSchedules={displayedGroupedSchedules}
-                    activeSchedules={activeSchedules}
+                    schedulesLoading={roomSchedulesLoading}
+                    schedulesError={roomSchedulesError}
+                    reloadSchedules={reloadRoomSchedules}
                   />
                 ) : (
                   <>
@@ -1094,13 +959,11 @@ export default function MapPage() {
                   onClose={handleDismissDetailMobile}
                   activeScheduleTab={activeScheduleTab}
                   setActiveScheduleTab={setActiveScheduleTab}
-                  selectedDayFilter={selectedDayFilter}
-                  setSelectedDayFilter={setSelectedDayFilter}
                   classSchedules={classSchedules}
                   examSchedules={examSchedules}
-                  groupedSchedules={groupedSchedules}
-                  displayedGroupedSchedules={displayedGroupedSchedules}
-                  activeSchedules={activeSchedules}
+                  schedulesLoading={roomSchedulesLoading}
+                  schedulesError={roomSchedulesError}
+                  reloadSchedules={reloadRoomSchedules}
                 />
               </div>
             </div>
