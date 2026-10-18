@@ -348,11 +348,15 @@ function buildMapScene(
   const ready = fetch(modelUrl, { signal: abort.signal })
     .then(async (response) => {
       if (!response.ok) throw new Error("Model unavailable");
-      const total = Number(response.headers.get("content-length"));
+      // The stream yields decoded bytes; a gzipped upload carries its decoded
+      // size as S3 metadata because content-length is the compressed size.
+      const total = Number(
+        response.headers.get("x-amz-meta-decoded-length") ||
+          response.headers.get("content-length"),
+      );
       if (!onProgress || !total || !response.body)
         return response.arrayBuffer();
       // The model takes a while on mobile data; report bytes as they arrive.
-      // content-length is the encoded size, so it only drives the readout.
       const chunks: Uint8Array<ArrayBuffer>[] = [];
       const reader = response.body.getReader();
       let received = 0;
