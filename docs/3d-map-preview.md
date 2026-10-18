@@ -11,9 +11,9 @@ The public map and admin map now open the approved LC3 model by default. Floor 1
 
 ## Asset and coordinate contract
 
-`frontend/public/maps/lc3/lc3-campus.glb` is the review-fix revision exported on 18 October 2026: 6,453,860 bytes, 191,509 triangles, six groups. SHA-256: `6F48E3FE43EF3683F637F41BEEAC2D5CAA2452D837BE40F224A3AA0CE9452972`.
+`frontend/public/maps/lc3/lc3-campus.glb` is the review-fix revision exported on 18 October 2026: 6,440,132 bytes, 190,757 triangles, six groups. SHA-256: `9901B40D8D98107FB8CEEC1917153B080E137C9BC9529BD1C37EC137DD9B9A44`.
 
-This revision replaces the per-room low partitions with one continuous wall per collinear run (`F1/F2_Merged_Partitions`), removing doubled walls and end seams between adjoining rooms; the original partition objects stay hidden in the .blend. It also moves the entrance balcony columns to floor 2, solidifies the west water crossings, trims floor-2 railings that ran beside walls and lifts one floor-2 slab 5 mm to stop z-fighting. The GLB is larger despite fewer triangles because the box walls carry hard-edge split normals.
+This revision replaces the per-room low partitions with one continuous wall per collinear run (`F1/F2_Merged_Partitions`), removing doubled walls and end seams between adjoining rooms; the three floor-1 west exterior wall runs south of the west restrooms are likewise one wall and coping (`F1_Exterior_Wall_003`, with `_004`/`_005` hidden); the original partition objects stay hidden in the .blend. It also moves the entrance balcony columns to floor 2, solidifies the west water crossings, trims floor-2 railings that ran beside walls and lifts one floor-2 slab 5 mm to stop z-fighting. The GLB is larger despite fewer triangles because the box walls carry hard-edge split normals.
 
 This revision adds eased structural edges, a muted material palette derived from the SVG categories, smoother fountain and tree surfaces, low courtyard planting and fountain ripples. The exporter now preserves evaluated corner normals instead of flattening the shading when combining objects. The added geometry fits in a smaller GLB because smooth surfaces share vertices. Downward-facing open forecourt geometry was corrected in Blender.
 
