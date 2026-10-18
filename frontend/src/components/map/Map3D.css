@@ -158,11 +158,12 @@
   font-size: 12px;
 }
 @media (max-width: 639px) {
+  /* clear the mobile search panel above the map (about 4.5rem tall, 10px from the top) */
   .map-view-toggle {
-    top: 5rem;
+    top: 6rem;
   }
   .map-fallback-notice {
-    top: 8.5rem;
+    top: 9.5rem;
   }
   /* the raised control stack would cover the toggle in the short map strip above the room sheet */
   .map-view-toggle-sheet-open {
