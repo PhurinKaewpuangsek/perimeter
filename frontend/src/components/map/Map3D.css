@@ -37,6 +37,20 @@
     sans-serif;
   box-shadow: 0 2px 5px #0f172a20;
   white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+/* Same category glyph and colour as the 2D map pins. */
+.map3d-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  margin-left: -2px;
+  border-radius: 50%;
+  background: var(--pin, #64748b);
+  flex: none;
 }
 .map3d-marker:hover,
 .map3d-marker:focus-visible {
@@ -50,6 +64,9 @@
   padding: 6px 9px;
   z-index: 3;
 }
+.map3d-marker[aria-pressed='true'] .map3d-icon {
+  box-shadow: 0 0 0 1.5px white;
+}
 .map3d-marker[data-compact='true']:not(:hover):not(:focus-visible) {
   width: 24px;
   height: 24px;
@@ -60,6 +77,9 @@
   background: transparent;
   box-shadow: none;
 }
+.map3d-marker[data-compact='true']:not(:hover):not(:focus-visible) .map3d-icon {
+  display: none;
+}
 .map3d-marker[data-compact='true']:not(:hover):not(:focus-visible)::after {
   content: '';
   position: absolute;
@@ -68,7 +88,7 @@
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: #64748b;
+  background: var(--pin, #64748b);
   border: 2px solid white;
   box-shadow: 0 1px 4px #0f172a30;
 }

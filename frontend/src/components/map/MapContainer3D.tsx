@@ -1,6 +1,7 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { createElement, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Crosshair, Minus, Plus } from '@phosphor-icons/react'
+import { getCategoryIcon } from '../categoryIcon'
 import type { MapContainerProps } from './MapContainer2D'
 import { createMapScene } from './createMapScene'
 import type { MapScene } from './createMapScene'
@@ -8,6 +9,7 @@ import { FLOOR_CONFIGS } from './floorConfig'
 
 export default function MapContainer3D(props: MapContainerProps & { onUnavailable: () => void }) {
   const host = useRef<HTMLDivElement>(null)
+  const icons = useRef<HTMLDivElement>(null)
   const [scene, setScene] = useState<MapScene | null>(null)
   const [progress, setProgress] = useState(0)
   // Callbacks live in a ref so a new callback identity alone neither rebuilds
@@ -58,6 +60,7 @@ export default function MapContainer3D(props: MapContainerProps & { onUnavailabl
       mode,
       sidebarWidth,
       initialScale,
+      icons: icons.current,
     })
   }, [scene, rooms, currentFloor, selectedRoomId, isDetailOpen, mode, sidebarWidth, initialScale])
   const hintOffset = sidebarWidth ?? (mode === 'admin' ? 460 : 400)
@@ -105,6 +108,22 @@ export default function MapContainer3D(props: MapContainerProps & { onUnavailabl
             </button>
           ))}
         </div>
+      </div>
+      {/* The scene builds its markers outside React, so it copies each room's
+          category icon (the same glyph as the 2D pins) from here. */}
+      <div ref={icons} hidden>
+        {rooms
+          .filter((room) => room.floor === currentFloor)
+          .map((room) => (
+            <span key={room.id} data-room-id={room.id}>
+              {createElement(getCategoryIcon(room.category, room.nameThai), {
+                size: 12,
+                color: 'white',
+                weight: 'fill',
+                'aria-hidden': true,
+              })}
+            </span>
+          ))}
       </div>
       <p className="map3d-hint">ลากเมาส์ซ้ายเพื่อเลื่อน · ลากเมาส์ขวาเพื่อหมุน · บีบสองนิ้วเพื่อซูม/เลื่อน</p>
     </div>

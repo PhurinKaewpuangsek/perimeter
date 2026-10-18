@@ -59,6 +59,9 @@ describe('3D map integration', () => {
         }),
       ),
     )
+    // The scene copies each room's 2D category icon into its 3D marker.
+    const icons: HTMLElement = mock.update.mock.lastCall![0].icons
+    expect(icons.querySelector('[data-room-id="LC3-F2-R201"] svg')).not.toBeNull()
     mock.update.mock.lastCall![0].onSelectRoom('LC3-F2-R201')
     expect(props.onSelectRoom).toHaveBeenCalledWith('LC3-F2-R201')
     await userEvent.click(screen.getByRole('button', { name: '1st Floor' }))

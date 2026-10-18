@@ -10,10 +10,14 @@ import type { MapContainerProps } from "./MapContainer2D";
 import { ROOM_AREAS } from "./roomAreaGeometry";
 import { findRoomAt, isMapTap, modelToSvg, svgToModel } from "./modelCoordinates";
 import { getMarkerLabel } from "../../services/markerLayout";
+import { getCategoryPinColor } from "../../services/roomDisplay";
 // Vite fingerprints the file name, so the model can be cached as immutable.
 import modelUrl from "../../assets/maps/lc3-campus.glb?url";
 
-type MapState = Omit<MapContainerProps, "onFloorChange">;
+// icons: rendered category icons keyed by data-room-id (see MapContainer3D).
+type MapState = Omit<MapContainerProps, "onFloorChange"> & {
+  icons?: HTMLElement | null;
+};
 export const CONTEXT_RESTORE_TIMEOUT = 3000;
 export interface MapScene {
   ready: Promise<void>;
@@ -188,7 +192,7 @@ function buildMapScene(
       if (!visible) continue;
       const labelWidth = Math.min(
         160,
-        (marker.button.textContent?.length ?? 0) * 7 + 14,
+        (marker.button.textContent?.length ?? 0) * 7 + 34,
       );
       const crowded = occupied.some(
         (p) =>
@@ -437,12 +441,27 @@ function buildMapScene(
         Number(b.id === next.selectedRoomId) -
         Number(a.id === next.selectedRoomId),
     );
+    const icons = new Map<string, Element>();
+    for (const holder of state.icons?.querySelectorAll<HTMLElement>(
+      "[data-room-id]",
+    ) ?? []) {
+      const svg = holder.querySelector("svg");
+      if (svg) icons.set(holder.dataset.roomId!, svg);
+    }
     for (const room of rooms) {
       const point = svgToModel(room.floor, room.coordinates, 1.15);
       const button = document.createElement("button");
       button.type = "button";
       button.className = "map3d-marker";
-      button.textContent = getMarkerLabel(room);
+      button.style.setProperty("--pin", getCategoryPinColor(room.category));
+      const icon = icons.get(room.id);
+      if (icon) {
+        const disc = document.createElement("span");
+        disc.className = "map3d-icon";
+        disc.append(icon.cloneNode(true));
+        button.append(disc);
+      }
+      button.append(getMarkerLabel(room));
       button.setAttribute(
         "aria-label",
         `${room.code || room.nameThai} ${room.nameThai}`.trim(),
