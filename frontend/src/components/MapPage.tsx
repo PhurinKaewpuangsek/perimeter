@@ -282,7 +282,7 @@ function RoomDetailContent({
             <p className="text-sm text-rose-600">โหลดตารางห้องไม่สำเร็จ: {schedulesError.message}</p>
             <button
               type="button"
-              onClick={reloadSchedules}
+              onClick={() => reloadSchedules()}
               className="mt-2 text-xs font-semibold text-blue-600 hover:text-blue-700"
             >
               ลองอีกครั้ง

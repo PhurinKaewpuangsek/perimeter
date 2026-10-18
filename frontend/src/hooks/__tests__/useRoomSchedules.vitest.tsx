@@ -45,12 +45,25 @@ describe('useRoomSchedules', () => {
   })
 
   it('reports fetch failures and supports retrying', async () => {
-    getSchedules.mockRejectedValueOnce(new Error('API unavailable')).mockResolvedValueOnce([roomSchedule])
+    let resolveRetry: ((schedules: ScheduleSlot[]) => void) | undefined
+    getSchedules
+      .mockRejectedValueOnce(new Error('API unavailable'))
+      .mockImplementationOnce(() => new Promise((resolve) => {
+        resolveRetry = resolve
+      }))
 
     const { result } = renderHook(() => useRoomSchedules('LC3-103'))
     await waitFor(() => expect(result.current.error?.message).toBe('API unavailable'))
 
     act(() => result.current.reload())
+
+    expect(result.current.loading).toBe(true)
+    expect(result.current.error).toBeNull()
+    expect(result.current.schedules).toEqual([])
+
+    await act(async () => {
+      resolveRetry?.([roomSchedule])
+    })
 
     await waitFor(() => expect(result.current.loading).toBe(false))
     expect(result.current.schedules).toEqual([roomSchedule])
