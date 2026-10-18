@@ -59,13 +59,39 @@ jobs:
           VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
         run: npm run build
 
+      # The S3 website endpoint never compresses responses, and the 3D chunk and model shrink
+      # about 4x with gzip, so hashed JS, CSS and GLB are uploaded pre-gzipped (as in
+      # scripts/publish-site.mjs). The model loader reads each GLB's decoded size from
+      # x-amz-meta-decoded-length for its download progress, so record it before gzipping.
+      - name: Gzip Hashed Assets
+        working-directory: frontend/dist/assets
+        run: |
+          shopt -s nullglob
+          : > "$RUNNER_TEMP/glb-sizes"
+          for f in *.js *.css *.glb; do
+            if [[ $f == *.glb ]]; then echo "$f $(stat -c %s "$f")" >> "$RUNNER_TEMP/glb-sizes"; fi
+            gzip -9 -n -c "$f" > "$f.gz"
+            mv "$f.gz" "$f"
+          done
+
       # Vite fingerprints everything under assets/ (JS, CSS, the 3D model), so a changed file
       # always gets a new name: cache those for a year. Everything else (index.html, public/)
       # keeps a fixed name and must revalidate, or browsers would keep loading old bundles.
       # Upload new assets first and prune old ones last, so a page loaded mid-deploy still
       # finds the files it references.
       - name: Sync to S3
+        env:
+          BUCKET: s3://${{ env.AWS_S3_BUCKET_NAME }}
+          IMMUTABLE: public, max-age=31536000, immutable
         run: |
-          aws s3 sync ./frontend/dist/assets s3://${{ env.AWS_S3_BUCKET_NAME }}/assets --cache-control "public, max-age=31536000, immutable"
-          aws s3 sync ./frontend/dist s3://${{ env.AWS_S3_BUCKET_NAME }} --delete --exclude "assets/*" --cache-control "no-cache"
-          aws s3 sync ./frontend/dist/assets s3://${{ env.AWS_S3_BUCKET_NAME }}/assets --delete --cache-control "public, max-age=31536000, immutable"
+          # Each sync carries its own headers, so an asset re-uploaded by the pruning pass keeps them.
+          sync_assets() {
+            aws s3 sync ./frontend/dist/assets "$BUCKET/assets" "$@" --exclude '*' --include '*.js' --include '*.css' --include '*.glb' --content-encoding gzip --cache-control "$IMMUTABLE"
+            aws s3 sync ./frontend/dist/assets "$BUCKET/assets" "$@" --exclude '*.js' --exclude '*.css' --exclude '*.glb' --cache-control "$IMMUTABLE"
+          }
+          sync_assets
+          while read -r name size; do
+            aws s3 cp "./frontend/dist/assets/$name" "$BUCKET/assets/$name" --content-encoding gzip --content-type model/gltf-binary --metadata "decoded-length=$size" --cache-control "$IMMUTABLE"
+          done < "$RUNNER_TEMP/glb-sizes"
+          aws s3 sync ./frontend/dist "$BUCKET" --delete --exclude "assets/*" --cache-control "no-cache"
+          sync_assets --delete
