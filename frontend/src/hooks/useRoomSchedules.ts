@@ -36,11 +36,13 @@ export function useRoomSchedules(roomCode: string | null | undefined): UseRoomSc
         })
         .catch((err) => {
           if (!isMounted) return
-          setResult({
-            roomCode,
-            schedules: [],
-            loading: false,
-            error: err instanceof Error ? err : new Error(String(err)),
+          const fetchError = err instanceof Error ? err : new Error(String(err))
+          setResult((current) => {
+            if (current.roomCode !== roomCode) return current
+            if (current.schedules.length > 0) {
+              return { ...current, loading: false }
+            }
+            return { ...current, loading: false, error: fetchError }
           })
         })
     }

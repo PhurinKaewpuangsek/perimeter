@@ -70,4 +70,21 @@ describe('useRoomSchedules', () => {
     expect(result.current.error).toBeNull()
     expect(getSchedules).toHaveBeenCalledTimes(2)
   })
+
+  it('keeps the loaded timetable when a focus refresh fails', async () => {
+    getSchedules.mockResolvedValueOnce([roomSchedule]).mockRejectedValueOnce(new Error('Network unavailable'))
+
+    const { result } = renderHook(() => useRoomSchedules('LC3-103'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    act(() => {
+      window.dispatchEvent(new Event('focus'))
+    })
+
+    await waitFor(() => expect(getSchedules).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    expect(result.current.schedules).toEqual([roomSchedule])
+    expect(result.current.error).toBeNull()
+  })
 })
