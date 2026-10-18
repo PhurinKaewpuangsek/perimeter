@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useState } from 'react'
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch'
 import type { ReactZoomPanPinchRef } from 'react-zoom-pan-pinch'
 import { Crosshair, Plus, Minus } from '@phosphor-icons/react'
@@ -44,6 +44,13 @@ function MapContainer({
   const floorConfig = getFloorConfig(currentFloor)
   const transformRef = useRef<ReactZoomPanPinchRef | null>(null)
   const pointerStartRef = useRef<{ x: number; y: number } | null>(null)
+  // Read once per mount; every pan/zoom animation below becomes an instant jump.
+  const [reduceMotion] = useState(
+    () =>
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+  )
+  const motion = (ms: number) => (reduceMotion ? 0 : ms)
 
   useEffect(() => {
     if (!selectedRoomId) return
@@ -70,19 +77,19 @@ function MapContainer({
       const posX = targetX - (room.coordinates.x + PADDING_X) * targetScale
       const posY = targetY - (room.coordinates.y + PADDING_Y) * targetScale
 
-      transformRef.current.setTransform(posX, posY, targetScale, 650, 'easeOutCubic')
+      transformRef.current.setTransform(posX, posY, targetScale, reduceMotion ? 0 : 650, 'easeOutCubic')
     }, 50)
 
     return () => clearTimeout(timer)
-  }, [selectedRoomId, currentFloor, rooms])
+  }, [selectedRoomId, currentFloor, rooms, reduceMotion])
 
   return (
-    <div className="relative h-full w-full overflow-hidden">
+    <div className="map2d relative h-full w-full overflow-hidden">
       {/* Re-center floating action button */}
       <button
         type="button"
         aria-label="จัดกึ่งกลางแผนที่"
-        onClick={() => transformRef.current?.resetTransform(650, 'easeOutCubic')}
+        onClick={() => transformRef.current?.resetTransform(motion(650), 'easeOutCubic')}
         className={`absolute right-4 z-10 flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-slate-700 shadow-lg border border-slate-200/80 hover:bg-slate-50 hover:text-slate-900 hover:-translate-y-0.5 hover:shadow-xl active:translate-y-0 transition-transform duration-200 cursor-pointer sm:bottom-[11.25rem] sm:right-6 ${
           selectedRoomId && isDetailOpen ? 'bottom-[calc(55dvh+10.75rem)]' : 'bottom-[11.25rem]'
         }`}
@@ -101,7 +108,7 @@ function MapContainer({
         <button
           type="button"
           aria-label="ขยายแผนที่"
-          onClick={() => transformRef.current?.zoomIn(0.4, 250, 'easeOutCubic')}
+          onClick={() => transformRef.current?.zoomIn(0.4, motion(250), 'easeOutCubic')}
           className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-600 hover:bg-slate-100 hover:text-slate-900 active:bg-slate-200 active:text-slate-950 transition-colors duration-150 cursor-pointer"
         >
           <Plus size={18} weight="bold" aria-hidden="true" />
@@ -110,7 +117,7 @@ function MapContainer({
         <button
           type="button"
           aria-label="ย่อแผนที่"
-          onClick={() => transformRef.current?.zoomOut(0.4, 250, 'easeOutCubic')}
+          onClick={() => transformRef.current?.zoomOut(0.4, motion(250), 'easeOutCubic')}
           className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-600 hover:bg-slate-100 hover:text-slate-900 active:bg-slate-200 active:text-slate-950 transition-colors duration-150 cursor-pointer"
         >
           <Minus size={18} weight="bold" aria-hidden="true" />
@@ -164,21 +171,22 @@ function MapContainer({
         zoomAnimation={{
           disabled: false,
           size: 0.2,
-          animationTime: 200,
+          animationTime: motion(200),
           animationType: 'easeOutCubic',
         }}
         autoAlignment={{
           sizeX: 300,
           sizeY: 250,
-          animationTime: 650,
-          velocityAlignmentTime: 650,
+          animationTime: motion(650),
+          velocityAlignmentTime: motion(650),
           animationType: 'easeOutCubic',
         }}
         doubleClick={{
-          animationTime: 650,
+          animationTime: motion(650),
           animationType: 'easeOutCubic',
         }}
         velocityAnimation={{
+          disabled: reduceMotion,
           animationTime: 400,
           animationType: 'easeOutCubic',
         }}

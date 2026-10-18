@@ -35,7 +35,7 @@ The model is imported through Vite, so its published name carries a content hash
 
 If the WebGL context is lost, the map waits up to 3 seconds for the browser to restore it, then redraws. It falls back to 2D only if the context does not come back. If renderer setup fails partway, the canvas and GPU resources are released before the 2D fallback.
 
-The renderer loads lazily and renders on demand rather than running a perpetual animation loop. Pixel ratio is capped at 1.75. Multisampled rendering, directional shadows and local ambient occlusion distinguish wall edges, stairs and ground contact. Shadow maps update on model/floor changes; camera changes are immediate, with no automatic animation. This meets the `prefers-reduced-motion` requirement for the 3D view by design. The 2D fallback still animates zoom for 200 ms. GLB materials are opaque and have no image textures; camera overlays do not alter the model.
+The renderer loads lazily and renders on demand rather than running a perpetual animation loop. Pixel ratio is capped at 1.75. Multisampled rendering, directional shadows and local ambient occlusion distinguish wall edges, stairs and ground contact. Shadow maps update on model/floor changes; camera changes are immediate, with no automatic animation. This meets the `prefers-reduced-motion` requirement for the 3D view by design. Under that setting the 2D fallback also jumps instead of animating pan and zoom, drops inertial panning, and turns off its marker hover and pin-drop CSS animations. GLB materials are opaque and have no image textures; camera overlays do not alter the model.
 
 ## Verification
 

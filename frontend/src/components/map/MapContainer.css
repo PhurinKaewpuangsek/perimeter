@@ -15,4 +15,12 @@
   touch-action: none;
 }
 
-
+/* Hover lifts and the pin-drop on markers are CSS; pan/zoom timing is set in MapContainer2D. */
+@media (prefers-reduced-motion: reduce) {
+  .map2d *,
+  .map2d *::before,
+  .map2d *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+}
