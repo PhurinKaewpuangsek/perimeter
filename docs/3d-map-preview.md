@@ -11,7 +11,9 @@ The public map and admin map now open the approved LC3 model by default. Floor 1
 
 ## Asset and coordinate contract
 
-`frontend/public/maps/lc3/lc3-campus.glb` is the architectural finish revision exported on 14 October 2026: 5,734,824 bytes, 248,457 triangles, six groups. SHA-256: `F7051FA7CC73C11A09976DCA7ACF111A20DA660C6EC6C17E54FC775B94A1F2C0`.
+`frontend/public/maps/lc3/lc3-campus.glb` is the review-fix revision exported on 18 October 2026: 6,453,860 bytes, 191,509 triangles, six groups. SHA-256: `6F48E3FE43EF3683F637F41BEEAC2D5CAA2452D837BE40F224A3AA0CE9452972`.
+
+This revision replaces the per-room low partitions with one continuous wall per collinear run (`F1/F2_Merged_Partitions`), removing doubled walls and end seams between adjoining rooms; the original partition objects stay hidden in the .blend. It also moves the entrance balcony columns to floor 2, solidifies the west water crossings, trims floor-2 railings that ran beside walls and lifts one floor-2 slab 5 mm to stop z-fighting. The GLB is larger despite fewer triangles because the box walls carry hard-edge split normals.
 
 This revision adds eased structural edges, a muted material palette derived from the SVG categories, smoother fountain and tree surfaces, low courtyard planting and fountain ripples. The exporter now preserves evaluated corner normals instead of flattening the shading when combining objects. The added geometry fits in a smaller GLB because smooth surfaces share vertices. Downward-facing open forecourt geometry was corrected in Blender.
 
@@ -43,7 +45,7 @@ On Windows, 14 October 2026:
 The orthographic camera sits outside the campus bounds while retaining its original framing. This avoids near-plane clipping of surrounding buildings when zoomed out. Before/after browser captures verified maximum zoom-out, orbit and pan.
 
 - Real-phone performance and comparative usability testing are still required before release. Desktop browser emulation is not a physical-device result.
-- The additional lazy 3D JavaScript chunk is about 676 kB (170 kB gzip), plus the 5.7 MB model. Vite reports its >500 kB chunk advisory; no size-limit override was added.
+- The additional lazy 3D JavaScript chunk is about 676 kB (170 kB gzip), plus the 6.5 MB model. Vite reports its >500 kB chunk advisory; no size-limit override was added.
 - `LC3-217` is still a source-data discrepancy: its seed pin is in circulation space rather than an enclosed SVG room. Its existing pin is retained; no new room geometry is invented.
 - Campus surroundings are schematic. This trial does not add navigation or edit cloud resources.
 
