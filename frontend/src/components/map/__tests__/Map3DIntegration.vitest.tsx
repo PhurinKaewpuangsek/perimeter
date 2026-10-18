@@ -84,6 +84,9 @@ describe('3D map integration', () => {
     await userEvent.click(room)
     expect(props.onSelectRoom).toHaveBeenCalledWith('LC3-F2-R201')
     expect(mock.dispose).toHaveBeenCalled()
+    // 2D is already showing, so the toggle offers 3D and one tap retries it.
+    await userEvent.click(screen.getByRole('button', { name: 'แผนที่ 3D' }))
+    expect(await screen.findByRole('region', { name: /แบบ 3D/ })).toBeInTheDocument()
   })
   it('allows manual 2D fallback and releases the WebGL scene', async () => {
     render(<MapContainer {...props} />)

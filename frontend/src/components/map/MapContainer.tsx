@@ -7,12 +7,16 @@ export type { MapContainerProps } from './MapContainer2D'
 
 const MapContainer3D = lazy(() => import('./MapContainer3D'))
 class MapErrorBoundary extends Component<
-  { children: ReactNode; fallback: ReactNode },
+  { children: ReactNode; fallback: ReactNode; onError: () => void },
   { failed: boolean }
 > {
   state = { failed: false }
   static getDerivedStateFromError() {
     return { failed: true }
+  }
+  // Report up so the view toggle knows 2D is showing (e.g. the lazy chunk failed to load).
+  componentDidCatch() {
+    this.props.onError()
   }
   render() {
     return this.state.failed ? this.props.fallback : this.props.children
@@ -22,6 +26,7 @@ export default function MapContainer(props: MapContainerProps) {
   const [view, setView] = useState<'2d' | '3d'>('3d')
   const [failed, setFailed] = useState(false)
   const handleFailure = useCallback(() => setFailed(true), [])
+  const showing3d = view === '3d' && !failed
   const fallback = (
     <>
       <MapContainer2D {...props} />
@@ -37,7 +42,7 @@ export default function MapContainer(props: MapContainerProps) {
       ) : failed ? (
         fallback
       ) : (
-        <MapErrorBoundary fallback={fallback}>
+        <MapErrorBoundary fallback={fallback} onError={handleFailure}>
           <Suspense
             fallback={
               <div className="map3d-loading" role="status">
@@ -53,11 +58,12 @@ export default function MapContainer(props: MapContainerProps) {
         type="button"
         className={`map-view-toggle ${props.selectedRoomId && props.isDetailOpen ? 'map-view-toggle-sheet-open' : ''}`}
         onClick={() => {
-          setView(view === '3d' ? '2d' : '3d')
+          // From the failure fallback this retries 3D rather than re-selecting 2D.
+          setView(showing3d ? '2d' : '3d')
           setFailed(false)
         }}
       >
-        {view === '3d' ? 'แผนที่ 2D' : 'แผนที่ 3D'}
+        {showing3d ? 'แผนที่ 2D' : 'แผนที่ 3D'}
       </button>
     </div>
   )

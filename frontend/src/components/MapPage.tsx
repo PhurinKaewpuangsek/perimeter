@@ -9,7 +9,7 @@
  * 3. Chronological Day-Grouped Schedule: Fixed 3-letter day codes (MON-SUN), Thai day badges with
  *    standard day colors, quick day filter pills, and cleaned non-redundant schedule cards.
  */
-import { useState, useMemo, useRef, useEffect, createElement } from 'react'
+import { useState, useMemo, useRef, createElement } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   CaretLeft,
@@ -24,6 +24,7 @@ import {
   Users,
 } from '@phosphor-icons/react'
 import { useRooms } from '../hooks/useRooms'
+import { useIsDesktop } from '../hooks/useIsDesktop'
 import { useSchedules } from '../hooks/useSchedules'
 import { usePreloadImages } from '../hooks/usePreloadImages'
 import MapContainer from './map/MapContainer'
@@ -57,33 +58,6 @@ import type { ScheduleSlot } from '../types/schedule'
 import type { PinnedSchedule } from '../types/pin'
 
 const FLOOR_PLAN_ASSETS = FLOOR_CONFIGS.map((config) => config.asset)
-
-function useIsDesktop(): boolean {
-  const [isDesktop, setIsDesktop] = useState<boolean>(() => {
-    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return true
-    return window.matchMedia('(min-width: 640px)').matches
-  })
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return
-    const mql = window.matchMedia('(min-width: 640px)')
-    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches)
-    if (mql.addEventListener) {
-      mql.addEventListener('change', handler)
-    } else {
-      mql.addListener(handler)
-    }
-    return () => {
-      if (mql.removeEventListener) {
-        mql.removeEventListener('change', handler)
-      } else {
-        mql.removeListener(handler)
-      }
-    }
-  }, [])
-
-  return isDesktop
-}
 
 function RoomCategoryBadge({ category, nameThai }: { category: string; nameThai?: string }) {
   const color = getCategoryColor(category)

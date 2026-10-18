@@ -42,7 +42,8 @@ export default function MapContainer3D(props: MapContainerProps & { onUnavailabl
       map?.dispose()
     }
   }, [])
-  const { rooms, currentFloor, selectedRoomId, isDetailOpen, mode, sidebarWidth } = props
+  const { rooms, currentFloor, selectedRoomId, isDetailOpen, mode, sidebarWidth, initialScale } =
+    props
   useEffect(() => {
     scene?.update({
       rooms,
@@ -53,8 +54,9 @@ export default function MapContainer3D(props: MapContainerProps & { onUnavailabl
       isDetailOpen,
       mode,
       sidebarWidth,
+      initialScale,
     })
-  }, [scene, rooms, currentFloor, selectedRoomId, isDetailOpen, mode, sidebarWidth])
+  }, [scene, rooms, currentFloor, selectedRoomId, isDetailOpen, mode, sidebarWidth, initialScale])
   const hintOffset = sidebarWidth ?? (mode === 'admin' ? 460 : 400)
   return (
     <div className="map3d" style={{ '--map3d-sidebar': `${hintOffset}px` } as CSSProperties}>

@@ -75,4 +75,23 @@ describe('LandingPage', () => {
     })
     expect(mockNavigate).toHaveBeenCalledWith('/map')
   })
+
+  it('does not mount the background map on phones, where it is hidden', () => {
+    const original = window.matchMedia
+    window.matchMedia = vi.fn().mockReturnValue({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }) as unknown as typeof window.matchMedia
+    try {
+      render(
+        <MemoryRouter>
+          <LandingPage />
+        </MemoryRouter>,
+      )
+      expect(screen.queryByTestId('map-container')).not.toBeInTheDocument()
+    } finally {
+      window.matchMedia = original
+    }
+  })
 })

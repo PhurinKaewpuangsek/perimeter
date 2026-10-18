@@ -11,6 +11,7 @@ import {
   Users,
 } from '@phosphor-icons/react'
 import { useRooms } from '../hooks/useRooms'
+import { useIsDesktop } from '../hooks/useIsDesktop'
 import { usePreloadImages } from '../hooks/usePreloadImages'
 import MapContainer from './map/MapContainer'
 import { FLOOR_CONFIGS } from './map/floorConfig'
@@ -44,6 +45,7 @@ export default function LandingPage() {
   const { rooms, loading, error } = useRooms()
   usePreloadImages(FLOOR_PLAN_ASSETS)
 
+  const isDesktop = useIsDesktop()
   const [currentFloor, setCurrentFloor] = useState(1)
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null)
   const [quickQuery, setQuickQuery] = useState('')
@@ -117,16 +119,19 @@ export default function LandingPage() {
           transition: 'transform 500ms cubic-bezier(0.16, 1, 0.3, 1)',
         }}
       >
-        <MapContainer
-          rooms={rooms}
-          currentFloor={currentFloor}
-          onFloorChange={setCurrentFloor}
-          selectedRoomId={selectedRoomId}
-          onSelectRoom={handleRoomSelect}
-          onClearSelection={() => setSelectedRoomId(null)}
-          initialScale={1.35}
-          sidebarWidth={460}
-        />
+        {/* display:none still mounts children; skip the 3D model download on phones */}
+        {isDesktop && (
+          <MapContainer
+            rooms={rooms}
+            currentFloor={currentFloor}
+            onFloorChange={setCurrentFloor}
+            selectedRoomId={selectedRoomId}
+            onSelectRoom={handleRoomSelect}
+            onClearSelection={() => setSelectedRoomId(null)}
+            initialScale={1.35}
+            sidebarWidth={460}
+          />
+        )}
       </div>
 
       {/* Main Split Portal Overlay */}

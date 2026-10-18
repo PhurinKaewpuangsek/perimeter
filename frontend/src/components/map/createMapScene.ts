@@ -46,8 +46,8 @@ export function createMapScene(
   try {
     return buildMapScene(host, onUnavailable, renderer);
   } catch (error) {
-    // Setup can throw after the canvas and GPU context exist (for example
-    // when render targets cannot be allocated); release them before rethrowing.
+    // Anything after the renderer exists may throw; release its GPU context
+    // and canvas before rethrowing.
     host.querySelector(".map3d-labels")?.remove();
     renderer.domElement.remove();
     renderer.dispose();
@@ -230,7 +230,7 @@ function buildMapScene(
     // bounds so zooming out cannot slice nearby buildings with the near plane.
     // Distance changes preserve the framing and orbit angle in this projection.
     camera.position.set(-28, 48, 49).multiplyScalar(8).add(controls.target);
-    camera.zoom = 1;
+    camera.zoom = state?.initialScale ?? 1;
     camera.updateProjectionMatrix();
     controls.update();
     invalidate();

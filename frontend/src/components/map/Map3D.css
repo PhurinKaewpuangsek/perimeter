@@ -171,6 +171,9 @@
   .map3d-controls-raised {
     bottom: calc(55dvh + 1rem);
   }
+}
+/* Below this width the hint cannot fit between the sidebar and the control stack. */
+@media (max-width: 899px) {
   .map3d-hint {
     display: none;
   }
@@ -179,13 +182,5 @@
 @media (pointer: coarse) {
   .map3d-hint {
     display: none;
-  }
-}
-/* The 3D camera already jumps without animation; keep any map UI transition off too. */
-@media (prefers-reduced-motion: reduce) {
-  .map3d *,
-  .map-view-toggle {
-    transition: none !important;
-    animation: none !important;
   }
 }
