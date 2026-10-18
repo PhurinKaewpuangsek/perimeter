@@ -239,6 +239,15 @@ export default function LandingPage() {
               <SignIn size={22} weight="bold" className="text-slate-200" />
               <span>เข้าสู่ระบบ (Sign in)</span>
             </button>
+            {/* /map is public; without this a phone user has no way to reach it (the footer link is desktop-only). */}
+            <button
+              type="button"
+              onClick={() => handleEnterFullMap()}
+              className="mt-3 flex w-full items-center justify-center gap-2.5 rounded-2xl border border-slate-300 bg-white py-4 text-base font-bold text-slate-800 hover:bg-slate-50 active:bg-slate-100 transition-all cursor-pointer shadow-xs active:scale-[0.99]"
+            >
+              <MapTrifold size={22} weight="bold" className="text-slate-600" />
+              <span>ดูแผนที่ (ไม่ต้องเข้าสู่ระบบ)</span>
+            </button>
           </div>
 
           {/* Footer Actions */}
