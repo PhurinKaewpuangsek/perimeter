@@ -1,0 +1,1179 @@
+{
+  "removed_text_objects": [
+    "Floor_1_Label.001",
+    "F1_SVG_031.001",
+    "F1_SVG_035.001",
+    "F1_SVG_038.001",
+    "F1_SVG_039.001",
+    "F1_SVG_083.001",
+    "F1_SVG_131.001",
+    "F1_SVG_147.001",
+    "F1_SVG_151.001",
+    "F1_SVG_228.001",
+    "F1_SVG_229.001",
+    "F1_SVG_230.001",
+    "F1_SVG_231.001",
+    "F1_SVG_232.001",
+    "West_WC_F_Text",
+    "West_WC_M_Text",
+    "East_WC_M_Text",
+    "East_WC_F_Text",
+    "Floor_2_Label.001",
+    "F2_SVG_023.001",
+    "F2_SVG_024.001",
+    "F2_SVG_025.001",
+    "F2_SVG_026.001",
+    "F2_SVG_027.001",
+    "F2_SVG_028.001",
+    "F2_SVG_029.001",
+    "F2_SVG_036.001",
+    "F2_SVG_042.001",
+    "F2_SVG_043.001",
+    "F2_SVG_052.001",
+    "F2_SVG_053.001",
+    "F2_SVG_054.001",
+    "F2_SVG_055.001",
+    "F2_SVG_056.001",
+    "F2_SVG_062.001",
+    "F2_SVG_063.001",
+    "F2_SVG_064.001",
+    "F2_SVG_065.001",
+    "F2_SVG_066.001",
+    "F2_SVG_067.001",
+    "F2_SVG_073.001",
+    "F2_SVG_075.001",
+    "F2_SVG_091.001",
+    "F2_SVG_109.001",
+    "F2_SVG_160.001",
+    "F2_SVG_161.001",
+    "F2_SVG_180.001",
+    "F2_SVG_270.001",
+    "F2_SVG_283.001",
+    "F2_SVG_285.001",
+    "F2_SVG_286.001",
+    "F2_SVG_287.001",
+    "F2_SVG_291.001",
+    "F2_SVG_292.001",
+    "F2_SVG_293.001",
+    "F2_SVG_294.001",
+    "F2_SVG_295.001",
+    "F2_SVG_296.001",
+    "F2_SVG_297.001",
+    "F2_SVG_300.001",
+    "F2_SVG_301.001",
+    "F2_SVG_302.001",
+    "F2_SVG_303.001",
+    "F2_SVG_304.001",
+    "F2_SVG_305.001",
+    "F2_SVG_306.001",
+    "F2_SVG_307.001",
+    "F2_SVG_308.001",
+    "F2_SVG_309.001",
+    "F2_SVG_310.001",
+    "F2_SVG_312.001",
+    "F2_SVG_314.001",
+    "Balcony_Thai_Department",
+    "Balcony_English_Department",
+    "Balcony_LC3_Lettering",
+    "F2_West_WC_F_Text",
+    "F2_West_WC_M_Text",
+    "F2_East_WC_M_Text",
+    "F2_East_WC_F_Text",
+    "LC3_Site_Label",
+    "CS_Site_Label",
+    "Pridi_Road_Label",
+    "Dome_Road_Label",
+    "LC4_Context_Label"
+  ],
+  "origin_world_blender": [
+    -34,
+    0,
+    0
+  ],
+  "gltf_up_axis": "Y",
+  "parts": [
+    {
+      "name": "LC3_Floor_1",
+      "source_objects": 329,
+      "materials": 33,
+      "room_metadata": [
+        {
+          "codes": "LC3-121/3",
+          "center_blender_z_up": [
+            -4.475002288818359,
+            -8.248260259628296,
+            0.25
+          ],
+          "source_object": "F1_SVG_007.001"
+        },
+        {
+          "codes": "LC3-121/2",
+          "center_blender_z_up": [
+            -5.325002670288086,
+            -6.8735504150390625,
+            0.25
+          ],
+          "source_object": "F1_SVG_008.001"
+        },
+        {
+          "codes": "LC3-121/1",
+          "center_blender_z_up": [
+            -6.124996185302734,
+            -8.248260021209717,
+            0.25
+          ],
+          "source_object": "F1_SVG_009.001"
+        },
+        {
+          "codes": "LC3-122/6",
+          "center_blender_z_up": [
+            -1.1749992370605469,
+            -3.4992607831954956,
+            0.25
+          ],
+          "source_object": "F1_SVG_010.001"
+        },
+        {
+          "codes": "LC3-122/5",
+          "center_blender_z_up": [
+            -2.0,
+            -4.549038887023926,
+            0.25
+          ],
+          "source_object": "F1_SVG_011.001"
+        },
+        {
+          "codes": "LC3-122/4",
+          "center_blender_z_up": [
+            -2.825000762939453,
+            -3.4992607831954956,
+            0.25
+          ],
+          "source_object": "F1_SVG_012.001"
+        },
+        {
+          "codes": "LC3-122/3",
+          "center_blender_z_up": [
+            -4.5,
+            -3.4992607831954956,
+            0.25
+          ],
+          "source_object": "F1_SVG_013.001"
+        },
+        {
+          "codes": "LC3-122/2",
+          "center_blender_z_up": [
+            -5.274999618530273,
+            -4.524829626083374,
+            0.25
+          ],
+          "source_object": "F1_SVG_014.001"
+        },
+        {
+          "codes": "LC3-122/1",
+          "center_blender_z_up": [
+            -6.174999237060547,
+            -3.4992607831954956,
+            0.25
+          ],
+          "source_object": "F1_SVG_015.001"
+        },
+        {
+          "codes": "LC3-122",
+          "center_blender_z_up": [
+            -10.100000381469727,
+            -3.9991551637649536,
+            0.25
+          ],
+          "source_object": "F1_SVG_032.001"
+        },
+        {
+          "codes": "LC3-121",
+          "center_blender_z_up": [
+            -10.125,
+            -7.573400020599365,
+            0.25
+          ],
+          "source_object": "F1_SVG_033.001"
+        },
+        {
+          "codes": "LC3-116",
+          "center_blender_z_up": [
+            -24.299999237060547,
+            -4.574033617973328,
+            0.25
+          ],
+          "source_object": "F1_SVG_071.001"
+        },
+        {
+          "codes": "LC3-119",
+          "center_blender_z_up": [
+            -19.249998092651367,
+            -3.9991551637649536,
+            0.25
+          ],
+          "source_object": "F1_SVG_073.001"
+        },
+        {
+          "codes": "LC3-119/1",
+          "center_blender_z_up": [
+            -18.14999771118164,
+            -3.9991551637649536,
+            0.25
+          ],
+          "source_object": "F1_SVG_074.001"
+        },
+        {
+          "codes": "LC3-119/2",
+          "center_blender_z_up": [
+            -17.049999237060547,
+            -3.9991551637649536,
+            0.25
+          ],
+          "source_object": "F1_SVG_075.001"
+        },
+        {
+          "codes": "LC3-119/3",
+          "center_blender_z_up": [
+            -15.950000762939453,
+            -3.9991551637649536,
+            0.25
+          ],
+          "source_object": "F1_SVG_076.001"
+        },
+        {
+          "codes": "LC3-119/4",
+          "center_blender_z_up": [
+            -14.850000381469727,
+            -3.9991551637649536,
+            0.25
+          ],
+          "source_object": "F1_SVG_077.001"
+        },
+        {
+          "codes": "LC3-119/5",
+          "center_blender_z_up": [
+            -13.75,
+            -3.9991551637649536,
+            0.25
+          ],
+          "source_object": "F1_SVG_078.001"
+        },
+        {
+          "codes": "LC3-118/1",
+          "center_blender_z_up": [
+            -16.400001525878906,
+            -7.573400020599365,
+            0.25
+          ],
+          "source_object": "F1_SVG_079.001"
+        },
+        {
+          "codes": "LC3-118",
+          "center_blender_z_up": [
+            -19.775001525878906,
+            -7.573400020599365,
+            0.25
+          ],
+          "source_object": "F1_SVG_080.001"
+        },
+        {
+          "codes": "LC3-117",
+          "center_blender_z_up": [
+            -24.075000762939453,
+            -7.548405170440674,
+            0.25
+          ],
+          "source_object": "F1_SVG_081.001"
+        },
+        {
+          "codes": "LC3-115",
+          "center_blender_z_up": [
+            -24.299999237060547,
+            -1.3247201442718506,
+            0.25
+          ],
+          "source_object": "F1_SVG_084.001"
+        },
+        {
+          "codes": "LC3-111",
+          "center_blender_z_up": [
+            -24.299999237060547,
+            8.098289012908936,
+            0.25
+          ],
+          "source_object": "F1_SVG_085.001"
+        },
+        {
+          "codes": "LC3-110",
+          "center_blender_z_up": [
+            -24.299999237060547,
+            11.44758129119873,
+            0.25
+          ],
+          "source_object": "F1_SVG_105.001"
+        },
+        {
+          "codes": "LC3-108/1",
+          "center_blender_z_up": [
+            -21.82394790649414,
+            15.346758365631104,
+            0.25
+          ],
+          "source_object": "F1_SVG_106.001"
+        },
+        {
+          "codes": "LC3-109",
+          "center_blender_z_up": [
+            -24.053085327148438,
+            14.571921825408936,
+            0.25
+          ],
+          "source_object": "F1_SVG_107.001"
+        },
+        {
+          "codes": "LC3-108",
+          "center_blender_z_up": [
+            -19.64999771118164,
+            14.671900749206543,
+            0.25
+          ],
+          "source_object": "F1_SVG_108.001"
+        },
+        {
+          "codes": "LC3-106",
+          "center_blender_z_up": [
+            -16.524999618530273,
+            14.671900749206543,
+            0.25
+          ],
+          "source_object": "F1_SVG_109.001"
+        },
+        {
+          "codes": "LC3-104",
+          "center_blender_z_up": [
+            -11.649999618530273,
+            14.671900749206543,
+            0.25
+          ],
+          "source_object": "F1_SVG_112.001"
+        },
+        {
+          "codes": "LC3-103",
+          "center_blender_z_up": [
+            -8.475000381469727,
+            14.671900749206543,
+            0.25
+          ],
+          "source_object": "F1_SVG_113.001"
+        },
+        {
+          "codes": "LC3-102/1",
+          "center_blender_z_up": [
+            -4.549999237060547,
+            14.671900749206543,
+            0.25
+          ],
+          "source_object": "F1_SVG_114.001"
+        },
+        {
+          "codes": "LC3-105",
+          "center_blender_z_up": [
+            -14.499998092651367,
+            11.122650146484375,
+            0.25
+          ],
+          "source_object": "F1_SVG_115.001"
+        },
+        {
+          "codes": "LC3-101/2",
+          "center_blender_z_up": [
+            -9.399999618530273,
+            11.122650146484375,
+            0.25
+          ],
+          "source_object": "F1_SVG_116.001"
+        },
+        {
+          "codes": "LC3-101/1",
+          "center_blender_z_up": [
+            -11.57499885559082,
+            11.122650146484375,
+            0.25
+          ],
+          "source_object": "F1_SVG_117.001"
+        },
+        {
+          "codes": "LC3-140",
+          "center_blender_z_up": [
+            8.575000762939453,
+            11.822502136230469,
+            0.25
+          ],
+          "source_object": "F1_SVG_118.001"
+        },
+        {
+          "codes": "LC3-138",
+          "center_blender_z_up": [
+            11.249999046325684,
+            13.897063732147217,
+            0.25
+          ],
+          "source_object": "F1_SVG_119.001"
+        },
+        {
+          "codes": "LC3-137/3",
+          "center_blender_z_up": [
+            13.94999885559082,
+            13.897063732147217,
+            0.25
+          ],
+          "source_object": "F1_SVG_120.001"
+        },
+        {
+          "codes": "LC3-101",
+          "center_blender_z_up": [
+            -3.5,
+            7.523410797119141,
+            0.25
+          ],
+          "source_object": "F1_SVG_124.001"
+        },
+        {
+          "codes": "LC3-141",
+          "center_blender_z_up": [
+            5.75,
+            8.673167705535889,
+            0.25
+          ],
+          "source_object": "F1_SVG_125.001"
+        },
+        {
+          "codes": "LC3-137/2",
+          "center_blender_z_up": [
+            17.174999237060547,
+            13.897063732147217,
+            0.25
+          ],
+          "source_object": "F1_SVG_126.001"
+        },
+        {
+          "codes": "LC3-137/1",
+          "center_blender_z_up": [
+            20.424999237060547,
+            13.897063732147217,
+            0.25
+          ],
+          "source_object": "F1_SVG_127.001"
+        },
+        {
+          "codes": "LC3-127",
+          "center_blender_z_up": [
+            22.074999809265137,
+            -6.223685264587402,
+            0.25
+          ],
+          "source_object": "F1_SVG_164.001"
+        },
+        {
+          "codes": "LC3-121/5",
+          "center_blender_z_up": [
+            9.875,
+            -7.848341941833496,
+            0.25
+          ],
+          "source_object": "F1_SVG_166.001"
+        },
+        {
+          "codes": "LC3-123",
+          "center_blender_z_up": [
+            13.850000381469727,
+            -6.123706340789795,
+            0.25
+          ],
+          "source_object": "F1_SVG_167.001"
+        },
+        {
+          "codes": "LC3-124/1",
+          "center_blender_z_up": [
+            17.100000381469727,
+            -7.378652095794678,
+            0.25
+          ],
+          "source_object": "F1_SVG_168.001"
+        },
+        {
+          "codes": "LC3-124/2",
+          "center_blender_z_up": [
+            17.100000381469727,
+            -4.729425668716431,
+            0.25
+          ],
+          "source_object": "F1_SVG_169.001"
+        },
+        {
+          "codes": "LC3-128",
+          "center_blender_z_up": [
+            24.074999809265137,
+            -6.223685264587402,
+            0.25
+          ],
+          "source_object": "F1_SVG_171.001"
+        },
+        {
+          "codes": "LC3-129",
+          "center_blender_z_up": [
+            26.84999942779541,
+            -6.223685264587402,
+            0.25
+          ],
+          "source_object": "F1_SVG_174.001"
+        },
+        {
+          "codes": "LC3-123/1",
+          "center_blender_z_up": [
+            13.850000381469727,
+            -8.773146629333496,
+            0.25
+          ],
+          "source_object": "F1_SVG_220.001"
+        },
+        {
+          "codes": "LC3-136",
+          "center_blender_z_up": [
+            25.22499942779541,
+            14.896852493286133,
+            0.25
+          ],
+          "source_object": "F1_SVG_227.001"
+        },
+        {
+          "codes": "LC3-102/2",
+          "center_blender_z_up": [
+            -6.200000762939453,
+            14.671900749206543,
+            0.25
+          ],
+          "source_object": "F1_SVG_242.001"
+        },
+        {
+          "codes": "LC3-120",
+          "center_blender_z_up": [
+            -13.975000381469727,
+            -7.573399782180786,
+            0.24999999906867743
+          ],
+          "source_object": "F1_Audit_072_Floor"
+        },
+        {
+          "codes": "LC3-104/1",
+          "center_blender_z_up": [
+            -14.100000381469727,
+            14.671901226043701,
+            0.24999999906867743
+          ],
+          "source_object": "F1_Audit_110_Floor"
+        },
+        {
+          "codes": "LC3-107",
+          "center_blender_z_up": [
+            -17.949996948242188,
+            11.122650146484375,
+            0.24999999906867743
+          ],
+          "source_object": "F1_Audit_111_Floor"
+        },
+        {
+          "codes": "LC3-139",
+          "center_blender_z_up": [
+            6.875,
+            14.446947574615479,
+            0.24999999906867743
+          ],
+          "source_object": "F1_Audit_122_Floor"
+        },
+        {
+          "codes": "LC3-135",
+          "center_blender_z_up": [
+            25.799999237060547,
+            7.923326015472412,
+            0.24999999906867743
+          ],
+          "source_object": "F1_Audit_129_Floor"
+        },
+        {
+          "codes": "LC3-130",
+          "center_blender_z_up": [
+            23.524999618530273,
+            -0.5498839765787125,
+            0.24999999906867743
+          ],
+          "source_object": "F1_Audit_153_Floor"
+        },
+        {
+          "codes": "LC3-131",
+          "center_blender_z_up": [
+            24.674999237060547,
+            -0.5498839765787125,
+            0.24999999906867743
+          ],
+          "source_object": "F1_Audit_157_Floor"
+        },
+        {
+          "codes": "LC3-132",
+          "center_blender_z_up": [
+            26.47499942779541,
+            -1.3497149497270584,
+            0.24999999906867743
+          ],
+          "source_object": "F1_Audit_162_Floor"
+        },
+        {
+          "codes": "LC3-121/4",
+          "center_blender_z_up": [
+            7.424999237060547,
+            -7.848341703414917,
+            0.24999999906867743
+          ],
+          "source_object": "F1_Audit_165_Floor"
+        }
+      ]
+    },
+    {
+      "name": "LC3_Floor_2",
+      "source_objects": 573,
+      "materials": 31,
+      "room_metadata": [
+        {
+          "codes": "LC3-209",
+          "center_blender_z_up": [
+            -23.85562515258789,
+            14.208355903625488,
+            3.450000047683716
+          ],
+          "source_object": "F2_SVG_014.001"
+        },
+        {
+          "codes": "LC3-234/1",
+          "center_blender_z_up": [
+            24.555113792419434,
+            9.975907802581787,
+            3.450000047683716
+          ],
+          "source_object": "F2_SVG_031.001"
+        },
+        {
+          "codes": "LC3-212",
+          "center_blender_z_up": [
+            -21.90776824951172,
+            9.664316177368164,
+            3.450000047683716
+          ],
+          "source_object": "F2_SVG_033.001"
+        },
+        {
+          "codes": "LC3-223/1",
+          "center_blender_z_up": [
+            6.764684677124023,
+            -4.694849967956543,
+            3.450000047683716
+          ],
+          "source_object": "F2_SVG_076.001"
+        },
+        {
+          "codes": "LC3-223/2",
+          "center_blender_z_up": [
+            6.764684677124023,
+            -6.019113063812256,
+            3.450000047683716
+          ],
+          "source_object": "F2_SVG_079.001"
+        },
+        {
+          "codes": "LC3-223/9",
+          "center_blender_z_up": [
+            13.802942276000977,
+            -4.746781826019287,
+            3.450000047683716
+          ],
+          "source_object": "F2_SVG_080.001"
+        },
+        {
+          "codes": "LC3-223/3",
+          "center_blender_z_up": [
+            6.764684677124023,
+            -7.317410469055176,
+            3.450000047683716
+          ],
+          "source_object": "F2_SVG_081.001"
+        },
+        {
+          "codes": "LC3-223/10",
+          "center_blender_z_up": [
+            13.802942276000977,
+            -6.071044445037842,
+            3.450000047683716
+          ],
+          "source_object": "F2_SVG_082.001"
+        },
+        {
+          "codes": "LC3-223/4",
+          "center_blender_z_up": [
+            6.764684677124023,
+            -8.693605422973633,
+            3.450000047683716
+          ],
+          "source_object": "F2_SVG_083.001"
+        },
+        {
+          "codes": "LC3-223/11",
+          "center_blender_z_up": [
+            13.802942276000977,
+            -7.317410469055176,
+            3.450000047683716
+          ],
+          "source_object": "F2_SVG_084.001"
+        },
+        {
+          "codes": "LC3-223/7",
+          "center_blender_z_up": [
+            11.179827690124512,
+            -7.317410469055176,
+            3.450000047683716
+          ],
+          "source_object": "F2_SVG_086.001"
+        },
+        {
+          "codes": "LC3-223/12",
+          "center_blender_z_up": [
+            13.802942276000977,
+            -8.667639255523682,
+            3.450000047683716
+          ],
+          "source_object": "F2_SVG_087.001"
+        },
+        {
+          "codes": "LC3-223/8",
+          "center_blender_z_up": [
+            11.179827690124512,
+            -8.667639255523682,
+            3.450000047683716
+          ],
+          "source_object": "F2_SVG_089.001"
+        },
+        {
+          "codes": "LC3-220",
+          "center_blender_z_up": [
+            -8.194856643676758,
+            -4.5390543937683105,
+            3.450000047683716
+          ],
+          "source_object": "F2_SVG_090.001"
+        },
+        {
+          "codes": "LC3-222",
+          "center_blender_z_up": [
+            3.8039417266845703,
+            -5.032407283782959,
+            3.450000047683716
+          ],
+          "source_object": "F2_SVG_093.001"
+        },
+        {
+          "codes": "LC3-224",
+          "center_blender_z_up": [
+            10.296798706054688,
+            -5.369964122772217,
+            3.450000047683716
+          ],
+          "source_object": "F2_SVG_094.001"
+        },
+        {
+          "codes": "LC3-208",
+          "center_blender_z_up": [
+            -18.817171096801758,
+            14.208355903625488,
+            3.450000047683716
+          ],
+          "source_object": "F2_SVG_151.001"
+        },
+        {
+          "codes": "LC3-206",
+          "center_blender_z_up": [
+            -12.895687103271484,
+            14.206538200378418,
+            3.450000047683716
+          ],
+          "source_object": "F2_SVG_154.001"
+        },
+        {
+          "codes": "LC3-203",
+          "center_blender_z_up": [
+            -2.5071144104003906,
+            11.066476345062256,
+            3.450000047683716
+          ],
+          "source_object": "F2_SVG_159.001"
+        },
+        {
+          "codes": "LC3-241",
+          "center_blender_z_up": [
+            4.712943077087402,
+            11.066476345062256,
+            3.450000047683716
+          ],
+          "source_object": "F2_SVG_162.001"
+        },
+        {
+          "codes": "LC3-238",
+          "center_blender_z_up": [
+            14.971656799316406,
+            14.21401596069336,
+            3.450000047683716
+          ],
+          "source_object": "F2_SVG_163.001"
+        },
+        {
+          "codes": "LC3-239",
+          "center_blender_z_up": [
+            9.985142707824707,
+            14.21401596069336,
+            3.450000047683716
+          ],
+          "source_object": "F2_SVG_164.001"
+        },
+        {
+          "codes": "LC3-236/1",
+          "center_blender_z_up": [
+            20.242347717285156,
+            12.624433517456055,
+            3.450000047683716
+          ],
+          "source_object": "F2_SVG_169.001"
+        },
+        {
+          "codes": "LC3-236/3",
+          "center_blender_z_up": [
+            22.68517017364502,
+            14.214665412902832,
+            3.450000047683716
+          ],
+          "source_object": "F2_SVG_170.001"
+        },
+        {
+          "codes": "LC3-233",
+          "center_blender_z_up": [
+            25.671884536743164,
+            6.444539308547974,
+            3.450000047683716
+          ],
+          "source_object": "F2_SVG_171.001"
+        },
+        {
+          "codes": "LC3-230",
+          "center_blender_z_up": [
+            26.55491352081299,
+            -1.5529708862304688,
+            3.450000047683716
+          ],
+          "source_object": "F2_SVG_174.001"
+        },
+        {
+          "codes": "LC3-227",
+          "center_blender_z_up": [
+            23.905827522277832,
+            -6.725905895233154,
+            3.450000047683716
+          ],
+          "source_object": "F2_SVG_175.001"
+        },
+        {
+          "codes": "LC3-227/1",
+          "center_blender_z_up": [
+            27.204198837280273,
+            -6.725905895233154,
+            3.450000047683716
+          ],
+          "source_object": "F2_SVG_176.001"
+        },
+        {
+          "codes": "LC3-201",
+          "center_blender_z_up": [
+            -4.351083755493164,
+            1.5369760990142822,
+            3.450000047683716
+          ],
+          "source_object": "F2_SVG_177.001"
+        },
+        {
+          "codes": "LC3-243/2",
+          "center_blender_z_up": [
+            6.556913375854492,
+            -1.0855839252471924,
+            3.450000047683716
+          ],
+          "source_object": "F2_SVG_178.001"
+        },
+        {
+          "codes": "LC3-243/1",
+          "center_blender_z_up": [
+            6.556913375854492,
+            3.30266010761261,
+            3.450000047683716
+          ],
+          "source_object": "F2_SVG_179.001"
+        },
+        {
+          "codes": "LC3-207",
+          "center_blender_z_up": [
+            -15.856426239013672,
+            13.462453842163086,
+            3.450000047683716
+          ],
+          "source_object": "F2_SVG_183.001"
+        },
+        {
+          "codes": "LC3-204",
+          "center_blender_z_up": [
+            -4.636772155761719,
+            15.298924922943115,
+            3.450000047683716
+          ],
+          "source_object": "F2_SVG_184.001"
+        },
+        {
+          "codes": "LC3-240",
+          "center_blender_z_up": [
+            6.76468563079834,
+            15.298924922943115,
+            3.450000047683716
+          ],
+          "source_object": "F2_SVG_185.001"
+        },
+        {
+          "codes": "LC3-237",
+          "center_blender_z_up": [
+            17.958370208740234,
+            14.208355903625488,
+            3.450000047683716
+          ],
+          "source_object": "F2_SVG_186.001"
+        },
+        {
+          "codes": "LC3-236/2",
+          "center_blender_z_up": [
+            20.217884063720703,
+            15.298924922943115,
+            3.450000047683716
+          ],
+          "source_object": "F2_SVG_187.001"
+        },
+        {
+          "codes": "LC3-235/1",
+          "center_blender_z_up": [
+            27.074341773986816,
+            14.208355903625488,
+            3.450000047683716
+          ],
+          "source_object": "F2_SVG_190.001"
+        },
+        {
+          "codes": "LC3-225",
+          "center_blender_z_up": [
+            16.5039701461792,
+            -6.725905895233154,
+            3.450000047683716
+          ],
+          "source_object": "F2_SVG_259.001"
+        },
+        {
+          "codes": "LC3-211/1",
+          "center_blender_z_up": [
+            -25.595714569091797,
+            10.884715557098389,
+            3.450000286102295
+          ],
+          "source_object": "F2_Audit_007_Floor"
+        },
+        {
+          "codes": "LC3-213",
+          "center_blender_z_up": [
+            -23.85562515258789,
+            6.41857373714447,
+            3.450000286102295
+          ],
+          "source_object": "F2_Audit_018_Floor"
+        },
+        {
+          "codes": "LC3-211/2",
+          "center_blender_z_up": [
+            -25.595714569091797,
+            9.560452461242676,
+            3.450000286102295
+          ],
+          "source_object": "F2_Audit_019_Floor"
+        },
+        {
+          "codes": "LC3-234",
+          "center_blender_z_up": [
+            27.074339866638184,
+            10.339430809020996,
+            3.450000286102295
+          ],
+          "source_object": "F2_Audit_032_Floor"
+        },
+        {
+          "codes": "LC3-223/5",
+          "center_blender_z_up": [
+            9.335854530334473,
+            -7.317410469055176,
+            3.450000286102295
+          ],
+          "source_object": "F2_Audit_085_Floor"
+        },
+        {
+          "codes": "LC3-223/6",
+          "center_blender_z_up": [
+            9.335854530334473,
+            -8.667638778686523,
+            3.450000286102295
+          ],
+          "source_object": "F2_Audit_088_Floor"
+        },
+        {
+          "codes": "LC3-221",
+          "center_blender_z_up": [
+            -1.7539443969726562,
+            -5.032406330108643,
+            3.450000286102295
+          ],
+          "source_object": "F2_Audit_092_Floor"
+        },
+        {
+          "codes": "LC3-205",
+          "center_blender_z_up": [
+            -7.805290222167969,
+            14.206538200378418,
+            3.450000286102295
+          ],
+          "source_object": "F2_Audit_153_Floor"
+        },
+        {
+          "codes": "LC3-210/1",
+          "center_blender_z_up": [
+            -23.62188720703125,
+            10.261533260345459,
+            3.450000286102295
+          ],
+          "source_object": "F2_Audit_181_Floor"
+        },
+        {
+          "codes": "LC3-235/3",
+          "center_blender_z_up": [
+            24.658997535705566,
+            14.428729057312012,
+            3.450000286102295
+          ],
+          "source_object": "F2_Audit_188_Floor"
+        },
+        {
+          "codes": "LC3-235/2",
+          "center_blender_z_up": [
+            24.658997535705566,
+            11.734601497650146,
+            3.450000286102295
+          ],
+          "source_object": "F2_Audit_189_Floor"
+        },
+        {
+          "codes": "LC3-228",
+          "center_blender_z_up": [
+            23.6461124420166,
+            -0.7480268478393555,
+            3.450000286102295
+          ],
+          "source_object": "F2_Audit_191_Floor"
+        },
+        {
+          "codes": "LC3-229",
+          "center_blender_z_up": [
+            24.658998489379883,
+            -0.7480268478393555,
+            3.450000286102295
+          ],
+          "source_object": "F2_Audit_192_Floor"
+        },
+        {
+          "codes": "LC3-226/1",
+          "center_blender_z_up": [
+            19.958168029785156,
+            -7.3693413734436035,
+            3.450000286102295
+          ],
+          "source_object": "F2_Audit_193_Floor"
+        },
+        {
+          "codes": "LC3-226/2",
+          "center_blender_z_up": [
+            19.958168029785156,
+            -4.668883323669434,
+            3.450000286102295
+          ],
+          "source_object": "F2_Audit_258_Floor"
+        }
+      ]
+    },
+    {
+      "name": "LC3_Connecting_Stairs",
+      "source_objects": 246,
+      "materials": 4,
+      "room_metadata": []
+    },
+    {
+      "name": "Site_Ground",
+      "source_objects": 22,
+      "materials": 6,
+      "room_metadata": [
+        {
+          "codes": "LC3-125/1",
+          "center_blender_z_up": [
+            21.47499942779541,
+            -13.047243595123291,
+            0.24999999906867743
+          ],
+          "source_object": "F1_Audit_208_Floor"
+        },
+        {
+          "codes": "LC3-125",
+          "center_blender_z_up": [
+            21.47499942779541,
+            -14.696895122528076,
+            0.24999999906867743
+          ],
+          "source_object": "F1_Audit_209_Floor"
+        },
+        {
+          "codes": "LC3-126",
+          "center_blender_z_up": [
+            25.924999237060547,
+            -13.872069358825684,
+            0.24999999906867743
+          ],
+          "source_object": "F1_Audit_210_Floor"
+        }
+      ]
+    },
+    {
+      "name": "Covered_Link",
+      "source_objects": 29,
+      "materials": 3,
+      "room_metadata": []
+    },
+    {
+      "name": "Surrounding_Buildings",
+      "source_objects": 155,
+      "materials": 10,
+      "room_metadata": []
+    }
+  ]
+}

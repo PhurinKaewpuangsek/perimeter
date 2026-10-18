@@ -136,6 +136,9 @@
   position: absolute;
   bottom: 1.5rem;
   left: calc(var(--map3d-sidebar, 400px) + 1rem);
+  /* stop short of the bottom-right control stack; wrap instead of running under it */
+  width: max-content;
+  max-width: calc(100% - var(--map3d-sidebar, 400px) - 14rem);
   color: #475569;
   background: #ffffffd9;
   padding: 7px 12px;
@@ -170,5 +173,19 @@
   }
   .map3d-hint {
     display: none;
+  }
+}
+/* Mouse instructions do not apply on touch screens (phones, landscape tablets). */
+@media (pointer: coarse) {
+  .map3d-hint {
+    display: none;
+  }
+}
+/* The 3D camera already jumps without animation; keep any map UI transition off too. */
+@media (prefers-reduced-motion: reduce) {
+  .map3d *,
+  .map-view-toggle {
+    transition: none !important;
+    animation: none !important;
   }
 }

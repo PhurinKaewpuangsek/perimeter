@@ -9,8 +9,11 @@ import type { MapContainerProps } from "./MapContainer2D";
 import { ROOM_AREAS } from "./roomAreaGeometry";
 import { findRoomAt, isMapTap, modelToSvg, svgToModel } from "./modelCoordinates";
 import { getMarkerLabel } from "../../services/markerLayout";
+// Vite fingerprints the file name, so the model can be cached as immutable.
+import modelUrl from "../../assets/maps/lc3-campus.glb?url";
 
 type MapState = Omit<MapContainerProps, "onFloorChange">;
+export const CONTEXT_RESTORE_TIMEOUT = 3000;
 export interface MapScene {
   ready: Promise<void>;
   update: (state: MapState) => void;
@@ -40,6 +43,23 @@ export function createMapScene(
     antialias: true,
     powerPreference: "low-power",
   });
+  try {
+    return buildMapScene(host, onUnavailable, renderer);
+  } catch (error) {
+    // Setup can throw after the canvas and GPU context exist (for example
+    // when render targets cannot be allocated); release them before rethrowing.
+    host.querySelector(".map3d-labels")?.remove();
+    renderer.domElement.remove();
+    renderer.dispose();
+    throw error;
+  }
+}
+
+function buildMapScene(
+  host: HTMLDivElement,
+  onUnavailable: () => void,
+  renderer: THREE.WebGLRenderer,
+): MapScene {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -102,9 +122,12 @@ export function createMapScene(
   controls.maxZoom = 7;
   controls.enableDamping = false;
   controls.listenToKeyEvents(host);
-  // Render only on interaction/resize/data changes. Camera moves are immediate,
-  // so reduced-motion users get no automatic animation or perpetual render loop.
+  // Render only on interaction/resize/data changes. Camera moves are immediate
+  // and damping is off, so prefers-reduced-motion needs no separate code path:
+  // there is no automatic animation or perpetual render loop to disable.
   let disposed = false;
+  let contextLost = false;
+  let lostTimer = 0;
   let frame = 0;
   let root: THREE.Group | undefined;
   let state: MapState | undefined;
@@ -131,7 +154,7 @@ export function createMapScene(
 
   function draw() {
     frame = 0;
-    if (disposed) return;
+    if (disposed || contextLost) return;
     contactPass.ssaoMaterial.uniforms.cameraProjectionMatrix.value.copy(
       camera.projectionMatrix,
     );
@@ -289,23 +312,39 @@ export function createMapScene(
     }
     state.onClearSelection?.();
   }
-  function contextLost(event: Event) {
+  // preventDefault lets the browser restore the context; three.js re-uploads
+  // GPU resources on restore. Fall back to 2D only if it does not come back.
+  function handleContextLost(event: Event) {
     event.preventDefault();
-    if (!disposed) onUnavailable();
+    contextLost = true;
+    lostTimer = window.setTimeout(() => {
+      if (!disposed) onUnavailable();
+    }, CONTEXT_RESTORE_TIMEOUT);
+  }
+  function handleContextRestored() {
+    contextLost = false;
+    clearTimeout(lostTimer);
+    renderer.shadowMap.needsUpdate = true;
+    resize();
   }
   host.addEventListener("pointerdown", pointerDown, true);
   host.addEventListener("pointermove", pointerMove, true);
   host.addEventListener("pointerup", pointerUp, true);
   host.addEventListener("pointercancel", pointerCancel, true);
-  renderer.domElement.addEventListener("webglcontextlost", contextLost);
+  renderer.domElement.addEventListener("webglcontextlost", handleContextLost);
+  renderer.domElement.addEventListener(
+    "webglcontextrestored",
+    handleContextRestored,
+  );
 
   const abort = new AbortController();
-  const ready = fetch("/maps/lc3/lc3-campus.glb", { signal: abort.signal })
+  const ready = fetch(modelUrl, { signal: abort.signal })
     .then((response) => {
       if (!response.ok) throw new Error("Model unavailable");
       return response.arrayBuffer();
     })
-    .then((data) => new GLTFLoader().parseAsync(data, "/maps/lc3/"))
+    // The GLB embeds all buffers and has no textures, so no resource path.
+    .then((data) => new GLTFLoader().parseAsync(data, ""))
     .then((gltf) => {
       if (disposed) {
         disposeModel(gltf.scene);
@@ -447,7 +486,15 @@ export function createMapScene(
       host.removeEventListener("pointermove", pointerMove, true);
       host.removeEventListener("pointerup", pointerUp, true);
       host.removeEventListener("pointercancel", pointerCancel, true);
-      renderer.domElement.removeEventListener("webglcontextlost", contextLost);
+      clearTimeout(lostTimer);
+      renderer.domElement.removeEventListener(
+        "webglcontextlost",
+        handleContextLost,
+      );
+      renderer.domElement.removeEventListener(
+        "webglcontextrestored",
+        handleContextRestored,
+      );
       if (root) disposeModel(root);
       highlight.geometry.dispose();
       highlight.material.dispose();
