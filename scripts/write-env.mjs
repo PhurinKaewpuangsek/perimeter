@@ -15,7 +15,7 @@ import { banner, fail, getStackOutputs, repoRoot } from './lib/stack.mjs'
 const ENV_PATH = join(repoRoot, 'frontend', '.env.local')
 
 /** Keys this script owns. Anything else already in the file is left as the teammate wrote it. */
-const OWNED = ['VITE_API_BASE_URL', 'VITE_COGNITO_USER_POOL_ID', 'VITE_COGNITO_CLIENT_ID']
+const OWNED = ['VITE_API_BASE_URL', 'VITE_COGNITO_USER_POOL_ID', 'VITE_COGNITO_CLIENT_ID', 'VITE_GOOGLE_CLIENT_ID']
 
 banner('env:pull')
 
@@ -23,6 +23,10 @@ const { outputs } = getStackOutputs()
 if (!outputs.ApiUrl) fail('The stack has no ApiUrl output. Deploy first: npm run deploy')
 
 const existing = existsSync(ENV_PATH) ? readFileSync(ENV_PATH, 'utf8') : ''
+const existingGoogleClientId = existing
+  .split(/\r?\n/)
+  .find((line) => line.startsWith('VITE_GOOGLE_CLIENT_ID='))
+  ?.slice('VITE_GOOGLE_CLIENT_ID='.length)
 const kept = existing
   .split(/\r?\n/)
   .filter((line) => line.trim() && !OWNED.some((key) => line.startsWith(`${key}=`)))
@@ -39,6 +43,7 @@ if (outputs.UserPoolId) {
 if (outputs.UserPoolClientId) {
   nextLines.push(`VITE_COGNITO_CLIENT_ID=${outputs.UserPoolClientId}`)
 }
+nextLines.push(`VITE_GOOGLE_CLIENT_ID=${process.env.VITE_GOOGLE_CLIENT_ID || existingGoogleClientId || ''}`)
 
 const next = [...nextLines, ...kept].join('\n') + '\n'
 writeFileSync(ENV_PATH, next)
