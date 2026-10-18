@@ -17,6 +17,7 @@ import {
   MapPin,
   Calendar,
   Clock,
+  ArrowCounterClockwise,
   BookOpen,
   GraduationCap,
   Sparkle,
@@ -28,9 +29,11 @@ import { usePreloadImages } from '../hooks/usePreloadImages'
 import MapContainer from './map/MapContainer'
 import { FLOOR_CONFIGS } from './map/floorConfig'
 import LoadingScreen from './LoadingScreen'
+import TopBar from './TopBar'
 import SearchBar from './SearchBar'
 import CategoryFilter from './CategoryFilter'
 import SearchResultList from './SearchResultList'
+import PinButton from './PinButton'
 import {
   filterRooms,
   getExpandedSearchTerms,
@@ -44,7 +47,7 @@ import {
   getCategoryColor,
 } from '../services/roomDisplay'
 import { getCategoryIcon } from './categoryIcon'
-import perimeterLogoNoBg from '../assets/perimeter_logo_negative_nobg.png'
+import { getExamDateLabel, isExamSchedule } from '../services/scheduleDisplay'
 import type { Room } from '../types/room'
 import type { ScheduleSlot } from '../types/schedule'
 
@@ -363,11 +366,25 @@ function RoomDetailContent({
                             <span className="text-xs font-bold font-mono tracking-tight text-slate-900">
                               {slot.eventCode || '-'}
                             </span>
-                            <span className="inline-flex items-center gap-1 rounded-md bg-slate-50 border border-slate-200/70 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
-                              <Clock size={12} weight="bold" className="text-slate-400" />
-                              {slot.startTime} - {slot.endTime}
-                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <span className="inline-flex items-center gap-1 rounded-md bg-slate-50 border border-slate-200/70 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+                                <Clock size={12} weight="bold" className="text-slate-400" />
+                                {slot.startTime} - {slot.endTime}
+                              </span>
+                              <PinButton slot={slot} />
+                            </div>
                           </div>
+                          {slot.eventDate && (
+                            <div className="mt-1 flex items-center gap-1 text-[11px] font-medium text-rose-700">
+                              <Calendar size={12} weight="bold" className="text-rose-500" />
+                              <span>วันสอบ: {slot.eventDate}</span>
+                            </div>
+                          )}
+                          {!slot.eventDate && getExamDateLabel(slot) && (
+                            <p className="mt-1 text-xs font-semibold text-rose-700">
+                              {getExamDateLabel(slot)}
+                            </p>
+                          )}
                           {slot.eventName && !isCodeNameDuplicate && (
                             <p className="mt-1 text-xs text-slate-600 line-clamp-1 font-medium">
                               {slot.eventName}
@@ -446,7 +463,7 @@ export default function MapPage() {
     [roomSchedules]
   )
   const examSchedules = useMemo(
-    () => roomSchedules.filter((s) => s.eventType.toLowerCase() === 'exam'),
+    () => roomSchedules.filter(isExamSchedule),
     [roomSchedules]
   )
 
@@ -662,78 +679,86 @@ export default function MapPage() {
   if (loading || !floorPlansReady) return <LoadingScreen />
 
   return (
-    <main className="relative h-[100dvh] w-screen overflow-hidden bg-slate-100 font-sans select-none">
-      {/* Interactive map workspace, with a 2D fallback */}
-      <MapContainer
-        rooms={rooms}
-        currentFloor={currentFloor}
-        onFloorChange={setCurrentFloor}
-        selectedRoomId={selectedRoomId}
-        isDetailOpen={isDetailOpen}
-        sidebarWidth={isSidebarCollapsed ? 0 : 400}
-        onSelectRoom={handleSelectRoom}
-        onClearSelection={handleMapBackgroundClick}
-      />
+    <main className="relative h-[100dvh] w-screen overflow-hidden bg-slate-100 font-sans select-none flex flex-col">
+      {/* Shared Navigation TopBar (back-to-home, My Schedule placeholder, staff login) */}
+      <TopBar />
 
-      {/* =========================================================================
-          DESKTOP LEFT SIDEBAR (Docked Panel on Desktop: >= sm)
-          ========================================================================= */}
-      {isDesktop ? (
-        <>
-          <aside
-            className={`pointer-events-none absolute top-0 left-0 bottom-0 z-30 w-[400px] transition-transform duration-300 ease-in-out ${
-              isSidebarCollapsed ? '-translate-x-full' : 'translate-x-0'
-            }`}
-          >
-            <div className="relative pointer-events-auto flex flex-col h-full bg-white shadow-2xl border-r border-slate-200">
-              {/* Collapse / Expand Toggle Tab on right border of sidebar */}
-              <button
-                type="button"
-                onClick={() => setIsSidebarCollapsed((prev) => !prev)}
-                aria-label={isSidebarCollapsed ? 'ขยายแถบเมนู' : 'ซ่อนแถบเมนู'}
-                title={isSidebarCollapsed ? 'ขยายแถบเมนู' : 'ซ่อนแถบเมนู'}
-                className="absolute top-3.5 -right-8 z-30 flex h-8 w-8 items-center justify-center rounded-r-xl bg-white border-y border-r border-slate-200 text-slate-500 shadow-md hover:bg-slate-50 hover:text-slate-900 active:scale-95 transition-all cursor-pointer"
-              >
-                <CaretLeft
-                  size={16}
-                  weight="bold"
-                  className={`transition-transform duration-300 ${isSidebarCollapsed ? 'rotate-180' : ''}`}
-                />
-              </button>
+      <div className="relative flex-1 w-full overflow-hidden">
+        {/* Interactive map workspace, with a 2D fallback */}
+        <MapContainer
+          rooms={rooms}
+          currentFloor={currentFloor}
+          onFloorChange={setCurrentFloor}
+          selectedRoomId={selectedRoomId}
+          isDetailOpen={isDetailOpen}
+          sidebarWidth={isSidebarCollapsed ? 0 : 400}
+          onSelectRoom={handleSelectRoom}
+          onClearSelection={handleMapBackgroundClick}
+        />
 
-              {/* Header Bar with Prominently Enlarged Logo */}
-              <div className="flex shrink-0 items-center px-4 py-3 sm:py-3.5 border-b border-slate-200/80 bg-white">
-                <div className="flex items-center gap-3">
-                  <img
-                    src={perimeterLogoNoBg}
-                    alt="Perimeter"
-                    className="h-12 sm:h-14 w-auto object-contain cursor-pointer hover:opacity-90 transition-opacity drop-shadow-xs"
-                    onClick={handleResetMap}
-                    title="คลิกเพื่อรีเซ็ตแผนที่"
+        {/* =========================================================================
+            DESKTOP LEFT SIDEBAR (Docked Panel on Desktop: >= sm)
+            ========================================================================= */}
+        {isDesktop ? (
+          <>
+            <aside
+              className={`pointer-events-none absolute top-0 left-0 bottom-0 z-30 w-[400px] transition-transform duration-300 ease-in-out ${
+                isSidebarCollapsed ? '-translate-x-full' : 'translate-x-0'
+              }`}
+            >
+              <div className="relative pointer-events-auto flex flex-col h-full bg-white shadow-2xl border-r border-slate-200">
+                {/* Collapse / Expand Toggle Tab on right border of sidebar */}
+                <button
+                  type="button"
+                  onClick={() => setIsSidebarCollapsed((prev) => !prev)}
+                  aria-label={isSidebarCollapsed ? 'ขยายแถบเมนู' : 'ซ่อนแถบเมนู'}
+                  title={isSidebarCollapsed ? 'ขยายแถบเมนู' : 'ซ่อนแถบเมนู'}
+                  className="absolute top-3.5 -right-8 z-30 flex h-8 w-8 items-center justify-center rounded-r-xl bg-white border-y border-r border-slate-200 text-slate-500 shadow-md hover:bg-slate-50 hover:text-slate-900 active:scale-95 transition-all cursor-pointer"
+                >
+                  <CaretLeft
+                    size={16}
+                    weight="bold"
+                    className={`transition-transform duration-300 ${isSidebarCollapsed ? 'rotate-180' : ''}`}
                   />
-                </div>
-              </div>
+                </button>
 
-              {/* Search Controls (Pinned at top of sidebar) */}
-              <div className="p-3 border-b border-slate-200/80 bg-slate-50/50">
-                <SearchBar
-                  inputRef={inputRef}
-                  value={query}
-                  onChange={(newQuery) => {
-                    setQuery(newQuery)
-                    setIsDropdownOpen(true)
-                    if (isDetailOpen) setIsDetailOpen(false)
-                  }}
-                  onFocus={() => {
-                    setIsDropdownOpen(true)
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Escape') setIsDropdownOpen(false)
-                  }}
-                  isFilterOpen={isFilterExpanded}
-                  hasActiveFilter={hasActiveFilter}
-                  onToggleFilter={() => setIsFilterExpanded((prev) => !prev)}
-                />
+                {/* Search Controls (Pinned at top of sidebar) */}
+                <div className="p-3 border-b border-slate-200/80 bg-slate-50/50">
+                  <div className="flex items-center gap-2">
+                    <div className="min-w-0 flex-1">
+                      <SearchBar
+                        inputRef={inputRef}
+                        value={query}
+                        onChange={(newQuery) => {
+                          setQuery(newQuery)
+                          setIsDropdownOpen(true)
+                          if (isDetailOpen) setIsDetailOpen(false)
+                        }}
+                        onClear={() => {
+                          setQuery('')
+                          setIsDropdownOpen(false)
+                        }}
+                        onFocus={() => {
+                          setIsDropdownOpen(true)
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Escape') setIsDropdownOpen(false)
+                        }}
+                        isFilterOpen={isFilterExpanded}
+                        hasActiveFilter={hasActiveFilter}
+                        onToggleFilter={() => setIsFilterExpanded((prev) => !prev)}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleResetMap}
+                      aria-label="รีเซ็ตแผนที่"
+                      title="รีเซ็ตแผนที่"
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition-colors cursor-pointer"
+                    >
+                      <ArrowCounterClockwise size={16} weight="bold" />
+                    </button>
+                  </div>
 
                 {/* Category Filter Pills Collapsible */}
                 <div
@@ -892,17 +917,10 @@ export default function MapPage() {
           {/* =========================================================================
               MOBILE FLOATING HEADER & SEARCH BAR (Mobile only: < sm)
               ========================================================================= */}
-          <div className="fixed top-2.5 inset-x-2.5 z-30 pointer-events-none">
-            <div className="flex flex-col rounded-2xl bg-white shadow-xl border border-slate-200 p-2 pointer-events-auto">
-              <div className="flex items-center gap-2">
-                <img
-                  src={perimeterLogoNoBg}
-                  alt="Perimeter"
-                  className="h-8.5 w-auto object-contain cursor-pointer hover:opacity-90 transition-opacity drop-shadow-xs shrink-0 pl-1"
-                  onClick={handleResetMap}
-                  title="คลิกเพื่อรีเซ็ตแผนที่"
-                />
-                <div className="flex-1 min-w-0">
+          <div className="absolute top-2.5 inset-x-2.5 z-30 pointer-events-none">
+            <div className="relative z-40 flex flex-col rounded-2xl bg-white shadow-xl border border-slate-200 p-2 pointer-events-auto">
+              <div className="flex w-full items-center gap-2">
+                <div className="min-w-0 flex-1">
                   <SearchBar
                     inputRef={inputRef}
                     value={query}
@@ -910,6 +928,10 @@ export default function MapPage() {
                       setQuery(newQuery)
                       setIsDropdownOpen(true)
                       if (isDetailOpen) setIsDetailOpen(false)
+                    }}
+                    onClear={() => {
+                      setQuery('')
+                      setIsDropdownOpen(false)
                     }}
                     onFocus={() => {
                       setIsDropdownOpen(true)
@@ -922,6 +944,15 @@ export default function MapPage() {
                     onToggleFilter={() => setIsFilterExpanded((prev) => !prev)}
                   />
                 </div>
+                <button
+                  type="button"
+                  onClick={handleResetMap}
+                  aria-label="รีเซ็ตแผนที่"
+                  title="รีเซ็ตแผนที่"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition-colors cursor-pointer"
+                >
+                  <ArrowCounterClockwise size={16} weight="bold" />
+                </button>
               </div>
 
               {/* Collapsible Category Filter on Mobile */}
@@ -981,14 +1012,22 @@ export default function MapPage() {
               </div>
             )}
 
-            {/* Mobile Search Results Floating Dropdown Sheet */}
+            {/* Mobile Search Results Floating Dropdown Sheet.
+                The wrapper above is pointer-events-none so the map stays usable around the
+                search bar. Both layers here must opt back in with pointer-events-auto:
+                otherwise a tap on a result falls through to the map underneath and selects
+                whichever room pin happens to sit under the finger (issue #91). */}
             {isDropdownOpen && hasActiveQueryOrFilter && (!isDetailOpen || !selectedRoom) && (
               <>
                 <div
-                  className="fixed inset-0 bg-slate-900/25 z-30"
+                  data-testid="mobile-search-backdrop"
+                  className="fixed inset-0 bg-slate-900/25 z-30 pointer-events-auto"
                   onClick={() => setIsDropdownOpen(false)}
                 />
-                <div className="relative z-40 mt-2 max-h-[65dvh] overflow-y-auto no-scrollbar rounded-2xl bg-white shadow-2xl border border-slate-200/90 p-3 animate-in fade-in duration-150">
+                <div
+                  data-testid="mobile-search-results"
+                  className="relative z-40 mt-2 max-h-[65dvh] overflow-y-auto no-scrollbar rounded-2xl bg-white shadow-2xl border border-slate-200/90 p-3 animate-in fade-in duration-150 pointer-events-auto"
+                >
                   <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100">
                     <span className="text-xs font-bold text-slate-500">
                       ผลการค้นหา ({searchResults.length})
@@ -1068,6 +1107,7 @@ export default function MapPage() {
           )}
         </>
       )}
+      </div>
     </main>
   )
 }

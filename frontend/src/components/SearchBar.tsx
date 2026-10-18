@@ -1,9 +1,10 @@
 import type { RefObject, KeyboardEvent } from 'react'
-import { MagnifyingGlass, List } from '@phosphor-icons/react'
+import { MagnifyingGlass, List, X } from '@phosphor-icons/react'
 
 interface SearchBarProps {
   value: string
   onChange: (value: string) => void
+  onClear?: () => void
   onFocus?: () => void
   onKeyDown?: (event: KeyboardEvent<HTMLInputElement>) => void
   inputRef?: RefObject<HTMLInputElement | null>
@@ -16,6 +17,7 @@ interface SearchBarProps {
 export default function SearchBar({
   value,
   onChange,
+  onClear,
   onFocus,
   onKeyDown,
   inputRef,
@@ -24,6 +26,12 @@ export default function SearchBar({
   hasActiveFilter,
   onToggleFilter,
 }: SearchBarProps) {
+  function handleClear() {
+    onChange('')
+    onClear?.()
+    inputRef?.current?.focus()
+  }
+
   return (
     <div className="flex items-center gap-2 rounded-2xl bg-slate-100/70 border border-slate-200/80 px-3.5 py-2.5 shadow-2xs">
       <MagnifyingGlass size={20} className="shrink-0 text-slate-400" aria-hidden="true" />
@@ -38,6 +46,17 @@ export default function SearchBar({
         aria-label="ค้นหาห้อง"
         className="w-full border-none bg-transparent text-base text-slate-900 outline-none placeholder:text-slate-400"
       />
+      {value && (
+        <button
+          type="button"
+          onClick={handleClear}
+          aria-label="ล้างการค้นหา"
+          title="ล้างการค้นหา"
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-slate-400 hover:bg-slate-200/80 hover:text-slate-600 transition-colors cursor-pointer"
+        >
+          <X size={14} weight="bold" />
+        </button>
+      )}
       {onToggleFilter && (
         <button
           type="button"

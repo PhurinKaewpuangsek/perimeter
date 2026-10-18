@@ -30,6 +30,7 @@ describe('schedulesService - Data Access Layer', () => {
         startTime: '08:00',
         endTime: '11:00',
         eventType: 'class',
+        eventDate: '',
       })
     })
 
@@ -42,6 +43,7 @@ describe('schedulesService - Data Access Layer', () => {
         startTime: '',
         endTime: '',
         eventType: '',
+        eventDate: '',
       })
     })
 
@@ -64,8 +66,14 @@ describe('schedulesService - Data Access Layer', () => {
           startTime: '',
           endTime: '',
           eventType: 'class',
+          eventDate: '',
         }
       )
+    })
+
+    it('passes event_date through as eventDate for exam rows', () => {
+      const result = normalizeSchedule({ ...SAMPLE_SCHEDULE, event_type: 'exam', event_date: '2026-05-18' })
+      assert.strictEqual(result.eventDate, '2026-05-18')
     })
   })
 
@@ -97,6 +105,7 @@ describe('schedulesService - Data Access Layer', () => {
             startTime: '08:00',
             endTime: '11:00',
             eventType: 'class',
+            eventDate: '',
           },
         ])
       } finally {

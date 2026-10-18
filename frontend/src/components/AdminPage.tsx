@@ -14,8 +14,7 @@
  * 5. Bottom-Left Collapsed Pill: Repositioned floating pinned room pill to bottom-left
  *    (bottom-6 left-6) for unobstructed map exploration.
  */
-import { useState, useCallback, useMemo, useRef, createElement } from 'react'
-import { Link } from 'react-router-dom'
+import { useState, useCallback, useMemo, useRef, useId, createElement } from 'react'
 import {
   CaretLeft,
   CaretRight,
@@ -31,7 +30,6 @@ import {
   Warning,
   FloppyDisk,
   MagnifyingGlass,
-  ArrowSquareOut,
   Door,
   Sparkle,
 } from '@phosphor-icons/react'
@@ -41,8 +39,13 @@ import { usePreloadImages } from '../hooks/usePreloadImages'
 import MapContainer from './map/MapContainer'
 import { FLOOR_CONFIGS } from './map/floorConfig'
 import LoadingScreen from './LoadingScreen'
+import AccountMenu from './AccountMenu'
 import type { Room } from '../types/room'
 import type { ScheduleSlot } from '../types/schedule'
+import {
+  getSession,
+  isAdmin,
+} from '../services/authService'
 import {
   updateRoom,
   deleteRoom,
@@ -118,6 +121,71 @@ function RoomCategoryBadge({ category, nameThai }: { category: string; nameThai?
       {createElement(Icon, { size: 13, weight: 'duotone' })}
       <span>{label}</span>
     </span>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Event date (exam/event rows)
+// ---------------------------------------------------------------------------
+
+/** Event types that happen on one calendar date, so the form asks for event_date. */
+const DATED_EVENT_TYPES = ['exam', 'other']
+
+function isDatedEventType(type: string | undefined): boolean {
+  return DATED_EVENT_TYPES.includes((type || '').toLowerCase())
+}
+
+function isExamEventType(type: string | undefined): boolean {
+  return (type || '').toLowerCase() === 'exam'
+}
+
+/** True when value is a real calendar date written as YYYY-MM-DD (rejects 2026-02-30). */
+function isValidEventDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
+  const [year, month, day] = value.split('-').map(Number)
+  const date = new Date(Date.UTC(year, month - 1, day))
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day
+}
+
+/** Thai error message for the date field, or null when it can be saved. Mirrors the API rules. */
+function getEventDateError(type: string, date: string): string | null {
+  if (!isDatedEventType(type)) return null
+  if (!date) return isExamEventType(type) ? 'กรุณาเลือกวันสอบ (จำเป็นสำหรับการสอบ)' : null
+  if (!isValidEventDate(date)) return 'วันที่ไม่ถูกต้อง กรุณาเลือกวันที่จากปฏิทิน'
+  return null
+}
+
+/** event_date value to send: the date for dated rows, otherwise undefined. */
+function eventDateForPayload(type: string, date: string): string | undefined {
+  return isDatedEventType(type) && date ? date : undefined
+}
+
+interface EventDateFieldProps {
+  eventType: string
+  value: string
+  onChange: (value: string) => void
+}
+
+/** Date picker shown only for exam/event rows. */
+function EventDateField({ eventType, value, onChange }: EventDateFieldProps) {
+  const inputId = useId()
+  if (!isDatedEventType(eventType)) return null
+  const required = isExamEventType(eventType)
+  return (
+    <div className="col-span-2">
+      <label htmlFor={inputId} className="block text-[11px] font-semibold text-slate-700 mb-1">
+        {required ? 'วันสอบ' : 'วันที่จัด'}
+        {required && <span className="text-rose-500"> *</span>}
+      </label>
+      <input
+        id={inputId}
+        type="date"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        required={required}
+        className="w-full rounded-xl border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-slate-900/10"
+      />
+    </div>
   )
 }
 
@@ -267,10 +335,11 @@ function RoomListItem({
 interface ScheduleRowProps {
   slot: ScheduleSlot & { schedule_slot: string }
   onDelete: () => Promise<void>
-  onEdit: (updated: Partial<Pick<ScheduleSlot, 'dayOfWeek' | 'startTime' | 'eventCode' | 'endTime' | 'eventName' | 'eventType'>>) => Promise<void>
+  onEdit: (updated: Partial<Pick<ScheduleSlot, 'dayOfWeek' | 'startTime' | 'eventCode' | 'endTime' | 'eventName' | 'eventType' | 'eventDate'>>) => Promise<void>
+  isAdmin?: boolean
 }
 
-function ScheduleRow({ slot, onDelete, onEdit }: ScheduleRowProps) {
+function ScheduleRow({ slot, onDelete, onEdit, isAdmin = false }: ScheduleRowProps) {
   const [editing, setEditing] = useState(false)
   const [dayOfWeek, setDayOfWeek] = useState(slot.dayOfWeek)
   const [startTime, setStartTime] = useState(slot.startTime)
@@ -278,6 +347,7 @@ function ScheduleRow({ slot, onDelete, onEdit }: ScheduleRowProps) {
   const [endTime, setEndTime] = useState(slot.endTime)
   const [eventName, setEventName] = useState(slot.eventName)
   const [eventType, setEventType] = useState(slot.eventType)
+  const [eventDate, setEventDate] = useState(slot.eventDate ?? '')
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
@@ -298,10 +368,15 @@ function ScheduleRow({ slot, onDelete, onEdit }: ScheduleRowProps) {
   }
 
   async function handleSave() {
+    const dateError = getEventDateError(eventType, eventDate)
+    if (dateError) {
+      setErr(dateError)
+      return
+    }
     setSaving(true)
     setErr(null)
     try {
-      await onEdit({ dayOfWeek, startTime, eventCode, endTime, eventName, eventType })
+      await onEdit({ dayOfWeek, startTime, eventCode, endTime, eventName, eventType, eventDate })
       setEditing(false)
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'เกิดข้อผิดพลาด')
@@ -390,6 +465,7 @@ function ScheduleRow({ slot, onDelete, onEdit }: ScheduleRowProps) {
               <option value="other">อื่นๆ (Other)</option>
             </select>
           </div>
+          <EventDateField eventType={eventType} value={eventDate} onChange={setEventDate} />
         </div>
         <div className="flex gap-2 justify-end pt-1">
           <button
@@ -447,16 +523,18 @@ function ScheduleRow({ slot, onDelete, onEdit }: ScheduleRowProps) {
         >
           <PencilSimple size={14} />
         </button>
-        <button
-          type="button"
-          onClick={handleDelete}
-          disabled={saving}
-          className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer transition-colors disabled:opacity-50"
-          title="ลบตาราง"
-          aria-label="ลบตาราง"
-        >
-          <Trash size={14} />
-        </button>
+        {isAdmin && (
+          <button
+            type="button"
+            onClick={handleDelete}
+            disabled={saving}
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer transition-colors disabled:opacity-50"
+            title="ลบตาราง"
+            aria-label="ลบตาราง"
+          >
+            <Trash size={14} />
+          </button>
+        )}
       </div>
     </div>
   )
@@ -479,11 +557,18 @@ function CreateScheduleForm({ roomCode, onCreated, onCancel }: CreateScheduleFor
   const [eventCode, setEventCode] = useState('')
   const [eventName, setEventName] = useState('')
   const [eventType, setEventType] = useState('lecture')
+  const [eventDate, setEventDate] = useState('')
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    const dateError = getEventDateError(eventType, eventDate)
+    if (dateError) {
+      setErr(dateError)
+      return
+    }
+    const event_date = eventDateForPayload(eventType, eventDate)
     setSaving(true)
     setErr(null)
     try {
@@ -495,6 +580,7 @@ function CreateScheduleForm({ roomCode, onCreated, onCancel }: CreateScheduleFor
         event_code: eventCode,
         event_name: eventName,
         event_type: eventType,
+        ...(event_date !== undefined ? { event_date } : {}),
       })
       onCreated()
     } catch (e) {
@@ -600,6 +686,7 @@ function CreateScheduleForm({ roomCode, onCreated, onCancel }: CreateScheduleFor
             <option value="other">อื่นๆ (Other)</option>
           </select>
         </div>
+        <EventDateField eventType={eventType} value={eventDate} onChange={setEventDate} />
       </div>
 
       <div className="flex gap-2 justify-end pt-1">
@@ -634,6 +721,7 @@ interface RoomEditPanelProps {
   onRoomDeleted: () => void
   onRoomMutated: () => void
   onSchedulesMutated: () => void
+  isAdmin?: boolean
 }
 
 function RoomEditPanel({
@@ -643,6 +731,7 @@ function RoomEditPanel({
   onRoomDeleted,
   onRoomMutated,
   onSchedulesMutated,
+  isAdmin = false,
 }: RoomEditPanelProps) {
   const [nameInput, setNameInput] = useState(room.nameThai)
   const [capacityInput, setCapacityInput] = useState(
@@ -715,8 +804,10 @@ function RoomEditPanel({
 
   async function handleScheduleEdit(
     slot: ScheduleSlot & { schedule_slot: string },
-    updated: Partial<Pick<ScheduleSlot, 'dayOfWeek' | 'startTime' | 'eventCode' | 'endTime' | 'eventName' | 'eventType'>>,
+    updated: Partial<Pick<ScheduleSlot, 'dayOfWeek' | 'startTime' | 'eventCode' | 'endTime' | 'eventName' | 'eventType' | 'eventDate'>>,
   ) {
+    const finalType = updated.eventType ?? slot.eventType
+    const finalDate = updated.eventDate ?? slot.eventDate ?? ''
     await updateSchedule(room.code, slot.schedule_slot, {
       day_of_week: updated.dayOfWeek,
       start_time: updated.startTime,
@@ -724,6 +815,8 @@ function RoomEditPanel({
       end_time: updated.endTime,
       event_name: updated.eventName,
       event_type: updated.eventType,
+      // Dated rows send their date; other rows clear any stale date (null).
+      event_date: eventDateForPayload(finalType, finalDate) ?? null,
     })
     onSchedulesMutated()
   }
@@ -965,57 +1058,60 @@ function RoomEditPanel({
                 slot={slot}
                 onDelete={() => handleScheduleDelete(slot)}
                 onEdit={(updated) => handleScheduleEdit(slot, updated)}
+                isAdmin={isAdmin}
               />
             ))}
           </div>
         )}
       </div>
 
-      {/* Section 3: Danger Zone */}
-      <div className="rounded-2xl border border-rose-200/80 bg-rose-50/40 p-4 shadow-xs space-y-3">
-        <div className="flex items-center gap-2 text-rose-800">
-          <Warning size={16} weight="bold" />
-          <h3 className="text-xs font-bold uppercase tracking-wide">Danger Zone</h3>
-        </div>
-        <p className="text-xs text-slate-600">
-          การลบห้องจะลบข้อมูลออกจากระบบผังอาคารและฐานข้อมูลอย่างถาวร
-        </p>
-
-        {!confirmDelete ? (
-          <button
-            type="button"
-            onClick={() => setConfirmDelete(true)}
-            className="rounded-xl border border-rose-300 bg-white px-3.5 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-50 shadow-2xs cursor-pointer transition-colors"
-          >
-            ลบห้องนี้…
-          </button>
-        ) : (
-          <div className="rounded-xl border border-rose-200 bg-white p-3 space-y-2 shadow-xs">
-            <p className="text-xs font-bold text-rose-800">
-              ยืนยันการลบห้อง <span className="font-mono">{room.code}</span>?
-            </p>
-            <p className="text-[11px] text-rose-600">ข้อมูลที่ถูกลบไม่สามารถกู้คืนได้</p>
-            <div className="flex gap-2 justify-end pt-1">
-              <button
-                type="button"
-                onClick={() => setConfirmDelete(false)}
-                disabled={deleting}
-                className="rounded-xl px-3 py-1 text-xs font-medium text-slate-600 border border-slate-200 hover:bg-slate-50 cursor-pointer disabled:opacity-50"
-              >
-                ยกเลิก
-              </button>
-              <button
-                type="button"
-                onClick={handleDelete}
-                disabled={deleting}
-                className="rounded-xl bg-rose-600 px-3 py-1 text-xs font-semibold text-white hover:bg-rose-700 cursor-pointer disabled:opacity-50"
-              >
-                {deleting ? 'กำลังลบ...' : 'ยืนยันลบ'}
-              </button>
-            </div>
+      {/* Section 3: Danger Zone (Admin Only) */}
+      {isAdmin && (
+        <div className="rounded-2xl border border-rose-200/80 bg-rose-50/40 p-4 shadow-xs space-y-3">
+          <div className="flex items-center gap-2 text-rose-800">
+            <Warning size={16} weight="bold" />
+            <h3 className="text-xs font-bold uppercase tracking-wide">Danger Zone</h3>
           </div>
-        )}
-      </div>
+          <p className="text-xs text-slate-600">
+            การลบห้องจะลบข้อมูลออกจากระบบผังอาคารและฐานข้อมูลอย่างถาวร
+          </p>
+
+          {!confirmDelete ? (
+            <button
+              type="button"
+              onClick={() => setConfirmDelete(true)}
+              className="rounded-xl border border-rose-300 bg-white px-3.5 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-50 shadow-2xs cursor-pointer transition-colors"
+            >
+              ลบห้องนี้…
+            </button>
+          ) : (
+            <div className="rounded-xl border border-rose-200 bg-white p-3 space-y-2 shadow-xs">
+              <p className="text-xs font-bold text-rose-800">
+                ยืนยันการลบห้อง <span className="font-mono">{room.code}</span>?
+              </p>
+              <p className="text-[11px] text-rose-600">ข้อมูลที่ถูกลบไม่สามารถกู้คืนได้</p>
+              <div className="flex gap-2 justify-end pt-1">
+                <button
+                  type="button"
+                  onClick={() => setConfirmDelete(false)}
+                  disabled={deleting}
+                  className="rounded-xl px-3 py-1 text-xs font-medium text-slate-600 border border-slate-200 hover:bg-slate-50 cursor-pointer disabled:opacity-50"
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  className="rounded-xl bg-rose-600 px-3 py-1 text-xs font-semibold text-white hover:bg-rose-700 cursor-pointer disabled:opacity-50"
+                >
+                  {deleting ? 'กำลังลบ...' : 'ยืนยันลบ'}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -1188,6 +1284,10 @@ type LeftPanelMode = 'list' | 'room'
 type LeftTab = 'rooms' | 'schedules'
 
 export default function AdminPage() {
+  const session = getSession()
+
+  const isUserAdmin = useMemo(() => isAdmin(session), [session])
+
   const { rooms, loading: roomsLoading, error: roomsError, reload: reloadRooms } = useRooms()
   const {
     schedules,
@@ -1343,17 +1443,11 @@ export default function AdminPage() {
               />
             </div>
 
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-2">
               <span className="text-xs font-extrabold tracking-tight text-rose-600 select-none">
-                Admin Console
+                Staff Console
               </span>
-              <Link
-                to="/map"
-                title="ไปยังหน้าแผนที่ผู้ใช้ทั่วไป (Public Map)"
-                className="flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition-colors"
-              >
-                <ArrowSquareOut size={16} weight="bold" />
-              </Link>
+              <AccountMenu />
             </div>
           </div>
 
@@ -1429,6 +1523,7 @@ export default function AdminPage() {
                 onRoomDeleted={handleRoomDeleted}
                 onRoomMutated={() => reloadRooms(true)}
                 onSchedulesMutated={() => reloadSchedules(true)}
+                isAdmin={isUserAdmin}
               />
             ) : (
               /* ROOM LIST MODE */

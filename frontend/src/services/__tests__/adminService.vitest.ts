@@ -70,6 +70,32 @@ describe('updateRoom', () => {
     expect(parsed).not.toHaveProperty('capacity')
   })
 
+  it('includes Authorization header when token is available in session', async () => {
+    localStorage.setItem(
+      'perimeter_auth_session',
+      JSON.stringify({
+        idToken: 'mock-jwt-token',
+        expiresAt: Date.now() + 100000,
+        user: { email: 'staff@torch.dev', groups: ['staff'] },
+      }),
+    )
+    mockFetch(200, { message: 'ok' })
+    await updateRoom('LC3-F1-R101', { name_th: 'ห้อง 101' })
+
+    const { init } = lastFetch()
+    expect((init.headers as Record<string, string>)['Authorization']).toBe('mock-jwt-token')
+  })
+
+  it('throws friendly message when response is 401', async () => {
+    mockFetch(401, { message: 'Unauthorized' })
+    await expect(updateRoom('x', { name_th: 'test' })).rejects.toThrow(/Unauthorized/)
+  })
+
+  it('throws friendly message when response is 403', async () => {
+    mockFetch(403, { error: 'Forbidden: Insufficient privileges.' })
+    await expect(updateRoom('x', { name_th: 'test' })).rejects.toThrow(/Forbidden/)
+  })
+
   it('throws when response is not ok', async () => {
     mockFetch(400, { error: 'No fields provided for update' })
     await expect(updateRoom('x', { name_th: '' })).rejects.toThrow('No fields provided for update')
@@ -121,6 +147,30 @@ describe('createSchedule', () => {
     expect(result.schedule_slot).toBe('MON#09:00#CS333')
   })
 
+  it('sends event_date for exam rows', async () => {
+    mockFetch(200, { message: 'Schedule created successfully', schedule_slot: 'MON#13:00#BAS350' })
+    await createSchedule({
+      room_code: 'LC3-103',
+      day_of_week: 'MON',
+      start_time: '13:00',
+      event_code: 'BAS350',
+      event_type: 'exam',
+      event_date: '2026-05-18',
+    })
+
+    const parsed = JSON.parse(lastFetch().init.body as string)
+    expect(parsed.event_date).toBe('2026-05-18')
+  })
+
+  it('throws the API date error message so the form can show it', async () => {
+    mockFetch(400, { error: 'Invalid event_date: use a real calendar date in YYYY-MM-DD format' })
+    await expect(
+      createSchedule({
+        room_code: 'x', day_of_week: 'MON', start_time: '09:00', event_code: 'X', event_type: 'exam', event_date: '2026-02-30',
+      }),
+    ).rejects.toThrow('Invalid event_date')
+  })
+
   it('throws when response is not ok', async () => {
     mockFetch(400, { error: 'Missing required fields' })
     await expect(
@@ -142,6 +192,17 @@ describe('updateSchedule', () => {
     // schedule_slot contains '#' which must be URL-encoded
     expect(url).toContain('/api/schedules/LC3-301/MON%2309%3A00%23CS333')
     expect(init.method).toBe('PUT')
+  })
+
+  it('sends event_date, and null to clear it', async () => {
+    mockFetch(200, { message: 'ok' })
+    await updateSchedule('LC3-103', 'MON#13:00#BAS350', { event_date: '2026-05-18' })
+    expect(JSON.parse(lastFetch().init.body as string).event_date).toBe('2026-05-18')
+
+    await updateSchedule('LC3-103', 'MON#13:00#BAS350', { event_date: null })
+    const parsed = JSON.parse(lastFetch().init.body as string)
+    expect('event_date' in parsed).toBe(true)
+    expect(parsed.event_date).toBeNull()
   })
 
   it('throws when response is not ok', async () => {

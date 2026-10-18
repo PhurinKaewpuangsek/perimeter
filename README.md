@@ -76,6 +76,7 @@ npm run bootstrap
 | **รันเว็บทดสอบในเครื่อง (Local)** | `npm run dev` (ข้างในโฟลเดอร์ frontend) |
 | **ทดสอบเว็บบนมือถือ (Local Network)** | `npm run dev -- --host` (แล้วเข้าผ่าน URL ที่ปรากฏ) |
 | **อัปเดต Tech Stack / Lambda** | `npm run bootstrap` |
+| **สร้างบัญชี Demo Users (Admin/Staff/User)** | `npm run seed:users` |
 | **อัปเดตเฉพาะหน้าบ้าน (Frontend)** | `npm run site:publish` |
 | **อัปเดตข้อมูล Data ในฐานข้อมูล** | `npm run seed` |
 | **ล้างระบบทิ้งทั้งหมด (Clean up)** | รัน `npm run site:empty` แล้วตามด้วย `sam delete --config-env dev` |
@@ -83,7 +84,47 @@ npm run bootstrap
 > [!IMPORTANT]
 >(สำคัญ: ต้องรัน `npm run site:empty` ก่อนลบ Stack เสมอ ไม่งั้นจะลบไม่ผ่านเพราะ S3 Bucket ยังมีไฟล์อยู่)
 
-### 4. AI-Assisted Development (Matt Pocock Skills)
+### 4. Authentication & Role-Based Access Control (RBAC)
+
+ระบบการจัดการสิทธิ์การเข้าถึงข้อมูลแบ่งออกเป็น 3 ระดับบทบาท (Roles) ผ่าน AWS Cognito User Pool:
+
+| Role | Cognito Group | สิทธิ์การเข้าถึง (API Permissions) | หน้าจอที่เข้าถึงได้ |
+| :--- | :--- | :--- | :--- |
+| **Admin** | `admin` | Full Access: อ่าน, สร้าง, แก้ไข, และลบข้อมูลห้องและตารางเรียน (`POST`, `PUT`, `DELETE`) | `/map`, `/staff` (แสดงปุ่มลบและ Danger Zone) |
+| **Staff** | `staff` | Edit Access: อ่าน, สร้าง, แก้ไขข้อมูลห้องและตารางเรียน (`POST`, `PUT`); **ไม่อนุญาตให้ลบข้อมูล** (`DELETE` &rarr; `403 Forbidden`) | `/map`, `/staff` (ซ่อนปุ่มลบและ Danger Zone) |
+| **User** | `user` | Read Only: อ่านข้อมูลผังอาคารและตารางเรียนเท่านั้น; เรียกเส้นทาง Write ใดๆ &rarr; `403 Forbidden` | `/map`, `/staff` (แจ้งเตือนไม่มีสิทธิ์บันทึก) |
+| **Anonymous** | *(ไม่มีโทเค็น)* | Read Only: เข้าใช้งานแผนที่สาธารณะ (`GET /api/locations`, `GET /api/schedules`); เรียกเส้นทาง Write &rarr; `401 Unauthorized` | `/map` |
+
+#### การสร้าง Demo Accounts
+สร้างบัญชีตัวอย่างสำหรับแต่ละบทบาทโดยส่งผ่านรหัสผ่านผ่าน Environment Variables:
+
+**Bash / macOS / Linux:**
+```bash
+ADMIN_PASSWORD="<YourAdminPassword>" STAFF_PASSWORD="<YourStaffPassword>" USER_PASSWORD="<YourUserPassword>" npm run seed:users
+```
+
+**PowerShell (Windows):**
+```powershell
+$env:ADMIN_PASSWORD="<YourAdminPassword>"
+$env:STAFF_PASSWORD="<YourStaffPassword>"
+$env:USER_PASSWORD="<YourUserPassword>"
+npm run seed:users
+```
+*(อีเมล Default: `admin@torch.dev`, `staff@torch.dev`, `user@torch.dev`)*
+
+#### การสร้างและจัดการผู้ใช้งานด้วย AWS CLI
+```bash
+# 1. สร้างบัญชีใหม่
+aws cognito-idp admin-create-user --user-pool-id <UserPoolId> --username newstaff@torch.dev --user-attributes Name=email,Value=newstaff@torch.dev Name=email_verified,Value=true --message-action SUPPRESS
+
+# 2. ตั้งรหัสผ่านถาวร
+aws cognito-idp admin-set-user-password --user-pool-id <UserPoolId> --username newstaff@torch.dev --password "<YourSecurePassword>" --permanent
+
+# 3. กำหนดกลุ่มสิทธิ์ (admin | staff | user)
+aws cognito-idp admin-add-user-to-group --user-pool-id <UserPoolId> --username newstaff@torch.dev --group-name staff
+```
+
+### 5. AI-Assisted Development (Matt Pocock Skills)
 
 โปรเจกต์นี้ติดตั้ง Workflow ของ AI Agent ไว้เพื่อช่วยให้ทีมเขียนโค้ดและวางแผนได้รวดเร็วขึ้น สามารถเรียกใช้ผ่านแชทด้วย Slash Commands:
 

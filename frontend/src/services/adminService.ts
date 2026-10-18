@@ -6,7 +6,32 @@
  * Node test environments (node:test / vitest) without Vite injecting globals.
  */
 
+import { getIdToken } from './authService'
+
 const API_BASE_URL = (import.meta.env?.VITE_API_BASE_URL ?? '').replace(/\/+$/, '')
+
+function getAuthHeader(): Record<string, string> {
+  const token = getIdToken()
+  return token ? { Authorization: token } : {}
+}
+
+function getWriteHeaders(): Record<string, string> {
+  return {
+    ...getAuthHeader(),
+    'Content-Type': 'application/json',
+  }
+}
+
+async function handleFetchError(res: Response, fallbackPrefix: string): Promise<never> {
+  const err = await res.json().catch(() => ({}))
+  if (res.status === 401) {
+    throw new Error('Unauthorized: Please log in to perform this action.')
+  }
+  if (res.status === 403) {
+    throw new Error((err as { error?: string }).error ?? 'Forbidden: Insufficient privileges.')
+  }
+  throw new Error((err as { error?: string; message?: string }).error ?? `${fallbackPrefix} failed (${res.status})`)
+}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -26,6 +51,8 @@ export interface CreateSchedulePayload {
   end_time?: string
   event_name?: string
   event_type?: string
+  /** Real calendar date (YYYY-MM-DD); required by the API for exam rows. */
+  event_date?: string
 }
 
 export interface UpdateSchedulePayload {
@@ -35,6 +62,8 @@ export interface UpdateSchedulePayload {
   end_time?: string
   event_name?: string
   event_type?: string
+  /** YYYY-MM-DD to set the date, null to clear it. */
+  event_date?: string | null
 }
 
 export interface CreateScheduleResult {
@@ -58,7 +87,7 @@ export async function updateRoom(
   const url = `${API_BASE_URL}/api/locations/${encodeURIComponent(locationId)}`
   const res = await fetch(url, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getWriteHeaders(),
     body: JSON.stringify({
       name: payload.name_th,
       name_th: payload.name_th,
@@ -67,8 +96,7 @@ export async function updateRoom(
     }),
   })
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error((err as { error?: string; message?: string }).error ?? `PUT /api/locations failed (${res.status})`)
+    await handleFetchError(res, 'PUT /api/locations')
   }
 }
 
@@ -77,10 +105,12 @@ export async function updateRoom(
  */
 export async function deleteRoom(locationId: string): Promise<void> {
   const url = `${API_BASE_URL}/api/locations/${encodeURIComponent(locationId)}`
-  const res = await fetch(url, { method: 'DELETE' })
+  const res = await fetch(url, {
+    method: 'DELETE',
+    headers: getAuthHeader(),
+  })
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error((err as { error?: string; message?: string }).error ?? `DELETE /api/locations failed (${res.status})`)
+    await handleFetchError(res, 'DELETE /api/locations')
   }
 }
 
@@ -98,19 +128,19 @@ export async function createSchedule(
   const url = `${API_BASE_URL}/api/schedules`
   const res = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getWriteHeaders(),
     body: JSON.stringify(payload),
   })
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error((err as { error?: string; message?: string }).error ?? `POST /api/schedules failed (${res.status})`)
+    await handleFetchError(res, 'POST /api/schedules')
   }
   return res.json() as Promise<CreateScheduleResult>
 }
 
 /**
  * PUT /api/schedules/{room_code}/{schedule_slot}
- * Updatable fields: end_time, event_name, event_type.
+ * Updatable fields: day_of_week, start_time, event_code, end_time, event_name,
+ * event_type, event_date (null clears it).
  * room_code and schedule_slot must be URL-encoded because schedule_slot
  * contains '#' characters.
  */
@@ -122,12 +152,11 @@ export async function updateSchedule(
   const url = `${API_BASE_URL}/api/schedules/${encodeURIComponent(roomCode)}/${encodeURIComponent(scheduleSlot)}`
   const res = await fetch(url, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getWriteHeaders(),
     body: JSON.stringify(payload),
   })
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error((err as { error?: string; message?: string }).error ?? `PUT /api/schedules failed (${res.status})`)
+    await handleFetchError(res, 'PUT /api/schedules')
   }
 }
 
@@ -139,9 +168,12 @@ export async function deleteSchedule(
   scheduleSlot: string,
 ): Promise<void> {
   const url = `${API_BASE_URL}/api/schedules/${encodeURIComponent(roomCode)}/${encodeURIComponent(scheduleSlot)}`
-  const res = await fetch(url, { method: 'DELETE' })
+  const res = await fetch(url, {
+    method: 'DELETE',
+    headers: getAuthHeader(),
+  })
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error((err as { error?: string; message?: string }).error ?? `DELETE /api/schedules failed (${res.status})`)
+    await handleFetchError(res, 'DELETE /api/schedules')
   }
 }
+

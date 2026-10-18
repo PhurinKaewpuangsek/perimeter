@@ -10,13 +10,67 @@ const CORS_HEADERS = {
   'Content-Type': 'application/json',
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'PUT,OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Headers': 'Content-Type,Authorization',
 };
 
-const UPDATABLE_FIELDS = ['end_time', 'event_name', 'event_type', 'day_of_week', 'start_time', 'event_code'];
+function getCallerGroups(event) {
+  const rawGroups = event?.requestContext?.authorizer?.claims?.['cognito:groups'];
+  if (!rawGroups) return [];
+  if (Array.isArray(rawGroups)) return rawGroups;
+  if (typeof rawGroups === 'string') {
+    const cleaned = rawGroups.replace(/[\[\]]/g, '');
+    return cleaned.split(',').map((g) => g.trim()).filter(Boolean);
+  }
+  return [];
+}
+
+function getCallerIdentity(event) {
+  const claims = event?.requestContext?.authorizer?.claims;
+  return claims?.['cognito:username'] || claims?.sub || 'unknown';
+}
+
+const UPDATABLE_FIELDS = ['end_time', 'event_name', 'event_type', 'day_of_week', 'start_time', 'event_code', 'event_date'];
+
+const EVENT_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const EXAM_DATE_REQUIRED = 'event_date is required for exam rows (YYYY-MM-DD)';
+
+/** True when value is a real calendar date written as YYYY-MM-DD (e.g. rejects 2026-02-30). */
+export function isValidEventDate(value) {
+  if (typeof value !== 'string' || !EVENT_DATE_PATTERN.test(value)) return false;
+  const [year, month, day] = value.split('-').map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return (
+    date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day
+  );
+}
+
+function normalizeEventType(eventType) {
+  return typeof eventType === 'string' ? eventType.toLowerCase() : eventType;
+}
+
+function isExamType(eventType) {
+  return typeof eventType === 'string' && eventType.toLowerCase() === 'exam';
+}
+
+function badRequest(message) {
+  return {
+    statusCode: 400,
+    headers: CORS_HEADERS,
+    body: JSON.stringify({ error: message }),
+  };
+}
 
 export function createHandler({ docClient = defaultDocClient, tableName = TABLE_NAME } = {}) {
   return async function updateSchedule(event) {
+    const groups = getCallerGroups(event);
+    if (!groups.includes('staff') && !groups.includes('admin')) {
+      return {
+        statusCode: 403,
+        headers: CORS_HEADERS,
+        body: JSON.stringify({ error: 'Forbidden: Insufficient privileges' }),
+      };
+    }
+
     const rawRoomCode = event.pathParameters?.room_code || '';
     const roomCode = decodeURIComponent(rawRoomCode);
     if (!roomCode) {
@@ -59,13 +113,36 @@ export function createHandler({ docClient = defaultDocClient, tableName = TABLE_
       }
     }
 
-    if (Object.keys(updateData).length === 0) {
+    // Stored lowercase so the exam-date condition below (event_type = 'exam') matches every spelling.
+    if (updateData.event_type !== undefined) {
+      updateData.event_type = normalizeEventType(updateData.event_type);
+    }
+
+    // event_date: null or '' clears it; any other value must be a real YYYY-MM-DD date.
+    let clearEventDate = false;
+    if (updateData.event_date !== undefined) {
+      if (updateData.event_date === null || updateData.event_date === '') {
+        clearEventDate = true;
+        delete updateData.event_date;
+      } else if (!isValidEventDate(updateData.event_date)) {
+        return badRequest('Invalid event_date: use a real calendar date in YYYY-MM-DD format');
+      }
+    }
+
+    if (isExamType(updateData.event_type) && clearEventDate) {
+      return badRequest(EXAM_DATE_REQUIRED);
+    }
+
+    if (Object.keys(updateData).length === 0 && !clearEventDate) {
       return {
         statusCode: 400,
         headers: CORS_HEADERS,
         body: JSON.stringify({ error: 'No fields provided for update' }),
       };
     }
+
+    const updatedBy = getCallerIdentity(event);
+    const updatedAt = new Date().toISOString();
 
     try {
       if (updateData.day_of_week || updateData.start_time || updateData.event_code) {
@@ -88,7 +165,17 @@ export function createHandler({ docClient = defaultDocClient, tableName = TABLE_
         const newScheduleSlot = `${newDay}#${newTime}#${newCourse}`;
         
         if (newScheduleSlot !== scheduleSlot) {
-          const newItem = { ...oldItem, ...updateData, schedule_slot: newScheduleSlot };
+          const newItem = {
+            ...oldItem,
+            ...updateData,
+            schedule_slot: newScheduleSlot,
+            updatedBy,
+            updatedAt,
+          };
+          if (clearEventDate) delete newItem.event_date;
+          if (isExamType(newItem.event_type) && !isValidEventDate(newItem.event_date)) {
+            return badRequest(EXAM_DATE_REQUIRED);
+          }
           
           await docClient.send(new TransactWriteCommand({
             TransactItems: [
@@ -104,6 +191,9 @@ export function createHandler({ docClient = defaultDocClient, tableName = TABLE_
         }
       }
 
+      updateData.updatedBy = updatedBy;
+      updateData.updatedAt = updatedAt;
+
       const updateExpressions = [];
       const expressionAttributeNames = {};
       const expressionAttributeValues = {};
@@ -116,15 +206,34 @@ export function createHandler({ docClient = defaultDocClient, tableName = TABLE_
         expressionAttributeValues[attrValue] = updateData[key];
       });
 
+      let updateExpression = `SET ${updateExpressions.join(', ')}`;
+      if (clearEventDate) {
+        expressionAttributeNames['#eventDate'] = 'event_date';
+        updateExpression += ' REMOVE #eventDate';
+      }
+
+      // Keep exam rows dated: the stored row is checked atomically when this
+      // update would leave an exam without a date.
+      let conditionExpression = 'attribute_exists(schedule_slot)';
+      if (isExamType(updateData.event_type) && updateData.event_date === undefined) {
+        expressionAttributeNames['#eventDate'] = 'event_date';
+        conditionExpression += ' AND attribute_exists(#eventDate)';
+      } else if (updateData.event_type === undefined && clearEventDate) {
+        expressionAttributeNames['#eventType'] = 'event_type';
+        expressionAttributeValues[':examType'] = 'exam';
+        conditionExpression += ' AND NOT (#eventType = :examType)';
+      }
+
       const result = await docClient.send(
         new UpdateCommand({
           TableName: tableName,
           Key: { room_code: roomCode, schedule_slot: scheduleSlot },
-          UpdateExpression: `SET ${updateExpressions.join(', ')}`,
+          UpdateExpression: updateExpression,
           ExpressionAttributeNames: expressionAttributeNames,
           ExpressionAttributeValues: expressionAttributeValues,
           ReturnValues: 'ALL_NEW',
-          ConditionExpression: 'attribute_exists(schedule_slot)',
+          ConditionExpression: conditionExpression,
+          ReturnValuesOnConditionCheckFailure: 'ALL_OLD',
         })
       );
 
@@ -139,6 +248,8 @@ export function createHandler({ docClient = defaultDocClient, tableName = TABLE_
     } catch (error) {
       console.error('Error updating schedule:', error);
       if (error.name === 'ConditionalCheckFailedException') {
+        // The row exists but would become an exam without a date.
+        if (error.Item) return badRequest(EXAM_DATE_REQUIRED);
         return { statusCode: 404, headers: CORS_HEADERS, body: JSON.stringify({ error: 'Schedule slot not found' }) };
       }
       if (error.name === 'TransactionCanceledException') {

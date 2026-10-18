@@ -10,8 +10,19 @@ const CORS_HEADERS = {
   'Content-Type': 'application/json',
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'DELETE,OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Headers': 'Content-Type,Authorization',
 };
+
+function getCallerGroups(event) {
+  const rawGroups = event?.requestContext?.authorizer?.claims?.['cognito:groups'];
+  if (!rawGroups) return [];
+  if (Array.isArray(rawGroups)) return rawGroups;
+  if (typeof rawGroups === 'string') {
+    const cleaned = rawGroups.replace(/[\[\]]/g, '');
+    return cleaned.split(',').map((g) => g.trim()).filter(Boolean);
+  }
+  return [];
+}
 
 /**
  * Builds the Lambda handler around an injectable document client, for unit testing.
@@ -23,6 +34,14 @@ export function createHandler({ docClient = defaultDocClient, tableName = TABLE_
    * Path: DELETE /api/schedules/{room_code}/{schedule_slot}
    */
   return async function deleteSchedule(event) {
+    const groups = getCallerGroups(event);
+    if (!groups.includes('admin')) {
+      return {
+        statusCode: 403,
+        headers: CORS_HEADERS,
+        body: JSON.stringify({ error: 'Forbidden: Insufficient privileges' }),
+      };
+    }
     const rawRoomCode = event.pathParameters?.room_code || '';
     const roomCode = decodeURIComponent(rawRoomCode);
     if (!roomCode) {

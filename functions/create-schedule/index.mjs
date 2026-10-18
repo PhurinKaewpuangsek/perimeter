@@ -10,10 +10,54 @@ const CORS_HEADERS = {
   'Content-Type': 'application/json',
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST,OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Headers': 'Content-Type,Authorization',
 };
 
+function getCallerGroups(event) {
+  const rawGroups = event?.requestContext?.authorizer?.claims?.['cognito:groups'];
+  if (!rawGroups) return [];
+  if (Array.isArray(rawGroups)) return rawGroups;
+  if (typeof rawGroups === 'string') {
+    const cleaned = rawGroups.replace(/[\[\]]/g, '');
+    return cleaned.split(',').map((g) => g.trim()).filter(Boolean);
+  }
+  return [];
+}
+
+function getCallerIdentity(event) {
+  const claims = event?.requestContext?.authorizer?.claims;
+  return claims?.['cognito:username'] || claims?.sub || 'unknown';
+}
+
 const REQUIRED_FIELDS = ['room_code', 'day_of_week', 'start_time', 'event_code'];
+
+const EVENT_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+/** True when value is a real calendar date written as YYYY-MM-DD (e.g. rejects 2026-02-30). */
+export function isValidEventDate(value) {
+  if (typeof value !== 'string' || !EVENT_DATE_PATTERN.test(value)) return false;
+  const [year, month, day] = value.split('-').map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return (
+    date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day
+  );
+}
+
+function normalizeEventType(eventType) {
+  return typeof eventType === 'string' ? eventType.toLowerCase() : eventType;
+}
+
+function isExamType(eventType) {
+  return typeof eventType === 'string' && eventType.toLowerCase() === 'exam';
+}
+
+function badRequest(message) {
+  return {
+    statusCode: 400,
+    headers: CORS_HEADERS,
+    body: JSON.stringify({ error: message }),
+  };
+}
 
 /**
  * Builds the Lambda handler around an injectable document client, for unit testing.
@@ -25,6 +69,15 @@ export function createHandler({ docClient = defaultDocClient, tableName = TABLE_
    * Path: POST /api/schedules
    */
   return async function createSchedule(event) {
+    const groups = getCallerGroups(event);
+    if (!groups.includes('staff') && !groups.includes('admin')) {
+      return {
+        statusCode: 403,
+        headers: CORS_HEADERS,
+        body: JSON.stringify({ error: 'Forbidden: Insufficient privileges' }),
+      };
+    }
+
     // Parse body
     let body = {};
     if (typeof event.body === 'string') {
@@ -52,11 +105,25 @@ export function createHandler({ docClient = defaultDocClient, tableName = TABLE_
       }
     }
 
-    const { room_code, day_of_week, start_time, event_code, end_time, event_name, event_type } =
-      body;
+    const { room_code, day_of_week, start_time, event_code, end_time, event_name } = body;
+    // Stored lowercase so DynamoDB conditions that compare event_type match every spelling.
+    const event_type = normalizeEventType(body.event_type);
+
+    // event_date is optional, but when present it must be a real YYYY-MM-DD date,
+    // and exam rows must always carry one.
+    const hasEventDate = body.event_date !== undefined && body.event_date !== null && body.event_date !== '';
+    if (hasEventDate && !isValidEventDate(body.event_date)) {
+      return badRequest('Invalid event_date: use a real calendar date in YYYY-MM-DD format');
+    }
+    if (isExamType(event_type) && !hasEventDate) {
+      return badRequest('event_date is required for exam rows (YYYY-MM-DD)');
+    }
+    const event_date = hasEventDate ? body.event_date : undefined;
 
     // Auto-generate composite key
     const schedule_slot = `${day_of_week}#${start_time}#${event_code}`;
+    const updatedBy = getCallerIdentity(event);
+    const updatedAt = new Date().toISOString();
 
     const item = {
       room_code,
@@ -67,6 +134,9 @@ export function createHandler({ docClient = defaultDocClient, tableName = TABLE_
       ...(end_time !== undefined && { end_time }),
       ...(event_name !== undefined && { event_name }),
       ...(event_type !== undefined && { event_type }),
+      ...(event_date !== undefined && { event_date }),
+      updatedBy,
+      updatedAt,
     };
 
     try {

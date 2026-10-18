@@ -27,6 +27,14 @@ Parameters:
       account. Changing it on a live stack REPLACES the table.
     AllowedPattern: "^[A-Za-z0-9_.-]{3,255}$"
 
+  PinsTableName:
+    Type: String
+    Default: SmartFacultyPins
+    Description: >
+      Name of the pins table storing personal timetables. Change it only when two people share
+      one AWS account. Changing it on a live stack REPLACES the table.
+    AllowedPattern: "^[A-Za-z0-9_.-]{3,255}$"
+
   ExistingLambdaRoleName:
     Type: String
     Default: LabRole
@@ -52,8 +60,29 @@ Globals:
     MinimumCompressionSize: 1024
     Cors:
       AllowMethods: "'GET,PUT,POST,DELETE,OPTIONS'"
-      AllowHeaders: "'Content-Type'"
+      AllowHeaders: "'Content-Type,Authorization'"
       AllowOrigin: "'*'"
+    Auth:
+      DefaultAuthorizer: CognitoAuthorizer
+      Authorizers:
+        CognitoAuthorizer:
+          UserPoolArn: !GetAtt TorchUserPool.Arn
+          Identity:
+            Header: Authorization
+      AddDefaultAuthorizerToCorsPreflight: false
+    GatewayResponses:
+      UNAUTHORIZED:
+        ResponseParameters:
+          Headers:
+            Access-Control-Allow-Origin: "'*'"
+            Access-Control-Allow-Headers: "'Content-Type,Authorization'"
+            Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
+      ACCESS_DENIED:
+        ResponseParameters:
+          Headers:
+            Access-Control-Allow-Origin: "'*'"
+            Access-Control-Allow-Headers: "'Content-Type,Authorization'"
+            Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
 
 # ---------------------------------------------------------------------------
 # Resources
@@ -178,6 +207,8 @@ Resources:
           Properties:
             Path: /api/locations
             Method: get
+            Auth:
+              Authorizer: NONE
 
   SmartFacultySchedules:
     Type: AWS::DynamoDB::Table
@@ -243,6 +274,8 @@ Resources:
           Properties:
             Path: /api/schedules
             Method: get
+            Auth:
+              Authorizer: NONE
 
   # ---------------------------------------------------------------------------
   # Admin write endpoints  Eissue #81 (admin-crud-panel).
@@ -470,8 +503,307 @@ Resources:
             Action: s3:GetObject
             Resource: !Sub "${SiteBucket.Arn}/*"
 
+  # ---------------------------------------------------------------------------
+  # Authentication — Amazon Cognito User Pool & Groups (issue #95)
+  # ---------------------------------------------------------------------------
+  TorchUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub "${AWS::StackName}-user-pool"
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: true
+      AutoVerifiedAttributes:
+        - email
+      UsernameAttributes:
+        - email
+
+  TorchUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: !Sub "${AWS::StackName}-client"
+      UserPoolId: !Ref TorchUserPool
+      GenerateSecret: false
+      ExplicitAuthFlows:
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+      PreventUserExistenceErrors: ENABLED
+
+  UserGroup:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties:
+      GroupName: user
+      Description: General users with access to read and own schedules
+      UserPoolId: !Ref TorchUserPool
+      Precedence: 3
+
+  StaffGroup:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties:
+      GroupName: staff
+      Description: Staff members who can create and update schedules and rooms
+      UserPoolId: !Ref TorchUserPool
+      Precedence: 2
+
+  AdminGroup:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties:
+      GroupName: admin
+      Description: Administrators who can manage all data including deletes
+      UserPoolId: !Ref TorchUserPool
+      Precedence: 1
+
+  # ---------------------------------------------------------------------------
+  # Admin User Management endpoints — issue #96 (rbac-admin-user-management).
+  # GET    /api/admin/users
+  # POST   /api/admin/users
+  # PUT    /api/admin/users/{username}
+  # DELETE /api/admin/users/{username}
+  # ---------------------------------------------------------------------------
+
+  ManageUsersRole:
+    Type: AWS::IAM::Role
+    Condition: CreateLambdaRoles
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: ManageCognitoUsersOnly
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cognito-idp:ListUsers
+                  - cognito-idp:ListUsersInGroup
+                  - cognito-idp:AdminCreateUser
+                  - cognito-idp:AdminAddUserToGroup
+                  - cognito-idp:AdminRemoveUserFromGroup
+                  - cognito-idp:AdminListGroupsForUser
+                  - cognito-idp:AdminEnableUser
+                  - cognito-idp:AdminDisableUser
+                  - cognito-idp:AdminDeleteUser
+                Resource: !GetAtt TorchUserPool.Arn
+
+  ManageUsersFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/manage-users/
+      Handler: index.handler
+      Role: !If
+        - UseExistingLambdaRole
+        - !Sub "arn:aws:iam::${AWS::AccountId}:role/${ExistingLambdaRoleName}"
+        - !GetAtt ManageUsersRole.Arn
+      Environment:
+        Variables:
+          USER_POOL_ID: !Ref TorchUserPool
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - cognito-idp:ListUsers
+                - cognito-idp:ListUsersInGroup
+                - cognito-idp:AdminCreateUser
+                - cognito-idp:AdminAddUserToGroup
+                - cognito-idp:AdminRemoveUserFromGroup
+                - cognito-idp:AdminListGroupsForUser
+                - cognito-idp:AdminEnableUser
+                - cognito-idp:AdminDisableUser
+                - cognito-idp:AdminDeleteUser
+              Resource: !GetAtt TorchUserPool.Arn
+      Events:
+        ListUsers:
+          Type: Api
+          Properties:
+            Path: /api/admin/users
+            Method: get
+        CreateUser:
+          Type: Api
+          Properties:
+            Path: /api/admin/users
+            Method: post
+        UpdateUser:
+          Type: Api
+          Properties:
+            Path: /api/admin/users/{username}
+            Method: put
+        DeleteUser:
+          Type: Api
+          Properties:
+            Path: /api/admin/users/{username}
+            Method: delete
+
+  # ---------------------------------------------------------------------------
+  # My Schedule Pins endpoints — issue #97.
+  # GET    /api/pins
+  # POST   /api/pins
+  # DELETE /api/pins/{room_code}/{schedule_slot}
+  # ---------------------------------------------------------------------------
+
+  SmartFacultyPins:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Ref PinsTableName
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: user_id
+          AttributeType: S
+        - AttributeName: pin_key
+          AttributeType: S
+      KeySchema:
+        - AttributeName: user_id
+          KeyType: HASH
+        - AttributeName: pin_key
+          KeyType: RANGE
+
+  GetPinsRole:
+    Type: AWS::IAM::Role
+    Condition: CreateLambdaRoles
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: QueryPinsOnly
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: dynamodb:Query
+                Resource: !GetAtt SmartFacultyPins.Arn
+
+  GetPinsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/get-pins/
+      Handler: index.handler
+      Role: !If
+        - UseExistingLambdaRole
+        - !Sub "arn:aws:iam::${AWS::AccountId}:role/${ExistingLambdaRoleName}"
+        - !GetAtt GetPinsRole.Arn
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref SmartFacultyPins
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: dynamodb:Query
+              Resource: !GetAtt SmartFacultyPins.Arn
+      Events:
+        GetPins:
+          Type: Api
+          Properties:
+            Path: /api/pins
+            Method: get
+
+  CreatePinRole:
+    Type: AWS::IAM::Role
+    Condition: CreateLambdaRoles
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: PutPinOnly
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: dynamodb:PutItem
+                Resource: !GetAtt SmartFacultyPins.Arn
+
+  CreatePinFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/create-pin/
+      Handler: index.handler
+      Role: !If
+        - UseExistingLambdaRole
+        - !Sub "arn:aws:iam::${AWS::AccountId}:role/${ExistingLambdaRoleName}"
+        - !GetAtt CreatePinRole.Arn
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref SmartFacultyPins
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: dynamodb:PutItem
+              Resource: !GetAtt SmartFacultyPins.Arn
+      Events:
+        CreatePin:
+          Type: Api
+          Properties:
+            Path: /api/pins
+            Method: post
+
+  DeletePinRole:
+    Type: AWS::IAM::Role
+    Condition: CreateLambdaRoles
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: DeletePinOnly
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: dynamodb:DeleteItem
+                Resource: !GetAtt SmartFacultyPins.Arn
+
+  DeletePinFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/delete-pin/
+      Handler: index.handler
+      Role: !If
+        - UseExistingLambdaRole
+        - !Sub "arn:aws:iam::${AWS::AccountId}:role/${ExistingLambdaRoleName}"
+        - !GetAtt DeletePinRole.Arn
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref SmartFacultyPins
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: dynamodb:DeleteItem
+              Resource: !GetAtt SmartFacultyPins.Arn
+      Events:
+        DeletePin:
+          Type: Api
+          Properties:
+            Path: /api/pins/{room_code}/{schedule_slot}
+            Method: delete
+
+
 # ---------------------------------------------------------------------------
-# Outputs  Ethe scripts under scripts/ read these instead of hardcoding names,
+# Outputs — the scripts under scripts/ read these instead of hardcoding names,
 # so every teammate's stack drives their own environment.
 # ---------------------------------------------------------------------------
 Outputs:
@@ -480,7 +812,7 @@ Outputs:
     Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod"
 
   SiteUrl:
-    Description: S3 static website endpoint (http only  ECloudFront is out of scope)
+    Description: S3 static website endpoint (http only — CloudFront is out of scope)
     Value: !GetAtt SiteBucket.WebsiteURL
 
   SiteBucketName:
@@ -494,3 +826,15 @@ Outputs:
   SchedulesTableName:
     Description: DynamoDB table the schedules seed script and the API read
     Value: !Ref SmartFacultySchedules
+
+  PinsTableName:
+    Description: DynamoDB table storing user-pinned schedule slots
+    Value: !Ref SmartFacultyPins
+
+  UserPoolId:
+    Description: Cognito User Pool ID
+    Value: !Ref TorchUserPool
+
+  UserPoolClientId:
+    Description: Cognito User Pool App Client ID
+    Value: !Ref TorchUserPoolClient

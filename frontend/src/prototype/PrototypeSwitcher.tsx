@@ -56,12 +56,12 @@ export default function PrototypeSwitcher({ current }: PrototypeSwitcherProps) {
 
       <button
         type="button"
-        onClick={() => navigate('/admin')}
+        onClick={() => navigate('/staff')}
         className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-slate-400 hover:text-white hover:bg-slate-800 transition-all cursor-pointer border-l border-slate-700 ml-1"
-        title="ไปที่หน้า Admin Panel"
+        title="ไปที่หน้า Staff Console"
       >
         <ShieldCheck size={14} weight="bold" />
-        <span>Admin</span>
+        <span>Staff</span>
       </button>
     </aside>
   )
