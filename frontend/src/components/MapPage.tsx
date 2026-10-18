@@ -353,6 +353,8 @@ export default function MapPage() {
     setIsDetailOpen(true)
     setIsSidebarCollapsed(false)
     setIsDropdownOpen(false)
+    // On phones the open filter chips cover the map once a room is found; the pinned-room pill replaces them.
+    if (!isDesktop) setIsFilterExpanded(false)
     const targetRoom = rooms.find((r) => r.id === roomId)
     if (targetRoom && targetRoom.floor !== currentFloor) {
       setCurrentFloor(targetRoom.floor)
@@ -379,6 +381,7 @@ export default function MapPage() {
     if (isDropdownOpen) {
       setIsDropdownOpen(false)
     }
+    if (!isDesktop) setIsFilterExpanded(false)
     if (isDetailOpen) {
       setIsDetailOpen(false)
     }
