@@ -5,14 +5,14 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { Room } from '../../types/room'
 import type { ScheduleSlot } from '../../types/schedule'
 
-const room = (id: string, code: string, x: number, y: number): Room => ({
+const room = (id: string, code: string, x: number, y: number, category = 'lecture_room'): Room => ({
   id,
   code,
   roomNumber: code.slice(code.indexOf('-') + 1),
   nameThai: 'ห้องบรรยายเรียนรวม',
   building: 'LC3',
   floor: 1,
-  category: 'lecture_room',
+  category,
   coordinates: { x, y },
   aliases: [code],
   landmarks: [],
@@ -23,6 +23,7 @@ const ROOMS: Room[] = [
   room('LC3-F1-R103', 'LC3-103', 320, 180),
   room('LC3-F1-R121', 'LC3-121', 408, 531),
   room('LC3-F1-R122', 'LC3-122', 408, 458),
+  room('LC3-F1-R201', 'LC3-201', 440, 400, 'laboratory'),
 ]
 
 const slot = (roomCode: string, dayOfWeek: string): ScheduleSlot => ({
@@ -48,6 +49,14 @@ vi.mock('../../hooks/useRooms', () => ({
 }))
 vi.mock('../../hooks/useSchedules', () => ({
   useSchedules: () => ({ schedules: schedulesForTest, loading: false, error: null, reload: vi.fn() }),
+}))
+vi.mock('../../hooks/useRoomSchedules', () => ({
+  useRoomSchedules: (roomCode: string | undefined) => ({
+    schedules: roomCode ? schedulesForTest.filter((schedule) => schedule.roomCode === roomCode) : [],
+    loading: false,
+    error: null,
+    reload: vi.fn(),
+  }),
 }))
 vi.mock('../../hooks/usePreloadImages', () => ({
   usePreloadImages: () => true,
@@ -96,6 +105,43 @@ describe('MapPage course search (issue #91)', () => {
   afterEach(() => {
     window.matchMedia = originalMatchMedia
     schedulesForTest = SCHEDULES
+  })
+
+  it('shows only the selected room timetable, with pin and Google Calendar actions', async () => {
+    schedulesForTest = [
+      { ...slot('LC3-121', 'MON'), eventCode: 'ROOM-121' },
+      { ...slot('LC3-122', 'TUE'), eventCode: 'ROOM-122' },
+    ]
+    mockViewport(true)
+    renderMap('/map?room=LC3-F1-R121&q=ROOM')
+
+    expect(screen.getByTestId('timetable-day')).toBeInTheDocument()
+    expect(screen.getByText('ROOM-121')).toBeInTheDocument()
+    expect(screen.queryByText('ROOM-122')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'บันทึกในตารางของฉัน' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'เพิ่ม ROOM-121 ลง Google Calendar' })    ).toHaveAttribute(
+      'href',
+      expect.stringContaining('calendar.google.com/calendar/render'),
+    )
+    expect(screen.getByRole('textbox')).toHaveValue('ROOM')
+  })
+
+  it('filters search results by room category', async () => {
+    mockViewport(true)
+    const user = userEvent.setup()
+    renderMap()
+
+    await user.click(screen.getByRole('button', { name: 'แสดงตัวกรอง' }))
+    await user.click(screen.getByRole('button', { name: 'ห้องปฏิบัติการ' }))
+
+    const results = screen.getAllByRole('button', { name: /ดูห้อง/ })
+    expect(results.map((button) => within(button).getByText(/^LC3-/).textContent)).toEqual([
+      'LC3-201',
+    ])
+    expect(screen.getByRole('button', { name: 'ห้องปฏิบัติการ' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
   })
 
   describe.each([

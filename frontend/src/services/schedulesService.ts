@@ -27,8 +27,17 @@ const API_BASE_URL = (import.meta.env?.VITE_API_BASE_URL ?? '').replace(/\/+$/, 
 
 export const SCHEDULES_ENDPOINT = `${API_BASE_URL}/api/schedules`
 
-export async function getSchedules(): Promise<ScheduleSlot[]> {
-  const response = await fetch(SCHEDULES_ENDPOINT, { cache: 'no-store' })
+export interface GetSchedulesOptions {
+  roomCode?: string
+}
+
+export async function getSchedules({ roomCode }: GetSchedulesOptions = {}): Promise<ScheduleSlot[]> {
+  const url = new URL(SCHEDULES_ENDPOINT || '/api/schedules', globalThis.location?.origin ?? 'http://localhost')
+  if (roomCode?.trim()) {
+    url.searchParams.set('room_code', roomCode.trim())
+  }
+  const endpoint = API_BASE_URL ? url.toString() : `${url.pathname}${url.search}`
+  const response = await fetch(endpoint, { cache: 'no-store' })
 
   if (!response.ok) {
     throw new Error(`Failed to fetch schedules: ${response.status} ${response.statusText}`)
