@@ -1,0 +1,5 @@
+# Written next to the .blend by Blender and prepare_architectural_export.py.
+*.blend1
+*-before-*.blend
+lc3-campus-ready.glb
+architectural-polish.json

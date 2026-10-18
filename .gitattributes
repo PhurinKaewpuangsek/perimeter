@@ -22,3 +22,7 @@ tools/data-extraction/lc3/*.seed.csv             -diff linguist-generated=true
 # tree — Windows included, whatever core.autocrlf says — to hold the same bytes the hashes
 # were taken over. Without it a Windows checkout gets CRLF and --verify-assets fails on data
 # that is actually correct. Do not relax these to `-text` or `binary`.
+
+# Editable Blender source for the 3D map (assets/3d/). Binary and ~6.5 MB per revision, so it
+# lives in Git LFS. The exported GLB in frontend/ stays a normal blob: CD checks out without LFS.
+assets/3d/**/*.blend filter=lfs diff=lfs merge=lfs -text

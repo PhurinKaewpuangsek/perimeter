@@ -144,6 +144,31 @@ describe('MapPage course search (issue #91)', () => {
     )
   })
 
+  it('on mobile, choosing a result collapses the category filter so the map is visible', async () => {
+    mockViewport(false)
+    const user = userEvent.setup()
+    renderMap()
+
+    await user.click(screen.getByRole('button', { name: 'แสดงตัวกรอง' }))
+    await user.click(screen.getByRole('button', { name: 'ห้องปฏิบัติการ' }))
+    await user.click(screen.getAllByRole('button', { name: /ดูห้อง/ })[0])
+
+    expect(screen.getByRole('button', { name: 'แสดงตัวกรอง' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'ซ่อนตัวกรอง' })).not.toBeInTheDocument()
+  })
+
+  it('on desktop, choosing a result keeps the sidebar filter open', async () => {
+    mockViewport(true)
+    const user = userEvent.setup()
+    renderMap()
+
+    await user.click(screen.getByRole('button', { name: 'แสดงตัวกรอง' }))
+    await user.click(screen.getByRole('button', { name: 'ห้องปฏิบัติการ' }))
+    await user.click(screen.getAllByRole('button', { name: /ดูห้อง/ })[0])
+
+    expect(screen.queryByRole('button', { name: 'แสดงตัวกรอง' })).not.toBeInTheDocument()
+  })
+
   describe.each([
     ['mobile', false],
     ['desktop', true],

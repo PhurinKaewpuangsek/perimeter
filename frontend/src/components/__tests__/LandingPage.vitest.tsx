@@ -75,4 +75,37 @@ describe('LandingPage', () => {
     })
     expect(mockNavigate).toHaveBeenCalledWith('/map')
   })
+
+  it('offers a no-login way into the map on phones', () => {
+    render(
+      <MemoryRouter>
+        <LandingPage />
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /ดูแผนที่ \(ไม่ต้องเข้าสู่ระบบ\)/ }))
+    act(() => {
+      vi.advanceTimersByTime(500)
+    })
+    expect(mockNavigate).toHaveBeenCalledWith('/map')
+  })
+
+  it('does not mount the background map on phones, where it is hidden', () => {
+    const original = window.matchMedia
+    window.matchMedia = vi.fn().mockReturnValue({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }) as unknown as typeof window.matchMedia
+    try {
+      render(
+        <MemoryRouter>
+          <LandingPage />
+        </MemoryRouter>,
+      )
+      expect(screen.queryByTestId('map-container')).not.toBeInTheDocument()
+    } finally {
+      window.matchMedia = original
+    }
+  })
 })

@@ -9,7 +9,7 @@
  * 3. Chronological Day-Grouped Schedule: Fixed 3-letter day codes (MON-SUN), Thai day badges with
  *    standard day colors, quick day filter pills, and cleaned non-redundant schedule cards.
  */
-import { useState, useMemo, useRef, useEffect, createElement } from 'react'
+import { useState, useMemo, useRef, createElement } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   CaretLeft,
@@ -24,6 +24,7 @@ import {
   Users,
 } from '@phosphor-icons/react'
 import { useRooms } from '../hooks/useRooms'
+import { useIsDesktop } from '../hooks/useIsDesktop'
 import { useSchedules } from '../hooks/useSchedules'
 import { usePreloadImages } from '../hooks/usePreloadImages'
 import MapContainer from './map/MapContainer'
@@ -57,33 +58,6 @@ import type { ScheduleSlot } from '../types/schedule'
 import type { PinnedSchedule } from '../types/pin'
 
 const FLOOR_PLAN_ASSETS = FLOOR_CONFIGS.map((config) => config.asset)
-
-function useIsDesktop(): boolean {
-  const [isDesktop, setIsDesktop] = useState<boolean>(() => {
-    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return true
-    return window.matchMedia('(min-width: 640px)').matches
-  })
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return
-    const mql = window.matchMedia('(min-width: 640px)')
-    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches)
-    if (mql.addEventListener) {
-      mql.addEventListener('change', handler)
-    } else {
-      mql.addListener(handler)
-    }
-    return () => {
-      if (mql.removeEventListener) {
-        mql.removeEventListener('change', handler)
-      } else {
-        mql.removeListener(handler)
-      }
-    }
-  }, [])
-
-  return isDesktop
-}
 
 function RoomCategoryBadge({ category, nameThai }: { category: string; nameThai?: string }) {
   const color = getCategoryColor(category)
@@ -316,7 +290,10 @@ export default function MapPage() {
   const floorPlansReady = usePreloadImages(FLOOR_PLAN_ASSETS)
 
   const targetInitialRoom = initialRoomId ? rooms.find((rm) => rm.id === initialRoomId) : null
-  const [currentFloor, setCurrentFloor] = useState(targetInitialRoom?.floor ?? 1)
+  // Resolve a cold deep link after the room response arrives, until the user
+  // explicitly chooses a floor. useState(initialRoom.floor) misses async data.
+  const [floorOverride, setCurrentFloor] = useState<number | null>(null)
+  const currentFloor = floorOverride ?? targetInitialRoom?.floor ?? 1
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(initialRoomId)
   const [isDetailOpen, setIsDetailOpen] = useState<boolean>(Boolean(initialRoomId))
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false)
@@ -376,6 +353,8 @@ export default function MapPage() {
     setIsDetailOpen(true)
     setIsSidebarCollapsed(false)
     setIsDropdownOpen(false)
+    // On phones the open filter chips cover the map once a room is found; the pinned-room pill replaces them.
+    if (!isDesktop) setIsFilterExpanded(false)
     const targetRoom = rooms.find((r) => r.id === roomId)
     if (targetRoom && targetRoom.floor !== currentFloor) {
       setCurrentFloor(targetRoom.floor)
@@ -402,6 +381,7 @@ export default function MapPage() {
     if (isDropdownOpen) {
       setIsDropdownOpen(false)
     }
+    if (!isDesktop) setIsFilterExpanded(false)
     if (isDetailOpen) {
       setIsDetailOpen(false)
     }
@@ -548,13 +528,14 @@ export default function MapPage() {
       <TopBar />
 
       <div className="relative flex-1 w-full overflow-hidden">
-        {/* Primary SVG Floor Plan Workspace */}
+        {/* Interactive map workspace, with a 2D fallback */}
         <MapContainer
           rooms={rooms}
           currentFloor={currentFloor}
           onFloorChange={setCurrentFloor}
           selectedRoomId={selectedRoomId}
           isDetailOpen={isDetailOpen}
+          sidebarWidth={isSidebarCollapsed ? 0 : 400}
           onSelectRoom={handleSelectRoom}
           onClearSelection={handleMapBackgroundClick}
         />

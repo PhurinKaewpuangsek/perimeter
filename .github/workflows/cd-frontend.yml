@@ -59,5 +59,13 @@ jobs:
           VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
         run: npm run build
 
+      # Vite fingerprints everything under assets/ (JS, CSS, the 3D model), so a changed file
+      # always gets a new name: cache those for a year. Everything else (index.html, public/)
+      # keeps a fixed name and must revalidate, or browsers would keep loading old bundles.
+      # Upload new assets first and prune old ones last, so a page loaded mid-deploy still
+      # finds the files it references.
       - name: Sync to S3
-        run: aws s3 sync ./frontend/dist s3://${{ env.AWS_S3_BUCKET_NAME }} --delete
+        run: |
+          aws s3 sync ./frontend/dist/assets s3://${{ env.AWS_S3_BUCKET_NAME }}/assets --cache-control "public, max-age=31536000, immutable"
+          aws s3 sync ./frontend/dist s3://${{ env.AWS_S3_BUCKET_NAME }} --delete --exclude "assets/*" --cache-control "no-cache"
+          aws s3 sync ./frontend/dist/assets s3://${{ env.AWS_S3_BUCKET_NAME }}/assets --delete --cache-control "public, max-age=31536000, immutable"
