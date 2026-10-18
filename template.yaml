@@ -240,12 +240,14 @@ Resources:
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
       Policies:
-        - PolicyName: ScanSchedulesOnly
+        - PolicyName: ReadSchedules
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
               - Effect: Allow
-                Action: dynamodb:Scan
+                Action:
+                  - dynamodb:Query
+                  - dynamodb:Scan
                 Resource: !GetAtt SmartFacultySchedules.Arn
 
   GetSchedulesFunction:
@@ -264,7 +266,9 @@ Resources:
       Policies:
         - Statement:
             - Effect: Allow
-              Action: dynamodb:Scan
+              Action:
+                - dynamodb:Query
+                - dynamodb:Scan
               Resource: !GetAtt SmartFacultySchedules.Arn
       Events:
         GetSchedules:
