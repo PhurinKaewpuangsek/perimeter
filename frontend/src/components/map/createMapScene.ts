@@ -38,13 +38,14 @@ function disposeModel(root: THREE.Object3D) {
 export function createMapScene(
   host: HTMLDivElement,
   onUnavailable: () => void,
+  onProgress?: (fraction: number) => void,
 ): MapScene {
   const renderer = new THREE.WebGLRenderer({
     antialias: true,
     powerPreference: "low-power",
   });
   try {
-    return buildMapScene(host, onUnavailable, renderer);
+    return buildMapScene(host, onUnavailable, renderer, onProgress);
   } catch (error) {
     // Anything after the renderer exists may throw; release its GPU context
     // and canvas before rethrowing.
@@ -59,8 +60,14 @@ function buildMapScene(
   host: HTMLDivElement,
   onUnavailable: () => void,
   renderer: THREE.WebGLRenderer,
+  onProgress?: (fraction: number) => void,
 ): MapScene {
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
+  // Phone GPUs run out of memory with full-resolution AO and a 2048 shadow map,
+  // and lose the WebGL context; touch devices get the lighter path.
+  const lite = window.matchMedia?.("(pointer: coarse)").matches ?? false;
+  renderer.setPixelRatio(
+    Math.min(window.devicePixelRatio || 1, lite ? 1.5 : 1.75),
+  );
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1;
@@ -79,7 +86,7 @@ function buildMapScene(
   const sunlight = new THREE.DirectionalLight("#fff6e6", 3);
   sunlight.position.set(-18, 55, 32);
   sunlight.castShadow = true;
-  sunlight.shadow.mapSize.set(2048, 2048);
+  sunlight.shadow.mapSize.setScalar(lite ? 1024 : 2048);
   Object.assign(sunlight.shadow.camera, {
     left: -44,
     right: 44,
@@ -108,7 +115,7 @@ function buildMapScene(
   contactPass.maxDistance = 0.0015;
   const outputPass = new OutputPass();
   composer.addPass(beautyPass);
-  composer.addPass(contactPass);
+  if (!lite) composer.addPass(contactPass);
   composer.addPass(outputPass);
   const controls = new OrbitControls(camera, host);
   controls.mouseButtons = {
@@ -339,9 +346,24 @@ function buildMapScene(
 
   const abort = new AbortController();
   const ready = fetch(modelUrl, { signal: abort.signal })
-    .then((response) => {
+    .then(async (response) => {
       if (!response.ok) throw new Error("Model unavailable");
-      return response.arrayBuffer();
+      const total = Number(response.headers.get("content-length"));
+      if (!onProgress || !total || !response.body)
+        return response.arrayBuffer();
+      // The model takes a while on mobile data; report bytes as they arrive.
+      // content-length is the encoded size, so it only drives the readout.
+      const chunks: Uint8Array<ArrayBuffer>[] = [];
+      const reader = response.body.getReader();
+      let received = 0;
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        received += value.length;
+        onProgress(Math.min(1, received / total));
+      }
+      return new Blob(chunks).arrayBuffer();
     })
     // The GLB embeds all buffers and has no textures, so no resource path.
     .then((data) => new GLTFLoader().parseAsync(data, ""))

@@ -9,6 +9,7 @@ import { FLOOR_CONFIGS } from './floorConfig'
 export default function MapContainer3D(props: MapContainerProps & { onUnavailable: () => void }) {
   const host = useRef<HTMLDivElement>(null)
   const [scene, setScene] = useState<MapScene | null>(null)
+  const [progress, setProgress] = useState(0)
   // Callbacks live in a ref so a new callback identity alone neither rebuilds
   // the WebGL scene nor re-runs update (which recreates markers and resizes).
   const callbacks = useRef(props)
@@ -21,7 +22,9 @@ export default function MapContainer3D(props: MapContainerProps & { onUnavailabl
     let disposed = false
     let map: MapScene | undefined
     try {
-      map = createMapScene(host.current, onUnavailable)
+      map = createMapScene(host.current, onUnavailable, (fraction) => {
+        if (!disposed) setProgress(Math.floor(fraction * 100))
+      })
       const instance = map
       instance.ready
         .then(() => {
@@ -68,7 +71,7 @@ export default function MapContainer3D(props: MapContainerProps & { onUnavailabl
       />
       {!scene && (
         <div className="map3d-loading" role="status">
-          กำลังโหลดโมเดลอาคาร…
+          กำลังโหลดโมเดลอาคาร… {progress > 0 && `${progress}%`}
         </div>
       )}
       <div

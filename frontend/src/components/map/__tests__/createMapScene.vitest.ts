@@ -1,7 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // jsdom has no WebGL: replace only the GPU-facing classes, keep the rest of three.js real.
-const gpu = vi.hoisted(() => ({ composerThrows: false, rendererDispose: vi.fn() }))
+const gpu = vi.hoisted(() => ({
+  composerThrows: false,
+  rendererDispose: vi.fn(),
+  passes: [] as unknown[],
+}))
 vi.mock('three', async (importOriginal) => {
   const three = await importOriginal<typeof import('three')>()
   class FakeRenderer {
@@ -21,7 +25,9 @@ vi.mock('three/addons/postprocessing/EffectComposer.js', () => ({
     constructor() {
       if (gpu.composerThrows) throw new Error('render target allocation failed')
     }
-    addPass() {}
+    addPass(pass: unknown) {
+      gpu.passes.push(pass)
+    }
     setSize() {}
     render() {}
     dispose() {}
@@ -67,10 +73,12 @@ vi.mock('three/addons/controls/OrbitControls.js', async () => {
   }
 })
 
+import { SSAOPass } from 'three/addons/postprocessing/SSAOPass.js'
 import { CONTEXT_RESTORE_TIMEOUT, createMapScene } from '../createMapScene'
 
 beforeEach(() => {
   gpu.composerThrows = false
+  gpu.passes = []
   vi.useFakeTimers()
   vi.stubGlobal(
     'ResizeObserver',
@@ -131,5 +139,16 @@ describe('createMapScene lifecycle', () => {
     map.dispose()
     vi.advanceTimersByTime(CONTEXT_RESTORE_TIMEOUT)
     expect(onUnavailable).not.toHaveBeenCalled()
+  })
+
+  it('skips ambient occlusion on touch screens, where it exhausts GPU memory', () => {
+    const passesFor = (coarse: boolean) => {
+      vi.stubGlobal('matchMedia', (query: string) => ({ matches: coarse && query === '(pointer: coarse)' }))
+      gpu.passes = []
+      createMapScene(document.createElement('div'), vi.fn()).dispose()
+      return gpu.passes.some((pass) => pass instanceof SSAOPass)
+    }
+    expect(passesFor(false)).toBe(true)
+    expect(passesFor(true)).toBe(false)
   })
 })
