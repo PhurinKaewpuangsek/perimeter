@@ -51,7 +51,7 @@ export default function MapContainer(props: MapContainerProps) {
       )}
       <button
         type="button"
-        className="map-view-toggle"
+        className={`map-view-toggle ${props.selectedRoomId && props.isDetailOpen ? 'map-view-toggle-sheet-open' : ''}`}
         onClick={() => {
           setView(view === '3d' ? '2d' : '3d')
           setFailed(false)

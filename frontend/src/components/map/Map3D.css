@@ -161,6 +161,10 @@
   .map-fallback-notice {
     top: 8.5rem;
   }
+  /* the raised control stack would cover the toggle in the short map strip above the room sheet */
+  .map-view-toggle-sheet-open {
+    display: none;
+  }
   .map3d-controls-raised {
     bottom: calc(55dvh + 1rem);
   }
