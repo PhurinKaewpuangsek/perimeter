@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
 import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { SSAOPass } from "three/addons/postprocessing/SSAOPass.js";
@@ -370,7 +371,9 @@ function buildMapScene(
       return new Blob(chunks).arrayBuffer();
     })
     // The GLB embeds all buffers and has no textures, so no resource path.
-    .then((data) => new GLTFLoader().parseAsync(data, ""))
+    .then((data) =>
+      new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).parseAsync(data, ""),
+    )
     .then((gltf) => {
       if (disposed) {
         disposeModel(gltf.scene);
