@@ -135,7 +135,7 @@
 .map3d-hint {
   position: absolute;
   bottom: 1.5rem;
-  left: calc(400px + 1rem);
+  left: calc(var(--map3d-sidebar, 400px) + 1rem);
   color: #475569;
   background: #ffffffd9;
   padding: 7px 12px;

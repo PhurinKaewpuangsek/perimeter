@@ -7,7 +7,7 @@ import { SSAOPass } from "three/addons/postprocessing/SSAOPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import type { MapContainerProps } from "./MapContainer2D";
 import { ROOM_AREAS } from "./roomAreaGeometry";
-import { isMapTap, modelToSvg, svgToModel } from "./modelCoordinates";
+import { findRoomAt, isMapTap, modelToSvg, svgToModel } from "./modelCoordinates";
 import { getMarkerLabel } from "../../services/markerLayout";
 
 type MapState = Omit<MapContainerProps, "onFloorChange">;
@@ -277,18 +277,11 @@ export function createMapScene(
     );
     const hit = ray.intersectObject(floorMesh, true)[0];
     if (hit) {
-      const point = modelToSvg(state.currentFloor, hit.point);
-      const room = state.rooms.find((room) => {
-        const area = ROOM_AREAS[room.id];
-        return (
-          room.floor === state?.currentFloor &&
-          area &&
-          point.x >= area.x &&
-          point.x <= area.x + area.width &&
-          point.y >= area.y &&
-          point.y <= area.y + area.height
-        );
-      });
+      const room = findRoomAt(
+        state.rooms,
+        state.currentFloor,
+        modelToSvg(state.currentFloor, hit.point),
+      );
       if (room) {
         state.onSelectRoom(room.id);
         return;
@@ -361,6 +354,10 @@ export function createMapScene(
     root.getObjectByName("LC3_Floor_2")!.visible = state.currentFloor === 2;
     renderer.shadowMap.needsUpdate = true;
     floorMesh = root.getObjectByName(`LC3_Floor_${state.currentFloor}`);
+    // Rebuilding markers drops keyboard focus; restore it on the same room.
+    const focusedRoom = labels.contains(document.activeElement)
+      ? (document.activeElement as HTMLElement).dataset.roomId
+      : undefined;
     labels.replaceChildren();
     markers = [];
     const rooms = state.rooms.filter(
@@ -393,6 +390,7 @@ export function createMapScene(
         if (event.detail === 0) state?.onSelectRoom(room.id);
       });
       labels.append(button);
+      if (room.id === focusedRoom) button.focus({ preventScroll: true });
       markers.push({
         button,
         point: new THREE.Vector3(point.x, point.y, point.z),

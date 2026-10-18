@@ -55,11 +55,12 @@ describe('3D map integration', () => {
         expect.objectContaining({
           currentFloor: 2,
           selectedRoomId: props.selectedRoomId,
-          onSelectRoom: props.onSelectRoom,
           mode: 'admin',
         }),
       ),
     )
+    mock.update.mock.lastCall![0].onSelectRoom('LC3-F2-R201')
+    expect(props.onSelectRoom).toHaveBeenCalledWith('LC3-F2-R201')
     await userEvent.click(screen.getByRole('button', { name: '1st Floor' }))
     expect(props.onFloorChange).toHaveBeenCalledWith(1)
   })

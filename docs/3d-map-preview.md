@@ -38,6 +38,7 @@ On Windows, 14 October 2026:
 - 390×844 mobile emulation: cold floor-2 deep link, selected marker framing above the detail sheet, and two-finger gesture without changing selection checked.
 - Aborted GLB request falls back to selectable SVG. The built production bundle was also opened locally with a floor-2 deep link.
 - Browser checks used repository location/schedule seed responses, not the deployed API. The separate local review server marks seed data visibly and rejects writes. Normal application API configuration is unchanged (`VITE_API_BASE_URL`).
+- On 18 October 2026, after the PR review fixes (marker focus kept across updates, callback refs, sidebar-aware hint): `npm run lint`, `npx tsc -b`, `npm test` (92 tests) and `npm run test:ui` (263 tests) passed. The counts above apply to the 14 October revision.
 - The configured API currently rejects requests from the local preview origin with a CORS error. The local review build therefore sets `VITE_API_BASE_URL=/` for that build process only, serving seed responses from the same local origin; no `.env` or cloud setting was edited. Do not deploy this seed-preview build. Rebuild with the normal deployment environment before release.
 
 ## Remaining checks and limits

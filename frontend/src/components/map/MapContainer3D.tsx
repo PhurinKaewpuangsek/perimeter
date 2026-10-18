@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import type { CSSProperties } from 'react'
 import { Crosshair, Minus, Plus } from '@phosphor-icons/react'
 import type { MapContainerProps } from './MapContainer2D'
 import { createMapScene } from './createMapScene'
@@ -8,8 +9,14 @@ import { FLOOR_CONFIGS } from './floorConfig'
 export default function MapContainer3D(props: MapContainerProps & { onUnavailable: () => void }) {
   const host = useRef<HTMLDivElement>(null)
   const [scene, setScene] = useState<MapScene | null>(null)
-  const { onUnavailable } = props
+  // Callbacks live in a ref so a new callback identity alone neither rebuilds
+  // the WebGL scene nor re-runs update (which recreates markers and resizes).
+  const callbacks = useRef(props)
+  useLayoutEffect(() => {
+    callbacks.current = props
+  })
   useEffect(() => {
+    const onUnavailable = () => callbacks.current.onUnavailable()
     if (!host.current) return
     let disposed = false
     let map: MapScene | undefined
@@ -34,41 +41,23 @@ export default function MapContainer3D(props: MapContainerProps & { onUnavailabl
       disposed = true
       map?.dispose()
     }
-  }, [onUnavailable])
-  const {
-    rooms,
-    currentFloor,
-    selectedRoomId,
-    onSelectRoom,
-    onClearSelection,
-    isDetailOpen,
-    mode,
-    sidebarWidth,
-  } = props
+  }, [])
+  const { rooms, currentFloor, selectedRoomId, isDetailOpen, mode, sidebarWidth } = props
   useEffect(() => {
     scene?.update({
       rooms,
       currentFloor,
       selectedRoomId,
-      onSelectRoom,
-      onClearSelection,
+      onSelectRoom: (id) => callbacks.current.onSelectRoom(id),
+      onClearSelection: () => callbacks.current.onClearSelection?.(),
       isDetailOpen,
       mode,
       sidebarWidth,
     })
-  }, [
-    scene,
-    rooms,
-    currentFloor,
-    selectedRoomId,
-    onSelectRoom,
-    onClearSelection,
-    isDetailOpen,
-    mode,
-    sidebarWidth,
-  ])
+  }, [scene, rooms, currentFloor, selectedRoomId, isDetailOpen, mode, sidebarWidth])
+  const hintOffset = sidebarWidth ?? (mode === 'admin' ? 460 : 400)
   return (
-    <div className="map3d">
+    <div className="map3d" style={{ '--map3d-sidebar': `${hintOffset}px` } as CSSProperties}>
       <div
         ref={host}
         className="map3d-canvas"

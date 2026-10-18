@@ -125,6 +125,7 @@ export default function LandingPage() {
           onSelectRoom={handleRoomSelect}
           onClearSelection={() => setSelectedRoomId(null)}
           initialScale={1.35}
+          sidebarWidth={460}
         />
       </div>
 

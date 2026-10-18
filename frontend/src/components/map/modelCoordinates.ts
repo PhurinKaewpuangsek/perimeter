@@ -1,4 +1,5 @@
-import type { Coordinates } from '../../types/room'
+import type { Coordinates, Room } from '../../types/room'
+import { ROOM_AREAS } from './roomAreaGeometry'
 
 // Reference rectangles from the approved assembly's svg-audit-inventory.json.
 // Export: glTF (x,y,z) = (Blender x + 34, Blender z, -Blender y).
@@ -40,4 +41,17 @@ export function modelToSvg(floor: number, point: { x: number; z: number }): Coor
 }
 export function isMapTap(start: Coordinates, end: Coordinates, multiTouch = false) {
   return !multiTouch && Math.hypot(end.x - start.x, end.y - start.y) <= 5
+}
+export function findRoomAt(rooms: Room[], floor: number, point: Coordinates) {
+  return rooms.find((room) => {
+    const area = ROOM_AREAS[room.id]
+    return (
+      room.floor === floor &&
+      area &&
+      point.x >= area.x &&
+      point.x <= area.x + area.width &&
+      point.y >= area.y &&
+      point.y <= area.y + area.height
+    )
+  })
 }

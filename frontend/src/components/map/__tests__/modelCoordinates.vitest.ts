@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { isMapTap, modelToSvg, svgToModel } from '../modelCoordinates'
+import { findRoomAt, isMapTap, modelToSvg, svgToModel } from '../modelCoordinates'
+import { ROOM_AREAS } from '../roomAreaGeometry'
+import type { Room } from '../../../types/room'
 
 describe('SVG to approved GLB alignment', () => {
   it('matches independently measured opposite corners of the floor 1 reference', () => {
@@ -32,5 +34,14 @@ describe('SVG to approved GLB alignment', () => {
     expect(isMapTap({ x: 10, y: 10 }, { x: 12, y: 13 })).toBe(true)
     expect(isMapTap({ x: 10, y: 10 }, { x: 16, y: 10 })).toBe(false)
     expect(isMapTap({ x: 10, y: 10 }, { x: 10, y: 10 }, true)).toBe(false)
+  })
+  it('maps a floor ray hit back to the room whose SVG area contains it', () => {
+    const [id, area] = Object.entries(ROOM_AREAS).find(([, a]) => a.floor === 1)!
+    const room = { id, floor: 1 } as Room
+    const centre = { x: area.x + area.width / 2, y: area.y + area.height / 2 }
+    const hit = svgToModel(1, centre)
+    expect(findRoomAt([room], 1, modelToSvg(1, hit))).toBe(room)
+    expect(findRoomAt([room], 2, centre)).toBeUndefined()
+    expect(findRoomAt([room], 1, { x: area.x - 1, y: area.y - 1 })).toBeUndefined()
   })
 })
