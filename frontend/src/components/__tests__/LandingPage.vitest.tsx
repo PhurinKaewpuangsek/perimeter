@@ -39,7 +39,7 @@ describe('LandingPage', () => {
     vi.useRealTimers()
   })
 
-  it('renders single Sign in button that navigates to /login without fake admin/regular login buttons', () => {
+  it('renders dark-toned Sign in button that navigates to /login without fake admin/regular login buttons', () => {
     render(
       <MemoryRouter>
         <LandingPage />
@@ -53,23 +53,56 @@ describe('LandingPage', () => {
     const signInButtons = screen.getAllByRole('button', { name: /เข้าสู่ระบบ|Sign in/i })
     expect(signInButtons.length).toBeGreaterThanOrEqual(1)
 
+    // Desktop Sign in button has dark tone styling
+    const desktopSignIn = signInButtons[0]
+    expect(desktopSignIn.className).toContain('bg-slate-900')
+    expect(desktopSignIn.className).toContain('text-white')
+
     // Clicking Sign in navigates to /login
-    fireEvent.click(signInButtons[0])
+    fireEvent.click(desktopSignIn)
     act(() => {
       vi.advanceTimersByTime(500)
     })
     expect(mockNavigate).toHaveBeenCalledWith('/login')
   })
 
-  it('keeps the enter map action intact', () => {
+  it('submitting search does not navigate away to /map', () => {
     render(
       <MemoryRouter>
         <LandingPage />
       </MemoryRouter>,
     )
 
-    const enterMapBtn = screen.getByRole('button', { name: /ดูแผนที่เต็มจอ/i })
-    fireEvent.click(enterMapBtn)
+    const input = screen.getByRole('textbox', { name: /ค้นหา/i })
+    fireEvent.change(input, { target: { value: '101' } })
+
+    const submitBtn = screen.getByRole('button', { name: /ค้นหา/i })
+    fireEvent.click(submitBtn)
+
+    act(() => {
+      vi.advanceTimersByTime(500)
+    })
+    // Crucial requirement: User stays on landing page, does not navigate to /map
+    expect(mockNavigate).not.toHaveBeenCalledWith(expect.stringContaining('/map'))
+  })
+
+  it('removes full-screen button and keeps enter map action intact via logo', () => {
+    render(
+      <MemoryRouter>
+        <LandingPage />
+      </MemoryRouter>,
+    )
+
+    // Full screen map button is removed
+    expect(screen.queryByRole('button', { name: /ดูแผนที่เต็มจอ/i })).not.toBeInTheDocument()
+
+    // Copyright footer with C icon is present
+    expect(screen.getByText(/Perimeter Navigation System · Faculty Map/i)).toBeInTheDocument()
+    expect(screen.getByText('©')).toBeInTheDocument()
+
+    // Clicking logo enters /map
+    const logoImg = screen.getByAltText(/Perimeter/i)
+    fireEvent.click(logoImg)
     act(() => {
       vi.advanceTimersByTime(500)
     })

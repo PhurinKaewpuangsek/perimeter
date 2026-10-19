@@ -167,7 +167,7 @@ describe('AdminPage', () => {
 
   it('renders Perimeter branding, Staff Console header, AccountMenu, and room count for admin', () => {
     render(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={['/staff']}>
         <AdminPage />
       </MemoryRouter>,
     )

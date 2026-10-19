@@ -60,6 +60,43 @@ body {
   }
 }
 
+@keyframes borderBeam {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.animate-border-beam {
+  background-size: 200% 200%;
+  animation: borderBeam 4s ease infinite;
+}
+
+@keyframes cloudAura {
+  0% {
+    transform: translate(0px, 0px) scale(1);
+  }
+  33% {
+    transform: translate(2px, -1px) scale(1.02);
+  }
+  66% {
+    transform: translate(-2px, 1px) scale(0.99);
+  }
+  100% {
+    transform: translate(0px, 0px) scale(1);
+  }
+}
+
+.animate-cloud-aura {
+  animation: cloudAura 8s ease-in-out infinite;
+}
+
+
 /* Hide scrollbar while preserving full scrollability */
 .no-scrollbar::-webkit-scrollbar {
   display: none;

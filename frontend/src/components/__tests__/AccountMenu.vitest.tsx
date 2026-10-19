@@ -47,7 +47,7 @@ describe('AccountMenu', () => {
     expect(container).toBeEmptyDOMElement()
   })
 
-  it('renders email and role badge for admin and shows all allowed links in dropdown', async () => {
+  it('renders email, role badge, and sign out button for admin', async () => {
     currentSession = {
       idToken: 'mock-token',
       accessToken: 'mock-access',
@@ -73,13 +73,13 @@ describe('AccountMenu', () => {
     const trigger = screen.getByRole('button', { name: /บัญชีผู้ใช้|admin@torch.dev/i })
     await user.click(trigger)
 
-    // Admin should see Admin Console, Staff Console, and Map links
-    expect(screen.getByRole('link', { name: /Admin Console/i })).toHaveAttribute('href', '/admin')
-    expect(screen.getByRole('link', { name: /Staff Console/i })).toHaveAttribute('href', '/staff')
-    expect(screen.getByRole('link', { name: /แผนที่|Map/i })).toHaveAttribute('href', '/map')
+    // AccountMenu is strictly user profile & sign out (navigation moved to bottom dock)
+    expect(screen.getByText('เข้าสู่ระบบด้วย')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /ออกจากระบบ/i })).toBeInTheDocument()
+    expect(screen.queryByRole('link')).not.toBeInTheDocument()
   })
 
-  it('renders only staff and map links for staff role (no admin link)', async () => {
+  it('renders email, role badge, and sign out button for staff', async () => {
     currentSession = {
       idToken: 'mock-token',
       accessToken: 'mock-access',
@@ -104,9 +104,9 @@ describe('AccountMenu', () => {
     const trigger = screen.getByRole('button', { name: /บัญชีผู้ใช้|staff@torch.dev/i })
     await user.click(trigger)
 
-    expect(screen.getByRole('link', { name: /Staff Console/i })).toHaveAttribute('href', '/staff')
-    expect(screen.getByRole('link', { name: /แผนที่|Map/i })).toHaveAttribute('href', '/map')
-    expect(screen.queryByRole('link', { name: /Admin Console/i })).not.toBeInTheDocument()
+    expect(screen.getByText('เข้าสู่ระบบด้วย')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /ออกจากระบบ/i })).toBeInTheDocument()
+    expect(screen.queryByRole('link')).not.toBeInTheDocument()
   })
 
   it('calls signOut and navigates to / on sign out click', async () => {

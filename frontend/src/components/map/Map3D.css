@@ -94,54 +94,85 @@
 }
 .map3d-controls {
   position: absolute;
-  right: 1rem;
-  bottom: 1.5rem;
   z-index: 10;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   gap: 10px;
 }
-.map3d-controls button,
-.map-view-toggle {
-  cursor: pointer;
-  background: white;
-  color: #334155;
-  border: 1px solid #dce3e8;
-  box-shadow: 0 3px 12px #0f172a12;
-  font-size: 13px;
-  font-weight: 600;
-  border-radius: 12px;
-  min-height: 42px;
-  padding: 10px 13px;
-}
-.map3d-controls button:hover,
-.map-view-toggle:hover {
-  background: #f1f5f9;
-}
-.map3d-controls button:focus-visible,
-.map-view-toggle:focus-visible {
-  outline: 3px solid #0f766e;
-  outline-offset: 2px;
-}
-.map3d-zoom {
+.map3d-zoom-stack {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 16px;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+  overflow: hidden;
+}
+.map3d-zoom-stack button {
+  cursor: pointer;
+  background: transparent;
+  color: #475569;
+  border: 0;
+  border-bottom: 1px solid #f1f5f9;
+  width: 40px;
+  height: 40px;
+  min-height: 40px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease;
+}
+.map3d-zoom-stack .map3d-zoom button:last-child {
+  border-bottom: 0;
+}
+.map3d-zoom-stack button:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+.map3d-zoom-stack button:focus-visible {
+  outline: 2px solid #0f766e;
+  outline-offset: -2px;
 }
 .map3d-floors {
   display: flex;
+  align-items: center;
+  height: 40px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 9999px;
+  padding: 4px;
   gap: 4px;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+}
+.map3d-floors button {
+  cursor: pointer;
+  height: 32px;
+  border-radius: 9999px;
+  border: 0;
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+  background: transparent;
+  transition: all 150ms ease;
+}
+.map3d-floors button:hover {
+  background: #f1f5f9;
+  color: #0f172a;
 }
 .map3d-floors button[aria-pressed='true'] {
   background: #0f172a;
   color: white;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
-.map-view-toggle {
-  position: absolute;
-  z-index: 11;
-  top: 1rem;
-  right: 1rem;
+.map3d-floors button:focus-visible {
+  outline: 2px solid #0f766e;
+  outline-offset: 2px;
 }
 .map3d-loading {
   position: absolute;
@@ -155,10 +186,10 @@
 .map3d-hint {
   position: absolute;
   bottom: 1.5rem;
-  left: calc(var(--map3d-sidebar, 400px) + 1rem);
+  left: calc(var(--map3d-sidebar, 460px) + 1rem);
   /* stop short of the bottom-right control stack; wrap instead of running under it */
   width: max-content;
-  max-width: calc(100% - var(--map3d-sidebar, 400px) - 14rem);
+  max-width: calc(100% - var(--map3d-sidebar, 460px) - 14rem);
   color: #475569;
   background: #ffffffd9;
   padding: 7px 12px;
@@ -181,6 +212,8 @@
   /* clear the mobile search panel above the map (about 4.5rem tall, 10px from the top) */
   .map-view-toggle {
     top: 6rem;
+    bottom: auto;
+    right: 1rem;
   }
   .map-fallback-notice {
     top: 9.5rem;
@@ -189,12 +222,9 @@
   .map-view-toggle-sheet-open {
     display: none;
   }
-  .map3d-controls-raised {
-    bottom: calc(55dvh + 1rem);
-  }
 }
-/* Below this width the hint cannot fit between the sidebar and the control stack. */
-@media (max-width: 899px) {
+/* Below this width the hint cannot fit between the sidebar, center dock, and control stack. */
+@media (max-width: 1340px) {
   .map3d-hint {
     display: none;
   }

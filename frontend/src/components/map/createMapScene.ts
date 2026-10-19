@@ -137,14 +137,35 @@ function buildMapScene(
   // Render only on interaction/resize/data changes. Camera moves are immediate
   // and damping is off, so prefers-reduced-motion needs no separate code path:
   // there is no automatic animation or perpetual render loop to disable.
+  const reduceMotion =
+    window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+  const UP_AXIS = new THREE.Vector3(0, 1, 0);
   let disposed = false;
   let contextLost = false;
   let lostTimer = 0;
   let frame = 0;
+  let isDrawing = false;
   let root: THREE.Group | undefined;
   let state: MapState | undefined;
   let floorMesh: THREE.Object3D | undefined;
   let focusKey = "";
+  let demoStarted = false;
+  let demoStopped = false;
+  let idleOrbiting = false;
+  let flyInStart = 0;
+  let lastOrbitTime = 0;
+  let glide:
+    | {
+        startTime: number;
+        duration: number;
+        fromTarget: THREE.Vector3;
+        toTarget: THREE.Vector3;
+        fromPos: THREE.Vector3;
+        toPos: THREE.Vector3;
+        fromZoom: number;
+        toZoom: number;
+      }
+    | undefined;
   let markers: {
     button: HTMLButtonElement;
     point: THREE.Vector3;
@@ -164,9 +185,99 @@ function buildMapScene(
   highlight.visible = false;
   scene.add(highlight);
 
-  function draw() {
+  function stopIdleDemo() {
+    if (!demoStopped) {
+      demoStopped = true;
+      idleOrbiting = false;
+      flyInStart = 0;
+      lastOrbitTime = 0;
+    }
+  }
+
+  function startCameraGlide(
+    toTarget: THREE.Vector3,
+    toPos: THREE.Vector3,
+    toZoom: number,
+  ) {
+    if (reduceMotion) {
+      glide = undefined;
+      controls.target.copy(toTarget);
+      camera.position.copy(toPos);
+      camera.zoom = toZoom;
+      camera.updateProjectionMatrix();
+      controls.update();
+      invalidate();
+      return;
+    }
+    glide = {
+      startTime: performance.now(),
+      duration: 550,
+      fromTarget: controls.target.clone(),
+      toTarget: toTarget.clone(),
+      fromPos: camera.position.clone(),
+      toPos: toPos.clone(),
+      fromZoom: camera.zoom,
+      toZoom,
+    };
+    invalidate();
+  }
+
+  function maybeStartIdleDemo() {
+    if (
+      demoStarted ||
+      demoStopped ||
+      reduceMotion ||
+      !root ||
+      !state?.idleOrbit ||
+      state.demoInterrupted ||
+      state.selectedRoomId
+    )
+      return;
+    demoStarted = true;
+    idleOrbiting = true;
+    const now = performance.now();
+    flyInStart = now;
+    lastOrbitTime = now;
+    const baseZoom = state.initialScale ?? 1;
+    camera.zoom = baseZoom * 0.72;
+    camera.updateProjectionMatrix();
+    invalidate();
+  }
+
+  function draw(now = performance.now()) {
     frame = 0;
     if (disposed || contextLost) return;
+    isDrawing = true;
+    if (idleOrbiting && state?.idleOrbit && !demoStopped) {
+      const dt = lastOrbitTime ? Math.min(64, Math.max(1, now - lastOrbitTime)) : 16.67;
+      lastOrbitTime = now;
+      if (flyInStart > 0) {
+        const t = Math.min(1, (now - flyInStart) / 1100);
+        const eased = 1 - Math.pow(1 - t, 3);
+        const baseZoom = state.initialScale ?? 1;
+        camera.zoom = THREE.MathUtils.lerp(baseZoom * 0.72, baseZoom, eased);
+        if (t >= 1) flyInStart = 0;
+      }
+      const offset = camera.position.clone().sub(controls.target);
+      offset.applyAxisAngle(
+        UP_AXIS,
+        THREE.MathUtils.degToRad(0.05) * (dt / 16.67),
+      );
+      camera.position.copy(controls.target).add(offset);
+      camera.updateProjectionMatrix();
+      controls.update();
+    } else if (glide) {
+      const t = Math.min(1, Math.max(0, (now - glide.startTime) / glide.duration));
+      const eased = 1 - Math.pow(1 - t, 3);
+      controls.target.lerpVectors(glide.fromTarget, glide.toTarget, eased);
+      camera.position.lerpVectors(glide.fromPos, glide.toPos, eased);
+      camera.zoom = THREE.MathUtils.lerp(glide.fromZoom, glide.toZoom, eased);
+      camera.updateProjectionMatrix();
+      controls.update();
+      if (t >= 1) glide = undefined;
+    }
+    isDrawing = false;
+
     contactPass.ssaoMaterial.uniforms.cameraProjectionMatrix.value.copy(
       camera.projectionMatrix,
     );
@@ -204,11 +315,17 @@ function buildMapScene(
         occupied.push({ x, y, width: labelWidth });
       marker.button.style.transform = `translate(${x}px,${y}px) translate(-50%,-100%)`;
     }
+    if (!disposed && !contextLost && (idleOrbiting || glide)) {
+      frame = requestAnimationFrame(draw);
+    }
   }
   function invalidate() {
-    if (!disposed && !frame) frame = requestAnimationFrame(draw);
+    if (!disposed && !frame && !isDrawing) frame = requestAnimationFrame(draw);
   }
-  controls.addEventListener("change", invalidate);
+  controls.addEventListener("change", () => {
+    if (!isDrawing) glide = undefined;
+    invalidate();
+  });
 
   function resize() {
     const width = Math.max(1, host.clientWidth),
@@ -235,14 +352,27 @@ function buildMapScene(
     composer.setSize(width, height);
     invalidate();
   }
-  function reset() {
+  function getDefaultCameraPose() {
     const y = state?.currentFloor === 2 ? 3.2 : 0;
-    controls.target.set(0, y, -3);
+    const target = new THREE.Vector3(0, y, -3);
+    const pos = new THREE.Vector3(-28, 48, 49).multiplyScalar(8).add(target);
+    const zoom = state?.initialScale ?? 1;
+    return { target, pos, zoom };
+  }
+  function reset(smooth = false) {
+    const { target, pos, zoom } = getDefaultCameraPose();
+    if (smooth && state?.idleOrbit && !reduceMotion) {
+      stopIdleDemo();
+      startCameraGlide(target, pos, zoom);
+      return;
+    }
+    glide = undefined;
+    controls.target.copy(target);
     // Orthographic zoom does not move the camera. Keep it outside the campus
     // bounds so zooming out cannot slice nearby buildings with the near plane.
     // Distance changes preserve the framing and orbit angle in this projection.
-    camera.position.set(-28, 48, 49).multiplyScalar(8).add(controls.target);
-    camera.zoom = state?.initialScale ?? 1;
+    camera.position.copy(pos);
+    camera.zoom = zoom;
     camera.updateProjectionMatrix();
     controls.update();
     invalidate();
@@ -258,6 +388,8 @@ function buildMapScene(
   let pointerRoom: string | undefined;
   const pointers = new Set<number>();
   function pointerDown(event: PointerEvent) {
+    stopIdleDemo();
+    glide = undefined;
     pointers.add(event.pointerId);
     if (pointers.size === 1) {
       pointerStart = { x: event.clientX, y: event.clientY };
@@ -339,10 +471,16 @@ function buildMapScene(
     renderer.shadowMap.needsUpdate = true;
     resize();
   }
+  function interruptOnInput() {
+    stopIdleDemo();
+    glide = undefined;
+  }
   host.addEventListener("pointerdown", pointerDown, true);
   host.addEventListener("pointermove", pointerMove, true);
   host.addEventListener("pointerup", pointerUp, true);
   host.addEventListener("pointercancel", pointerCancel, true);
+  host.addEventListener("wheel", interruptOnInput, { capture: true, passive: true });
+  host.addEventListener("keydown", interruptOnInput, true);
   renderer.domElement.addEventListener("webglcontextlost", handleContextLost);
   renderer.domElement.addEventListener(
     "webglcontextrestored",
@@ -417,11 +555,15 @@ function buildMapScene(
       }
       scene.add(root);
       renderer.shadowMap.needsUpdate = true;
+      maybeStartIdleDemo();
       invalidate();
     });
 
   function update(next: MapState) {
     state = next;
+    if (next.demoInterrupted || next.selectedRoomId) {
+      stopIdleDemo();
+    }
     if (!root || disposed) return;
     root.getObjectByName("LC3_Floor_2")!.visible = state.currentFloor === 2;
     renderer.shadowMap.needsUpdate = true;
@@ -496,26 +638,40 @@ function buildMapScene(
       highlight.position.set((a.x + b.x) / 2, a.y, (a.z + b.z) / 2);
       highlight.scale.set(b.x - a.x, b.z - a.z, 1);
     }
+    const isInitialFocus = focusKey === "";
     const nextFocus = `${state.currentFloor}:${selected?.id ?? ""}`;
     if (focusKey !== nextFocus) {
       if (selected) {
+        stopIdleDemo();
         const point = svgToModel(selected.floor, selected.coordinates);
         const target = new THREE.Vector3(point.x, point.y, point.z);
-        camera.position.add(target.clone().sub(controls.target));
-        controls.target.copy(target);
-        camera.zoom = 2.2;
-        camera.updateProjectionMatrix();
-        controls.update();
-      } else reset();
+        const toPos = camera.position
+          .clone()
+          .add(target.clone().sub(controls.target));
+        if (isInitialFocus) {
+          camera.position.copy(toPos);
+          controls.target.copy(target);
+          camera.zoom = 2.2;
+          camera.updateProjectionMatrix();
+          controls.update();
+        } else {
+          startCameraGlide(target, toPos, 2.2);
+        }
+      } else {
+        reset(!isInitialFocus);
+      }
       focusKey = nextFocus;
     }
+    maybeStartIdleDemo();
     resize();
   }
   return {
     ready,
     update,
-    reset,
+    reset: () => reset(true),
     zoom(factor) {
+      stopIdleDemo();
+      glide = undefined;
       camera.zoom = THREE.MathUtils.clamp(
         camera.zoom * factor,
         controls.minZoom,
@@ -534,6 +690,8 @@ function buildMapScene(
       host.removeEventListener("pointermove", pointerMove, true);
       host.removeEventListener("pointerup", pointerUp, true);
       host.removeEventListener("pointercancel", pointerCancel, true);
+      host.removeEventListener("wheel", interruptOnInput, true);
+      host.removeEventListener("keydown", interruptOnInput, true);
       clearTimeout(lostTimer);
       renderer.domElement.removeEventListener(
         "webglcontextlost",

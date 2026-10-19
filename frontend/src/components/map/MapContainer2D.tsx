@@ -26,6 +26,17 @@ export interface MapContainerProps {
   isDetailOpen?: boolean
   /** Screen area occupied by the public page sidebar, for 3D camera framing. */
   sidebarWidth?: number
+  /** Enable landing-page 3D idle 360 auto-orbit. */
+  idleOrbit?: boolean
+  /** Stop the idle 3D orbit when the user interacts with external UI (e.g. search bar). */
+  demoInterrupted?: boolean
+  /** Controlled 2D/3D view mode when managed by parent page */
+  viewMode?: '2d' | '3d'
+  onViewModeChange?: (view: '2d' | '3d') => void
+  /** Hide duplicate floor/2D controls when rendered inside TopBar's unified bottom dock */
+  hideBottomControls?: boolean
+  /** Suppress internal floor switcher when parent (MapContainer) renders unified dock */
+  hideFloorSwitcher?: boolean
 }
 
 const PADDING_X = 300
@@ -40,6 +51,8 @@ function MapContainer({
   onClearSelection,
   initialScale = 1,
   isDetailOpen = false,
+  hideBottomControls = false,
+  hideFloorSwitcher = false,
 }: MapContainerProps) {
   const floorConfig = getFloorConfig(currentFloor)
   const transformRef = useRef<ReactZoomPanPinchRef | null>(null)
@@ -85,72 +98,78 @@ function MapContainer({
 
   return (
     <div className="map2d relative h-full w-full overflow-hidden">
-      {/* Re-center floating action button */}
-      <button
-        type="button"
-        aria-label="จัดกึ่งกลางแผนที่"
-        onClick={() => transformRef.current?.resetTransform(motion(650), 'easeOutCubic')}
-        className={`absolute right-4 z-10 flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-slate-700 shadow-lg border border-slate-200/80 hover:bg-slate-50 hover:text-slate-900 hover:-translate-y-0.5 hover:shadow-xl active:translate-y-0 transition-transform duration-200 cursor-pointer sm:bottom-[11.25rem] sm:right-6 ${
-          selectedRoomId && isDetailOpen ? 'bottom-[calc(55dvh+10.75rem)]' : 'bottom-[11.25rem]'
-        }`}
-      >
-        <Crosshair size={22} weight="bold" aria-hidden="true" />
-      </button>
-
-      {/* Vertical +/- zoom controls pill floating above floor switcher */}
+      {/* Unified Right-Edge Vertical Zoom Stack (⌖, +, -) */}
       <div
-        role="group"
-        aria-label="Zoom controls"
-        className={`absolute right-4 z-10 flex flex-col items-center rounded-2xl bg-white p-1 shadow-lg border border-slate-200/80 sm:bottom-20 sm:right-6 ${
-          selectedRoomId && isDetailOpen ? 'bottom-[calc(55dvh+4.5rem)]' : 'bottom-20'
+        className={`absolute z-10 flex flex-col items-center rounded-2xl bg-white/95 backdrop-blur-md shadow-md border border-slate-200/80 divide-y divide-slate-100 overflow-hidden transition-all ${
+          hideBottomControls
+            ? selectedRoomId && isDetailOpen
+              ? 'bottom-[calc(55dvh+1rem)] right-4 sm:bottom-5 sm:right-5'
+              : 'bottom-5 right-4 sm:bottom-5 sm:right-5'
+            : selectedRoomId && isDetailOpen
+              ? 'bottom-[calc(55dvh+4.5rem)] right-4 sm:bottom-18 sm:right-5'
+              : 'bottom-18 right-4 sm:bottom-18 sm:right-5'
         }`}
       >
         <button
           type="button"
-          aria-label="ขยายแผนที่"
-          onClick={() => transformRef.current?.zoomIn(0.4, motion(250), 'easeOutCubic')}
-          className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-600 hover:bg-slate-100 hover:text-slate-900 active:bg-slate-200 active:text-slate-950 transition-colors duration-150 cursor-pointer"
+          aria-label="จัดกึ่งกลางแผนที่"
+          title="คืนมุมเริ่มต้น"
+          onClick={() => transformRef.current?.resetTransform(motion(650), 'easeOutCubic')}
+          className="flex h-10 w-10 items-center justify-center text-slate-600 hover:bg-slate-100 hover:text-slate-900 active:bg-slate-200 transition-colors cursor-pointer"
         >
-          <Plus size={18} weight="bold" aria-hidden="true" />
+          <Crosshair size={19} weight="bold" aria-hidden="true" />
         </button>
-        <div className="my-0.5 h-px w-6 bg-slate-100" />
-        <button
-          type="button"
-          aria-label="ย่อแผนที่"
-          onClick={() => transformRef.current?.zoomOut(0.4, motion(250), 'easeOutCubic')}
-          className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-600 hover:bg-slate-100 hover:text-slate-900 active:bg-slate-200 active:text-slate-950 transition-colors duration-150 cursor-pointer"
-        >
-          <Minus size={18} weight="bold" aria-hidden="true" />
-        </button>
+        <div role="group" aria-label="Zoom controls" className="flex flex-col divide-y divide-slate-100">
+          <button
+            type="button"
+            aria-label="ขยายแผนที่"
+            onClick={() => transformRef.current?.zoomIn(0.4, motion(250), 'easeOutCubic')}
+            className="flex h-10 w-10 items-center justify-center text-slate-600 hover:bg-slate-100 hover:text-slate-900 active:bg-slate-200 transition-colors cursor-pointer"
+          >
+            <Plus size={18} weight="bold" aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            aria-label="ย่อแผนที่"
+            onClick={() => transformRef.current?.zoomOut(0.4, motion(250), 'easeOutCubic')}
+            className="flex h-10 w-10 items-center justify-center text-slate-600 hover:bg-slate-100 hover:text-slate-900 active:bg-slate-200 transition-colors cursor-pointer"
+          >
+            <Minus size={18} weight="bold" aria-hidden="true" />
+          </button>
+        </div>
       </div>
 
-      {/* Floor switcher floating on the map */}
-      <div
-        role="group"
-        aria-label="Floor switcher"
-        className={`absolute right-4 z-10 flex gap-1.5 rounded-2xl bg-white p-1.5 shadow-lg border border-slate-200/80 sm:bottom-6 sm:right-6 ${
-          selectedRoomId && isDetailOpen ? 'bottom-[calc(55dvh+1rem)]' : 'bottom-6'
-        }`}
-      >
-        {FLOOR_CONFIGS.map((config) => {
-          const isActive = config.floor === currentFloor
-          return (
-            <button
-              key={config.floor}
-              type="button"
-              aria-pressed={isActive}
-              onClick={() => onFloorChange(config.floor)}
-              className={
-                isActive
-                  ? 'rounded-xl bg-slate-900 border border-slate-900 px-3.5 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-slate-800 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 transition-all duration-200 cursor-pointer'
-                  : 'rounded-xl border border-slate-200 bg-slate-100 px-3.5 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-200/80 hover:border-slate-300 hover:-translate-y-0.5 hover:shadow-sm active:translate-y-0 transition-all duration-200 cursor-pointer'
-              }
-            >
-              {config.label}
-            </button>
-          )
-        })}
-      </div>
+      {!hideBottomControls && !hideFloorSwitcher && (
+        /* Floor switcher floating on the map (Matching 3D pill styling) */
+        <div
+          role="group"
+          aria-label="Floor switcher"
+          className={`absolute z-10 flex h-10 items-center gap-1 rounded-full border border-slate-200/80 bg-white/95 p-1 shadow-md backdrop-blur-xl ${
+            selectedRoomId && isDetailOpen
+              ? 'bottom-[calc(55dvh+1rem)] right-4 sm:bottom-[calc(55dvh+1rem)] sm:right-5'
+              : 'bottom-5 right-4 sm:bottom-5 sm:right-5'
+          }`}
+        >
+          {FLOOR_CONFIGS.map((config) => {
+            const isActive = config.floor === currentFloor
+            return (
+              <button
+                key={config.floor}
+                type="button"
+                aria-pressed={isActive}
+                onClick={() => onFloorChange(config.floor)}
+                className={`h-8 rounded-full px-3 text-xs font-semibold transition-all cursor-pointer ${
+                  isActive
+                    ? 'bg-slate-900 text-white shadow-2xs'
+                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                }`}
+              >
+                {config.label}
+              </button>
+            )
+          })}
+        </div>
+      )}
 
       <TransformWrapper
         ref={transformRef}

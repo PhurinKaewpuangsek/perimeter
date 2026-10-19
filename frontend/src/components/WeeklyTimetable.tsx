@@ -96,11 +96,11 @@ function entryLabel(item: PlacedSlot): string {
     .join(' · ')
 }
 
-/** Tailwind colours for an entry: rose for exams, violet for classes. */
+/** Tailwind colours for an entry: rich contrast Google Calendar styles. */
 function entryColors(slot: ScheduleSlot): string {
   return isExamSchedule(slot)
-    ? 'bg-rose-50 border-rose-300 text-rose-900'
-    : 'bg-violet-50 border-violet-300 text-violet-900'
+    ? 'bg-rose-100/90 border-rose-300 text-rose-950 border-l-4 border-l-rose-500 shadow-2xs'
+    : 'bg-violet-100/90 border-violet-300 text-violet-950 border-l-4 border-l-violet-600 shadow-2xs'
 }
 
 /** Absolute position of one entry inside a day column. */
@@ -113,7 +113,7 @@ function entryStyle(item: PlacedSlot, startMinute: number, endMinute: number, px
   }
 }
 
-/** Faint horizontal line at every whole hour, behind the entries. */
+/** Clear horizontal line at every whole hour, behind the entries. */
 function HourLines({ startMinute, endMinute, pxPerMinute }: { startMinute: number; endMinute: number; pxPerMinute: number }) {
   const hours: number[] = []
   for (let m = startMinute; m <= endMinute; m += 60) hours.push(m)
@@ -123,7 +123,7 @@ function HourLines({ startMinute, endMinute, pxPerMinute }: { startMinute: numbe
         <div
           key={m}
           aria-hidden="true"
-          className="absolute inset-x-0 border-t border-slate-100"
+          className="absolute inset-x-0 border-t border-slate-200/80"
           style={{ top: (m - startMinute) * pxPerMinute }}
         />
       ))}
@@ -136,11 +136,11 @@ function TimeGutter({ startMinute, endMinute, pxPerMinute }: { startMinute: numb
   const hours: number[] = []
   for (let m = startMinute; m < endMinute; m += 60) hours.push(m)
   return (
-    <div className="relative w-9 shrink-0" style={{ height: (endMinute - startMinute) * pxPerMinute }} aria-hidden="true">
+    <div className="relative w-11 shrink-0" style={{ height: (endMinute - startMinute) * pxPerMinute }} aria-hidden="true">
       {hours.map((m) => (
         <span
           key={m}
-          className="absolute right-1 -translate-y-1/2 font-mono text-[9px] text-slate-400"
+          className="absolute right-1.5 -translate-y-1/2 font-mono text-[10px] sm:text-[11px] font-bold text-slate-600"
           style={{ top: (m - startMinute) * pxPerMinute }}
         >
           {formatMinutes(m)}
@@ -294,16 +294,18 @@ function DayView({ slots, renderActions }: Pick<WeeklyTimetableProps, 'slots' | 
                   key={`${item.slot.eventCode}-${item.startMinute}-${item.lane}`}
                   role="listitem"
                   aria-label={entryLabel(item)}
-                  className={`absolute overflow-hidden rounded-md border p-1.5 ${entryColors(item.slot)}`}
+                  className={`absolute overflow-hidden rounded-lg border p-2 transition-all ${entryColors(item.slot)}`}
                   style={entryStyle(item, startMinute, endMinute, DAY_PX_PER_MINUTE)}
                 >
-                  <div className="flex items-start justify-between gap-1">
+                  <div className="flex items-start justify-between gap-1.5">
                     <div className="min-w-0">
-                      <p className="truncate font-mono text-[11px] font-bold">{item.slot.eventCode}</p>
-                      <p className="truncate font-mono text-[10px] opacity-80">
+                      <p className="truncate font-mono text-xs font-extrabold text-slate-900 tracking-tight">
+                        {item.slot.eventCode}
+                      </p>
+                      <p className="truncate font-mono text-[11px] font-semibold text-slate-700 mt-0.5">
                         {formatMinutes(item.startMinute)}–{formatMinutes(item.endMinute)}
                       </p>
-                      {exam && <p className="truncate text-[10px] font-semibold">{exam}</p>}
+                      {exam && <p className="truncate text-[10px] font-bold text-rose-700 mt-0.5">{exam}</p>}
                     </div>
                     {renderActions && <div className="flex shrink-0 items-center">{renderActions(item.slot)}</div>}
                   </div>
