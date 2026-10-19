@@ -36,11 +36,10 @@ import {
   type ManagedUser,
 } from '../services/adminUserService'
 import { deleteRoom, deleteSchedule } from '../services/adminService'
-import AccountMenu from './AccountMenu'
+import TopBar from './TopBar'
 import { useRooms } from '../hooks/useRooms'
 import { useSchedules } from '../hooks/useSchedules'
 import type { UserRole } from '../types/auth'
-import perimeterLogoNoBg from '../assets/perimeter_logo_negative_nobg.png'
 
 export default function AdminManagementPage() {
   const session = getSession()
@@ -239,25 +238,11 @@ export default function AdminManagementPage() {
   // -------------------------------------------------------------------------
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col">
-      {/* Top Navbar */}
-      <header className="border-b border-slate-200 bg-white/95 backdrop-blur-md sticky top-0 z-30 px-6 py-3.5 flex items-center justify-between shadow-2xs">
-        <div className="flex items-center gap-3">
-          <img src={perimeterLogoNoBg} alt="Perimeter Logo" className="h-8" />
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-bold text-slate-900">Admin Console</span>
-            <span className="rounded-full bg-rose-50 border border-rose-200 text-rose-700 text-[10px] font-bold px-2 py-0.5">
-              admin
-            </span>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <AccountMenu />
-        </div>
-      </header>
+      {/* Shared Unified Floating TopBar */}
+      <TopBar />
 
       {/* Main Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-6 space-y-6">
+      <main className="flex-1 max-w-7xl w-full mx-auto pt-20 sm:pt-22 px-4 sm:px-6 pb-12 space-y-6">
         {/* Navigation Tabs */}
         <div className="flex items-center gap-2 border-b border-slate-200 pb-3">
           <button

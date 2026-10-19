@@ -152,10 +152,10 @@ export default function MyScheduleDrawer() {
         data-testid="my-schedule-placeholder"
         aria-label="My Schedule"
         title="My Schedule"
-        className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200/90 bg-slate-50 px-2.5 sm:px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900 active:bg-slate-200 transition-all cursor-pointer shadow-2xs shrink-0 select-none"
+        className="inline-flex h-8 items-center gap-1.5 rounded-full px-2 sm:px-3 text-xs font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900 active:bg-slate-200/70 transition-colors cursor-pointer shrink-0 select-none"
       >
-        <Calendar size={14} weight="bold" className="text-slate-500" />
-        <span>My Schedule</span>
+        <Calendar size={15} weight="bold" className="text-slate-500" />
+        <span className="hidden sm:inline">My Schedule</span>
         {pins.length > 0 && (
           <span
             data-testid="pins-count-badge"

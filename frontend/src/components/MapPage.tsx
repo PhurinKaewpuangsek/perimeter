@@ -12,7 +12,6 @@
 import { useState, useMemo, useRef, createElement } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
-  CaretLeft,
   X,
   MapPin,
   Calendar,
@@ -216,7 +215,7 @@ function RoomDetailContent({
       <div className="border-t border-slate-200/80 pt-3.5">
         {/* Schedule Tabs Header */}
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
             <Calendar size={14} weight="bold" />
             <span>ตารางการใช้ห้อง</span>
           </h3>
@@ -297,6 +296,7 @@ export default function MapPage() {
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(initialRoomId)
   const [isDetailOpen, setIsDetailOpen] = useState<boolean>(Boolean(initialRoomId))
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false)
+  const [mapView, setMapView] = useState<'2d' | '3d'>('3d')
   const [query, setQuery] = useState(initialQuery)
   const [categoryKey, setCategoryKey] = useState(DEFAULT_CATEGORY_KEY)
   const [isDropdownOpen, setIsDropdownOpen] = useState(Boolean(initialQuery))
@@ -523,11 +523,21 @@ export default function MapPage() {
   if (loading || !floorPlansReady) return <LoadingScreen />
 
   return (
-    <main className="relative h-[100dvh] w-screen overflow-hidden bg-slate-100 font-sans select-none flex flex-col">
-      {/* Shared Navigation TopBar (back-to-home, My Schedule placeholder, staff login) */}
-      <TopBar />
+    <main className="relative h-[100dvh] w-screen overflow-hidden bg-slate-100 font-sans select-none">
+      {/* Shared Figma-Style Spatial TopBar */}
+      <TopBar
+        sidebarWidth={isDesktop ? 460 : undefined}
+        isSidebarCollapsed={isSidebarCollapsed}
+        onToggleSidebar={isDesktop ? () => setIsSidebarCollapsed((prev) => !prev) : undefined}
+        currentFloor={isDesktop ? currentFloor : undefined}
+        onFloorChange={isDesktop ? setCurrentFloor : undefined}
+        mapView={isDesktop ? mapView : undefined}
+        onToggleMapView={
+          isDesktop ? () => setMapView((prev) => (prev === '3d' ? '2d' : '3d')) : undefined
+        }
+      />
 
-      <div className="relative flex-1 w-full overflow-hidden">
+      <div className="absolute inset-0 z-0 overflow-hidden">
         {/* Interactive map workspace, with a 2D fallback */}
         <MapContainer
           rooms={rooms}
@@ -535,37 +545,25 @@ export default function MapPage() {
           onFloorChange={setCurrentFloor}
           selectedRoomId={selectedRoomId}
           isDetailOpen={isDetailOpen}
-          sidebarWidth={isSidebarCollapsed ? 0 : 400}
+          sidebarWidth={isSidebarCollapsed ? 0 : 460}
           onSelectRoom={handleSelectRoom}
           onClearSelection={handleMapBackgroundClick}
+          viewMode={mapView}
+          onViewModeChange={setMapView}
+          hideBottomControls={isDesktop}
         />
 
         {/* =========================================================================
-            DESKTOP LEFT SIDEBAR (Docked Panel on Desktop: >= sm)
+            DESKTOP LEFT SIDEBAR (Docked Full-Height Panel with TopBar Zone 1: >= sm)
             ========================================================================= */}
         {isDesktop ? (
           <>
             <aside
-              className={`pointer-events-none absolute top-0 left-0 bottom-0 z-30 w-[400px] transition-transform duration-300 ease-in-out ${
+              className={`pointer-events-none absolute top-14 left-0 bottom-0 z-30 w-[460px] transition-transform duration-300 ease-in-out ${
                 isSidebarCollapsed ? '-translate-x-full' : 'translate-x-0'
               }`}
             >
-              <div className="relative pointer-events-auto flex flex-col h-full bg-white shadow-2xl border-r border-slate-200">
-                {/* Collapse / Expand Toggle Tab on right border of sidebar */}
-                <button
-                  type="button"
-                  onClick={() => setIsSidebarCollapsed((prev) => !prev)}
-                  aria-label={isSidebarCollapsed ? 'ขยายแถบเมนู' : 'ซ่อนแถบเมนู'}
-                  title={isSidebarCollapsed ? 'ขยายแถบเมนู' : 'ซ่อนแถบเมนู'}
-                  className="absolute top-3.5 -right-8 z-30 flex h-8 w-8 items-center justify-center rounded-r-xl bg-white border-y border-r border-slate-200 text-slate-500 shadow-md hover:bg-slate-50 hover:text-slate-900 active:scale-95 transition-all cursor-pointer"
-                >
-                  <CaretLeft
-                    size={16}
-                    weight="bold"
-                    className={`transition-transform duration-300 ${isSidebarCollapsed ? 'rotate-180' : ''}`}
-                  />
-                </button>
-
+              <div className="relative pointer-events-auto flex flex-col h-full bg-white shadow-xl border-r border-slate-200/90">
                 {/* Search Controls (Pinned at top of sidebar) */}
                 <div className="p-3 border-b border-slate-200/80 bg-slate-50/50">
                   <div className="flex items-center gap-2">
@@ -598,7 +596,7 @@ export default function MapPage() {
                       onClick={handleResetMap}
                       aria-label="รีเซ็ตแผนที่"
                       title="รีเซ็ตแผนที่"
-                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition-colors cursor-pointer"
+                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-slate-200/90 bg-white text-slate-500 hover:bg-slate-100 hover:text-slate-900 shadow-xs transition-colors cursor-pointer"
                     >
                       <ArrowCounterClockwise size={16} weight="bold" />
                     </button>
@@ -759,8 +757,8 @@ export default function MapPage() {
           {/* =========================================================================
               MOBILE FLOATING HEADER & SEARCH BAR (Mobile only: < sm)
               ========================================================================= */}
-          <div className="absolute top-2.5 inset-x-2.5 z-30 pointer-events-none">
-            <div className="relative z-40 flex flex-col rounded-2xl bg-white shadow-xl border border-slate-200 p-2 pointer-events-auto">
+          <div className="absolute top-15 inset-x-3 z-30 pointer-events-none sm:hidden">
+            <div className="relative z-40 flex flex-col pointer-events-auto">
               <div className="flex w-full items-center gap-2">
                 <div className="min-w-0 flex-1">
                   <SearchBar
@@ -791,7 +789,7 @@ export default function MapPage() {
                   onClick={handleResetMap}
                   aria-label="รีเซ็ตแผนที่"
                   title="รีเซ็ตแผนที่"
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition-colors cursor-pointer"
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-slate-200/90 bg-white/95 text-slate-500 hover:bg-slate-100 hover:text-slate-900 shadow-md backdrop-blur-xl transition-all cursor-pointer"
                 >
                   <ArrowCounterClockwise size={16} weight="bold" />
                 </button>
@@ -803,7 +801,7 @@ export default function MapPage() {
                   isFilterExpanded ? 'grid-rows-[1fr] opacity-100 mt-2' : 'grid-rows-[0fr] opacity-0'
                 }`}
               >
-                <div className="overflow-hidden">
+                <div className="overflow-hidden rounded-2xl bg-white/95 backdrop-blur-xl border border-slate-200/90 p-2 shadow-lg">
                   <CategoryFilter
                     value={categoryKey}
                     onChange={(newCategory) => {

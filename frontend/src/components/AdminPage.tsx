@@ -39,7 +39,7 @@ import { usePreloadImages } from '../hooks/usePreloadImages'
 import MapContainer from './map/MapContainer'
 import { FLOOR_CONFIGS } from './map/floorConfig'
 import LoadingScreen from './LoadingScreen'
-import AccountMenu from './AccountMenu'
+import TopBar from './TopBar'
 import type { Room } from '../types/room'
 import type { ScheduleSlot } from '../types/schedule'
 import {
@@ -61,7 +61,6 @@ import {
 } from '../services/roomDisplay'
 import { CATEGORY_FILTERS } from '../services/filterRooms'
 import { getCategoryIcon } from './categoryIcon'
-import perimeterLogoNoBg from '../assets/perimeter_logo_negative_nobg.png'
 
 // ---------------------------------------------------------------------------
 // Constants & Day Color Configurations (mirrors /map standard)
@@ -1303,6 +1302,7 @@ export default function AdminPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [leftTab, setLeftTab] = useState<LeftTab>('rooms')
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
+  const [mapView, setMapView] = useState<'2d' | '3d'>('3d')
   const [floorFilter, setFloorFilter] = useState<'all' | '1' | '2'>('all')
   const [categoryFilterKey, setCategoryFilterKey] = useState<string>('all')
 
@@ -1387,6 +1387,17 @@ export default function AdminPage() {
 
   return (
     <main className="relative h-[100dvh] w-screen overflow-hidden bg-slate-100 font-sans select-none">
+      {/* Shared Figma-Style Spatial TopBar */}
+      <TopBar
+        sidebarWidth={460}
+        isSidebarCollapsed={isSidebarCollapsed}
+        onToggleSidebar={() => setIsSidebarCollapsed((prev) => !prev)}
+        currentFloor={currentFloor}
+        onFloorChange={setCurrentFloor}
+        mapView={mapView}
+        onToggleMapView={() => setMapView((prev) => (prev === '3d' ? '2d' : '3d'))}
+      />
+
       {/* ------------------------------------------------------------------ */}
       {/* Background Interactive Floor Plan Workspace                        */}
       {/* ------------------------------------------------------------------ */}
@@ -1401,58 +1412,22 @@ export default function AdminPage() {
         }}
         mode="admin"
         sidebarWidth={isSidebarCollapsed ? 0 : 460}
+        viewMode={mapView}
+        onViewModeChange={setMapView}
+        hideBottomControls
       />
 
       {/* ------------------------------------------------------------------ */}
-      {/* Floating Collapsible Left Sidebar (Docked Panel standard)          */}
+      {/* Docked Full-Height Left Sidebar (with TopBar Zone 1 at top-0)      */}
       {/* ------------------------------------------------------------------ */}
       <aside
-        className={`pointer-events-none absolute top-0 left-0 bottom-0 z-30 w-full sm:w-[440px] md:w-[460px] transition-transform duration-300 ease-in-out ${
+        className={`pointer-events-none absolute top-14 left-0 bottom-0 z-30 w-full sm:w-[440px] md:w-[460px] transition-transform duration-300 ease-in-out ${
           isSidebarCollapsed ? '-translate-x-full' : 'translate-x-0'
         }`}
       >
-        <div className="relative pointer-events-auto flex flex-col h-full bg-white shadow-2xl border-r border-slate-200/90">
-          {/* Collapse / Expand Toggle Tab on right border of sidebar */}
-          <button
-            type="button"
-            onClick={() => setIsSidebarCollapsed((prev) => !prev)}
-            aria-label={isSidebarCollapsed ? 'ขยายแผงจัดการ' : 'ซ่อนแผงจัดการ'}
-            title={isSidebarCollapsed ? 'ขยายแผงจัดการ' : 'ซ่อนแผงจัดการ'}
-            className="absolute top-3.5 -right-8 z-30 flex h-8 w-8 items-center justify-center rounded-r-xl bg-white border-y border-r border-slate-200 text-slate-500 shadow-md hover:bg-slate-50 hover:text-slate-900 active:scale-95 transition-all cursor-pointer"
-          >
-            <CaretLeft
-              size={16}
-              weight="bold"
-              className={`transition-transform duration-300 ${isSidebarCollapsed ? 'rotate-180' : ''}`}
-            />
-          </button>
-
-          {/* Header Bar with Perimeter Logo & Subtle Admin Badge */}
-          <div className="flex shrink-0 items-center justify-between px-4 py-3 border-b border-slate-200/80 bg-white">
-            <div className="flex items-center gap-2">
-              <img
-                src={perimeterLogoNoBg}
-                alt="Perimeter"
-                className="h-10 sm:h-11 w-auto object-contain cursor-pointer hover:opacity-90 transition-opacity drop-shadow-xs"
-                onClick={() => {
-                  setPanelMode('list')
-                  setSelectedRoomId(null)
-                  setLeftTab('rooms')
-                }}
-                title="คลิกเพื่อรีเซ็ตหน้าจอ"
-              />
-            </div>
-
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-extrabold tracking-tight text-rose-600 select-none">
-                Staff Console
-              </span>
-              <AccountMenu />
-            </div>
-          </div>
-
+        <div className="relative pointer-events-auto flex flex-col h-full bg-white shadow-xl border-r border-slate-200/90">
           {/* View Tab Switcher: ห้องและพื้นที่ vs ตารางเวลาทั้งหมด */}
-          <div className="p-3 border-b border-slate-200/80 bg-slate-50/60">
+          <div className="shrink-0 p-3 border-b border-slate-200/80 bg-slate-50/60">
             <div className="flex gap-1 rounded-xl bg-slate-200/60 p-1">
               <button
                 type="button"
@@ -1492,6 +1467,103 @@ export default function AdminPage() {
             </div>
           </div>
 
+          {/* Sticky Search & Filter Header (Only in Room List mode — never scrolls away or clips!) */}
+          {leftTab === 'rooms' && !(panelMode === 'room' && selectedRoom) && (
+            <div className="shrink-0 px-4 pt-3 pb-2.5 border-b border-slate-200/80 bg-white space-y-2.5">
+              {/* Search Bar */}
+              <AdminSearchBox
+                value={searchQuery}
+                onChange={setSearchQuery}
+                placeholder="ค้นหาด้วยเลขห้อง, ชื่อ หรือรหัส เช่น 110, ELEC..."
+              />
+
+              {/* Floor Filter Quick Pills (syncs with map floor) */}
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setFloorFilter('all')}
+                  className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition-all cursor-pointer ${
+                    floorFilter === 'all'
+                      ? 'bg-slate-900 text-white shadow-2xs'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  ทั้งหมด ({rooms.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFloorFilter('1')
+                    if (currentFloor !== 1) setCurrentFloor(1)
+                  }}
+                  className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition-all cursor-pointer ${
+                    floorFilter === '1'
+                      ? 'bg-slate-900 text-white shadow-2xs'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  ชั้น 1 ({floor1Count})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFloorFilter('2')
+                    if (currentFloor !== 2) setCurrentFloor(2)
+                  }}
+                  className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition-all cursor-pointer ${
+                    floorFilter === '2'
+                      ? 'bg-slate-900 text-white shadow-2xs'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  ชั้น 2 ({floor2Count})
+                </button>
+              </div>
+
+              {/* Category Filters Pills Horizontal Strip (with visible thin-scrollbar and mouse-wheel horizontal scrolling) */}
+              <div
+                className="flex items-center gap-1.5 overflow-x-auto thin-scrollbar pb-1.5 pt-0.5"
+                onWheel={(e) => {
+                  if (e.deltaY !== 0) {
+                    e.currentTarget.scrollLeft += e.deltaY
+                  }
+                }}
+              >
+                {CATEGORY_FILTERS.map((cat) => {
+                  const isActive = categoryFilterKey === cat.key
+                  return (
+                    <button
+                      key={cat.key}
+                      type="button"
+                      onClick={() => setCategoryFilterKey(cat.key)}
+                      className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold transition-all cursor-pointer shrink-0 border ${
+                        isActive
+                          ? 'bg-slate-900 text-white border-slate-900 shadow-2xs'
+                          : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+                      }`}
+                    >
+                      {cat.label}
+                    </button>
+                  )
+                })}
+              </div>
+
+              {/* Count indicator */}
+              <div className="flex items-center justify-between text-[11px] text-slate-400 font-medium px-0.5">
+                <span>แสดง {filteredRooms.length} ห้อง</span>
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="text-slate-700 font-semibold hover:underline cursor-pointer"
+                  >
+                    ล้างคำค้น
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Main Sidebar Scrollable Content */}
           <div ref={sidebarScrollRef} className="flex-1 overflow-y-auto thin-scrollbar p-4 space-y-4">
             {leftTab === 'schedules' ? (
@@ -1527,99 +1599,7 @@ export default function AdminPage() {
               />
             ) : (
               /* ROOM LIST MODE */
-              <div className="space-y-3.5">
-                {/* Search Bar */}
-                <AdminSearchBox
-                  value={searchQuery}
-                  onChange={setSearchQuery}
-                  placeholder="ค้นหาด้วยเลขห้อง, ชื่อ หรือรหัส เช่น 110, ELEC..."
-                />
-
-                {/* Floor Filter Quick Pills (syncs with map floor) */}
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => setFloorFilter('all')}
-                    className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition-all cursor-pointer ${
-                      floorFilter === 'all'
-                        ? 'bg-slate-900 text-white shadow-2xs'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    }`}
-                  >
-                    ทั้งหมด ({rooms.length})
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFloorFilter('1')
-                      if (currentFloor !== 1) setCurrentFloor(1)
-                    }}
-                    className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition-all cursor-pointer ${
-                      floorFilter === '1'
-                        ? 'bg-slate-900 text-white shadow-2xs'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    }`}
-                  >
-                    ชั้น 1 ({floor1Count})
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFloorFilter('2')
-                      if (currentFloor !== 2) setCurrentFloor(2)
-                    }}
-                    className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition-all cursor-pointer ${
-                      floorFilter === '2'
-                        ? 'bg-slate-900 text-white shadow-2xs'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    }`}
-                  >
-                    ชั้น 2 ({floor2Count})
-                  </button>
-                </div>
-
-                {/* Category Filters Pills Horizontal Strip (with visible thin-scrollbar and mouse-wheel horizontal scrolling) */}
-                <div
-                  className="flex items-center gap-1.5 overflow-x-auto thin-scrollbar pb-2 pt-0.5"
-                  onWheel={(e) => {
-                    if (e.deltaY !== 0) {
-                      e.currentTarget.scrollLeft += e.deltaY
-                    }
-                  }}
-                >
-                  {CATEGORY_FILTERS.map((cat) => {
-                    const isActive = categoryFilterKey === cat.key
-                    return (
-                      <button
-                        key={cat.key}
-                        type="button"
-                        onClick={() => setCategoryFilterKey(cat.key)}
-                        className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold transition-all cursor-pointer shrink-0 border ${
-                          isActive
-                            ? 'bg-slate-900 text-white border-slate-900 shadow-2xs'
-                            : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
-                        }`}
-                      >
-                        {cat.label}
-                      </button>
-                    )
-                  })}
-                </div>
-
-                {/* Count indicator */}
-                <div className="flex items-center justify-between text-[11px] text-slate-400 font-medium px-0.5">
-                  <span>แสดง {filteredRooms.length} ห้อง</span>
-                  {searchQuery && (
-                    <button
-                      type="button"
-                      onClick={() => setSearchQuery('')}
-                      className="text-slate-700 font-semibold hover:underline cursor-pointer"
-                    >
-                      ล้างคำค้น
-                    </button>
-                  )}
-                </div>
-
+              <div className="space-y-2.5">
                 {/* Rooms List */}
                 <div className="space-y-2">
                   {filteredRooms.map((room) => (

@@ -154,12 +154,12 @@ describe('AdminManagementPage', () => {
 
   it('renders user table for authenticated admin', async () => {
     render(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={['/admin']}>
         <AdminManagementPage />
       </MemoryRouter>,
     )
 
-    expect(screen.getByText(/Admin Console/)).toBeInTheDocument()
+    expect(screen.getAllByText(/Admin Console/)[0]).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: /การจัดการผู้ใช้และสิทธิ์/ })).toBeInTheDocument()
 
     await waitFor(() => {

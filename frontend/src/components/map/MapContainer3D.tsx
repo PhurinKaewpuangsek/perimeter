@@ -47,8 +47,17 @@ export default function MapContainer3D(props: MapContainerProps & { onUnavailabl
       map?.dispose()
     }
   }, [])
-  const { rooms, currentFloor, selectedRoomId, isDetailOpen, mode, sidebarWidth, initialScale } =
-    props
+  const {
+    rooms,
+    currentFloor,
+    selectedRoomId,
+    isDetailOpen,
+    mode,
+    sidebarWidth,
+    initialScale,
+    idleOrbit,
+    demoInterrupted,
+  } = props
   useEffect(() => {
     scene?.update({
       rooms,
@@ -60,9 +69,22 @@ export default function MapContainer3D(props: MapContainerProps & { onUnavailabl
       mode,
       sidebarWidth,
       initialScale,
+      idleOrbit,
+      demoInterrupted,
       icons: icons.current,
     })
-  }, [scene, rooms, currentFloor, selectedRoomId, isDetailOpen, mode, sidebarWidth, initialScale])
+  }, [
+    scene,
+    rooms,
+    currentFloor,
+    selectedRoomId,
+    isDetailOpen,
+    mode,
+    sidebarWidth,
+    initialScale,
+    idleOrbit,
+    demoInterrupted,
+  ])
   const hintOffset = sidebarWidth ?? (mode === 'admin' ? 460 : 400)
   return (
     <div className="map3d" style={{ '--map3d-sidebar': `${hintOffset}px` } as CSSProperties}>
@@ -78,36 +100,48 @@ export default function MapContainer3D(props: MapContainerProps & { onUnavailabl
         </div>
       )}
       <div
-        className={`map3d-controls ${selectedRoomId && isDetailOpen ? 'map3d-controls-raised' : ''}`}
+        className={`map3d-controls transition-all ${
+          props.hideBottomControls
+            ? selectedRoomId && isDetailOpen
+              ? 'bottom-[calc(55dvh+1rem)] right-4 sm:bottom-5 sm:right-5'
+              : 'bottom-5 right-4 sm:bottom-5 sm:right-5'
+            : selectedRoomId && isDetailOpen
+              ? 'bottom-[calc(55dvh+4.5rem)] right-4 sm:bottom-18 sm:right-5'
+              : 'bottom-18 right-4 sm:bottom-18 sm:right-5'
+        }`}
       >
-        <button
-          type="button"
-          aria-label="จัดกึ่งกลางแผนที่"
-          title="คืนมุมเริ่มต้น"
-          onClick={() => scene?.reset()}
-        >
-          <Crosshair size={21} />
-        </button>
-        <div role="group" aria-label="Zoom controls" className="map3d-zoom">
-          <button type="button" aria-label="ขยายแผนที่" onClick={() => scene?.zoom(1.3)}>
-            <Plus size={19} />
+        <div className="map3d-zoom-stack">
+          <button
+            type="button"
+            aria-label="จัดกึ่งกลางแผนที่"
+            title="คืนมุมเริ่มต้น"
+            onClick={() => scene?.reset()}
+          >
+            <Crosshair size={19} weight="bold" />
           </button>
-          <button type="button" aria-label="ย่อแผนที่" onClick={() => scene?.zoom(1 / 1.3)}>
-            <Minus size={19} />
-          </button>
-        </div>
-        <div role="group" aria-label="Floor switcher" className="map3d-floors">
-          {FLOOR_CONFIGS.map((floor) => (
-            <button
-              key={floor.floor}
-              type="button"
-              aria-pressed={floor.floor === currentFloor}
-              onClick={() => props.onFloorChange(floor.floor)}
-            >
-              {floor.label}
+          <div role="group" aria-label="Zoom controls" className="map3d-zoom">
+            <button type="button" aria-label="ขยายแผนที่" onClick={() => scene?.zoom(1.3)}>
+              <Plus size={18} weight="bold" />
             </button>
-          ))}
+            <button type="button" aria-label="ย่อแผนที่" onClick={() => scene?.zoom(1 / 1.3)}>
+              <Minus size={18} weight="bold" />
+            </button>
+          </div>
         </div>
+        {!props.hideBottomControls && !props.hideFloorSwitcher && (
+          <div role="group" aria-label="Floor switcher" className="map3d-floors">
+            {FLOOR_CONFIGS.map((floor) => (
+              <button
+                key={floor.floor}
+                type="button"
+                aria-pressed={floor.floor === currentFloor}
+                onClick={() => props.onFloorChange(floor.floor)}
+              >
+                {floor.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
       {/* The scene builds its markers outside React, so it copies each room's
           category icon (the same glyph as the 2D pins) from here. */}
@@ -125,7 +159,6 @@ export default function MapContainer3D(props: MapContainerProps & { onUnavailabl
             </span>
           ))}
       </div>
-      <p className="map3d-hint">ลากเมาส์ซ้ายเพื่อเลื่อน · ลากเมาส์ขวาเพื่อหมุน · บีบสองนิ้วเพื่อซูม/เลื่อน</p>
     </div>
   )
 }

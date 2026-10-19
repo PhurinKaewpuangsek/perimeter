@@ -144,11 +144,12 @@ describe('TopBar (Shared Component)', () => {
 
     // Open dropdown
     await user.click(trigger)
-    expect(screen.getByRole('link', { name: /staff console/i })).toHaveAttribute('href', '/staff')
+    expect(screen.getByText('เข้าสู่ระบบด้วย')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /ออกจากระบบ/i })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /staff console/i })).not.toBeInTheDocument()
   })
 
-  it('displays admin role and links when user is logged in as admin', async () => {
+  it('displays admin role in AccountMenu when user is logged in as admin', async () => {
     const user = userEvent.setup()
     mockSession = {
       idToken: 'mock-id-token',
@@ -167,7 +168,8 @@ describe('TopBar (Shared Component)', () => {
     expect(trigger).toHaveTextContent(/admin/i)
 
     await user.click(trigger)
-    expect(screen.getByRole('link', { name: /admin console/i })).toHaveAttribute('href', '/admin')
+    expect(screen.getByText('เข้าสู่ระบบด้วย')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /ออกจากระบบ/i })).toBeInTheDocument()
   })
 
   it('signing out via AccountMenu redirects to /', async () => {
@@ -191,5 +193,61 @@ describe('TopBar (Shared Component)', () => {
     await user.click(signOutBtn)
 
     expect(mockNavigate).toHaveBeenCalledWith('/')
+  })
+
+  it('renders dynamic workspace switcher for staff with navigation links and no sign out button', async () => {
+    const user = userEvent.setup()
+    mockSession = {
+      idToken: 'mock-id-token',
+      accessToken: 'mock-access-token',
+      expiresAt: Date.now() + 3600000,
+      user: {
+        email: 'staff@example.com',
+        sub: 'mock-sub-1',
+        groups: ['staff'],
+      },
+    }
+
+    renderTopBar()
+    const workspaceTrigger = screen.getByTestId('workspace-switcher-trigger')
+    expect(workspaceTrigger).toBeInTheDocument()
+
+    // Popover is not open initially
+    expect(screen.queryByRole('link', { name: /แผงจัดการข้อมูล staff/i })).not.toBeInTheDocument()
+
+    // Click to open popover
+    await user.click(workspaceTrigger)
+    expect(screen.getByRole('link', { name: /แผงจัดการข้อมูล staff/i })).toHaveAttribute('href', '/staff')
+    expect(screen.getByRole('link', { name: /ดูผังอาคาร lc3/i })).toHaveAttribute('href', '/map')
+
+    // Navigation dock switcher does NOT have sign out button (strictly in AccountMenu)
+    expect(screen.queryByTestId('workspace-sign-out')).not.toBeInTheDocument()
+  })
+
+  it('renders admin console navigation link in workspace switcher for admin users', async () => {
+    const user = userEvent.setup()
+    mockSession = {
+      idToken: 'mock-id-token',
+      accessToken: 'mock-access-token',
+      expiresAt: Date.now() + 3600000,
+      user: {
+        email: 'admin@example.com',
+        sub: 'mock-sub-2',
+        groups: ['admin'],
+      },
+    }
+
+    renderTopBar()
+    const workspaceTrigger = screen.getByTestId('workspace-switcher-trigger')
+    await user.click(workspaceTrigger)
+
+    expect(screen.getByRole('link', { name: /แผงจัดการระบบ admin/i })).toHaveAttribute('href', '/admin')
+    expect(screen.getByRole('link', { name: /แผงจัดการข้อมูล staff/i })).toHaveAttribute('href', '/staff')
+    expect(screen.getByRole('link', { name: /ดูผังอาคาร lc3/i })).toHaveAttribute('href', '/map')
+  })
+
+  it('does not render workspace switcher for guest users', () => {
+    renderTopBar()
+    expect(screen.queryByTestId('workspace-switcher-trigger')).not.toBeInTheDocument()
   })
 })
