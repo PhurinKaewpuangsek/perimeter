@@ -11,7 +11,9 @@ The public map and admin map now open the approved LC3 model by default. Floor 1
 
 ## Asset and coordinate contract
 
-`frontend/src/assets/maps/lc3-campus.glb` is the review-fix revision exported on 18 October 2026 and meshopt-compressed: 1,998,100 bytes (6,408,000 before compression), 189,041 triangles, six groups. SHA-256: `9612ACCE73F9FC2C08C1C87694DD98F7A61739503786F57030556D4E967AB2A6`.
+`frontend/src/assets/maps/lc3-campus.glb` is the east-courtyard revision exported on 19 October 2026 and meshopt-compressed: 1,985,288 bytes (6,372,660 before compression), 187,121 triangles, six groups. SHA-256: `B0CC96A0CBCE63102947BB76D29E6C3E1BCD0D436E32D37E486DBB2D25AF1631`.
+
+The 19 October revision restyles the floor-1 east (fountain) courtyard to the 2D plan's colours with `restyle_east_courtyard.py`: ground `#D9D9D9`, walkways and the fountain ring `#A29393`, water `#0CC0DF`. The six shrubs that stood on its walkways are hidden. It uses its own material copies, so the west courtyard keeps its green.
 
 The S3 website endpoint does not gzip responses, so the file is compressed itself (`EXT_meshopt_compression`, with only normals quantized to 10 bits). Both `npm run site:publish` and the production `cd-frontend.yml` upload the hashed JS, CSS and GLB assets pre-gzipped (`Content-Encoding: gzip`, cached for a year), which cuts the 3D map download from about 3.4 MB to 0.9 MB. The GLB carries its decoded size as `x-amz-meta-decoded-length`, so the loading message's progress stays correct. Positions stay 32-bit floats: a 16-bit position grid (about 0.9 mm over a floor) snapped stacked finishes level and made them flicker. The decoder ships with three.js and is set on the `GLTFLoader`. Positions, triangle and material counts and the six parts match the uncompressed export exactly.
 
@@ -34,6 +36,7 @@ The editable source lives in `assets/3d/lc3/` (not bundled into the website):
 - `lc3-campus-ready-manifest.json`: the export manifest that the exporter reads back.
 - `separate_stacked_finishes.py`: the one-time pass that set stacked finishes 1 cm apart. It is already applied to the .blend; a rerun finds nothing left to move. In background mode, `-- --dry` only prints the lifts.
 - `trim_rails_beside_walls.py`: the one-time pass that trims or hides gallery railing beside walls. It is already applied; a rerun finds nothing to change.
+- `restyle_east_courtyard.py`: the one-time pass that recolours the east courtyard. It is already applied; a rerun sets the same colours again.
 - `compress_glb.mjs`: meshopt-compresses the export for the website without quantizing positions.
 
 To regenerate, open the `.blend` in Blender and run `prepare_architectural_export.py` from the Scripting tab. It writes `lc3-campus-ready.glb` next to the `.blend`, which is ignored by Git. Compress it into place with `assets/3d/lc3/compress_glb.mjs` (its header lists the packages to install in a scratch folder), then update the size, triangle count and SHA-256 above. The scripts resolve every path relative to the `.blend`, so they work from any checkout. Older backups and review screenshots were not moved into the repository.
