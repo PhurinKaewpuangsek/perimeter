@@ -94,7 +94,7 @@
   "parts": [
     {
       "name": "LC3_Floor_1",
-      "source_objects": 323,
+      "source_objects": 320,
       "materials": 33,
       "room_metadata": [
         {
