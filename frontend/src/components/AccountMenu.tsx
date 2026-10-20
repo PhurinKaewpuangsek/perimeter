@@ -1,12 +1,9 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import {
-  User,
-  CaretDown,
-  SignOut,
-} from '@phosphor-icons/react'
+import { User, CaretDown, SignOut } from '@phosphor-icons/react'
 import { getSession, getUserRole, signOut } from '../services/authService'
 
+/** Account trigger for the black top bar and its dropdown (DesignMD "Dropdown Menu"). */
 export default function AccountMenu() {
   const navigate = useNavigate()
   const [isOpen, setIsOpen] = useState(false)
@@ -35,57 +32,42 @@ export default function AccountMenu() {
     navigate('/')
   }
 
-  const roleBadgeColor =
-    role === 'admin'
-      ? 'bg-rose-100 text-rose-700 border-rose-200'
-      : role === 'staff'
-        ? 'bg-amber-100 text-amber-800 border-amber-200'
-        : 'bg-slate-100 text-slate-700 border-slate-200'
-
   return (
     <div className="relative inline-block text-left" ref={menuRef}>
-      {/* Account trigger button */}
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
         aria-expanded={isOpen}
         aria-label={`บัญชีผู้ใช้ ${session.user.email}`}
-        className="flex h-8 items-center gap-1.5 sm:gap-2 rounded-full px-2 sm:px-2.5 hover:bg-slate-100 text-slate-800 transition-colors cursor-pointer text-xs"
+        className="btn btn-nav shrink-0 gap-1.5 sm:gap-2"
       >
-        <div className="w-5 h-5 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center">
-          <User size={12} weight="bold" />
-        </div>
-        <span className="hidden sm:inline font-medium max-w-[150px] truncate">{session.user.email}</span>
-        <span
-          className={`hidden sm:inline text-[10px] font-bold px-1.5 py-0.5 rounded-full uppercase border ${roleBadgeColor}`}
-        >
+        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white text-ink">
+          <User size={13} weight="bold" />
+        </span>
+        <span className="hidden max-w-[150px] truncate sm:inline">{session.user.email}</span>
+        <span className="hidden rounded-full border border-surface-3 px-1.5 py-0.5 text-xs leading-none font-medium text-secondary-active uppercase sm:inline">
           {role}
         </span>
         <CaretDown
           size={12}
           weight="bold"
-          className={`text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+          className={`shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`}
         />
       </button>
 
-      {/* Dropdown Menu */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-56 rounded-2xl bg-white border border-slate-200 shadow-xl py-2 z-50 text-slate-800 animate-in fade-in zoom-in-95 duration-100">
+        <div className="dropdown absolute right-0 mt-2 w-56 animate-fade-in py-2 text-ink">
           <div className="px-3.5 py-2">
-            <p className="text-[11px] text-slate-400 font-medium">เข้าสู่ระบบด้วย</p>
-            <p className="text-xs font-semibold text-slate-900 truncate">{session.user.email}</p>
-            <span
-              className={`inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase border ${roleBadgeColor}`}
-            >
-              {role}
-            </span>
+            <p className="text-xs text-ink-3">เข้าสู่ระบบด้วย</p>
+            <p className="truncate text-button font-medium text-ink">{session.user.email}</p>
+            <span className="chip mt-1.5 uppercase">{role}</span>
           </div>
 
-          <div className="pt-1 border-t border-slate-100">
+          <div className="mt-1 border-t border-line-soft pt-1">
             <button
               type="button"
               onClick={handleSignOut}
-              className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer text-left font-medium"
+              className="flex w-full cursor-pointer items-center gap-2.5 px-3.5 py-2.5 text-left text-button font-medium text-ink transition-colors hover:bg-surface-2"
             >
               <SignOut size={16} weight="bold" />
               <span>ออกจากระบบ (Sign out)</span>

@@ -17,7 +17,7 @@ describe('PlaceholdersAndVanishInput', () => {
     vi.useRealTimers()
   })
 
-  it('renders input, search icon, submit button, and ambient aura', () => {
+  it('renders input, search icon and submit button without a decorative aura', () => {
     const { container } = render(
       <PlaceholdersAndVanishInput
         placeholders={placeholders}
@@ -35,14 +35,12 @@ describe('PlaceholdersAndVanishInput', () => {
     const submitBtn = screen.getByRole('button', { name: /ค้นหา/i })
     expect(submitBtn).toBeInTheDocument()
 
-    // Ambient cloud aura element with subtle perimeter color gradient
-    const aura = container.querySelector('.animate-cloud-aura')
-    expect(aura).toBeInTheDocument()
-    expect(aura?.className).toContain('from-rose-500/35')
-    expect(aura?.className).toContain('via-pink-500/30')
+    // No decorative aura or gradient: the field is a flat grey box (DesignMD search input)
+    expect(container.querySelector('.animate-cloud-aura')).toBeNull()
+    expect(container.querySelector('[class*="bg-gradient"]')).toBeNull()
 
-    // Search icon has brand focus color
-    const searchIcon = container.querySelector('svg.group-focus-within\\:text-\\[\\#FF3366\\]')
+    // Search icon turns to the accent colour on focus
+    const searchIcon = container.querySelector('svg.group-focus-within\\:text-accent')
     expect(searchIcon).toBeInTheDocument()
 
     // No animated border wrapper

@@ -1,8 +1,10 @@
+/* 3D map chrome in the Perimeter palette (docs/design/uber-designmd.md). The scene
+   itself (model, lighting, clear colour) lives in createMapScene.ts and is data. */
 .map3d {
   position: relative;
   width: 100%;
   height: 100%;
-  background: #edf2ee;
+  background: #f3f3f3;
 }
 .map3d-canvas {
   position: absolute;
@@ -27,15 +29,17 @@
   top: 0;
   pointer-events: auto;
   cursor: pointer;
-  background: white;
-  color: #334155;
-  border: 1px solid #cbd5e1;
-  border-radius: 7px;
-  padding: 3px 6px;
+  background: #ffffff;
+  color: #333333;
+  border: 1px solid #d8d8d8;
+  border-radius: 999px;
+  padding: 3px 8px 3px 6px;
   font:
-    600 11px/1.3 system-ui,
+    500 11px/1.3 'Plus Jakarta Sans',
+    'Prompt',
+    system-ui,
     sans-serif;
-  box-shadow: 0 2px 5px #0f172a20;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.08);
   white-space: nowrap;
   display: inline-flex;
   align-items: center;
@@ -49,23 +53,25 @@
   height: 16px;
   margin-left: -2px;
   border-radius: 50%;
-  background: var(--pin, #64748b);
+  background: var(--pin, #757575);
   flex: none;
 }
 .map3d-marker:hover,
 .map3d-marker:focus-visible {
-  outline: 2px solid #0f766e;
+  outline: 2px solid #0000ee;
+  outline-offset: 1px;
   z-index: 2;
 }
+/* Selected room: the accent blue, like the 2D selected pin. */
 .map3d-marker[aria-pressed='true'] {
-  color: white;
-  background: #dc2626;
-  border-color: #991b1b;
-  padding: 6px 9px;
+  color: #ffffff;
+  background: #0000ee;
+  border-color: #0000aa;
+  padding: 6px 10px 6px 8px;
   z-index: 3;
 }
 .map3d-marker[aria-pressed='true'] .map3d-icon {
-  box-shadow: 0 0 0 1.5px white;
+  box-shadow: 0 0 0 1.5px #ffffff;
 }
 .map3d-marker[data-compact='true']:not(:hover):not(:focus-visible) {
   width: 24px;
@@ -88,37 +94,37 @@
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: var(--pin, #64748b);
-  border: 2px solid white;
-  box-shadow: 0 1px 4px #0f172a30;
+  background: var(--pin, #757575);
+  border: 2px solid #ffffff;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.16);
 }
 .map3d-controls {
   position: absolute;
-  z-index: 10;
+  z-index: 2;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   gap: 10px;
 }
+/* Vertical zoom stack: square white card, floating shadow. */
 .map3d-zoom-stack {
   display: flex;
   flex-direction: column;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(226, 232, 240, 0.9);
-  border-radius: 16px;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+  background: #ffffff;
+  border: 1px solid #d8d8d8;
+  border-radius: 0;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.16);
   overflow: hidden;
 }
 .map3d-zoom-stack button {
   cursor: pointer;
   background: transparent;
-  color: #475569;
+  color: #333333;
   border: 0;
-  border-bottom: 1px solid #f1f5f9;
-  width: 40px;
-  height: 40px;
-  min-height: 40px;
+  border-bottom: 1px solid #d8d8d8;
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
   padding: 0;
   display: grid;
   place-items: center;
@@ -130,48 +136,50 @@
   border-bottom: 0;
 }
 .map3d-zoom-stack button:hover {
-  background: #f1f5f9;
-  color: #0f172a;
+  background: #eeeeee;
+  color: #000000;
 }
 .map3d-zoom-stack button:focus-visible {
-  outline: 2px solid #0f766e;
+  outline: 2px solid #0000ee;
   outline-offset: -2px;
 }
+/* Floor switcher pill (phones and the landing preview). */
 .map3d-floors {
   display: flex;
   align-items: center;
-  height: 40px;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(226, 232, 240, 0.9);
+  height: 48px;
+  background: #ffffff;
+  border: 1px solid #d8d8d8;
   border-radius: 9999px;
-  padding: 4px;
+  padding: 6px;
   gap: 4px;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.16);
 }
 .map3d-floors button {
   cursor: pointer;
-  height: 32px;
+  height: 36px;
   border-radius: 9999px;
   border: 0;
   padding: 0 12px;
-  font-size: 12px;
-  font-weight: 600;
-  color: #475569;
+  font:
+    500 14px/20px 'Plus Jakarta Sans',
+    'Prompt',
+    system-ui,
+    sans-serif;
+  color: #333333;
   background: transparent;
   transition: all 150ms ease;
 }
 .map3d-floors button:hover {
-  background: #f1f5f9;
-  color: #0f172a;
+  background: #eeeeee;
+  color: #000000;
 }
 .map3d-floors button[aria-pressed='true'] {
-  background: #0f172a;
-  color: white;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  background: #000000;
+  color: #ffffff;
 }
 .map3d-floors button:focus-visible {
-  outline: 2px solid #0f766e;
+  outline: 2px solid #0000ee;
   outline-offset: 2px;
 }
 .map3d-loading {
@@ -179,8 +187,8 @@
   inset: 0;
   display: grid;
   place-content: center;
-  background: #edf2ee;
-  color: #475569;
+  background: #f3f3f3;
+  color: #333333;
   font-size: 14px;
 }
 .map3d-hint {
@@ -190,37 +198,30 @@
   /* stop short of the bottom-right control stack; wrap instead of running under it */
   width: max-content;
   max-width: calc(100% - var(--map3d-sidebar, 460px) - 14rem);
-  color: #475569;
-  background: #ffffffd9;
+  color: #333333;
+  background: #ffffff;
+  border: 1px solid #d8d8d8;
   padding: 7px 12px;
-  border-radius: 10px;
-  font-size: 11px;
+  border-radius: 0;
+  font-size: 12px;
   pointer-events: none;
 }
 .map-fallback-notice {
   position: absolute;
-  top: 4.5rem;
+  top: 1rem;
   right: 1rem;
   max-width: 240px;
   padding: 8px 12px;
-  background: white;
-  color: #475569;
-  border-radius: 10px;
+  background: #ffffff;
+  color: #000000;
+  border: 1px solid #000000;
+  border-radius: 0;
   font-size: 12px;
 }
 @media (max-width: 639px) {
-  /* clear the mobile search panel above the map (about 4.5rem tall, 10px from the top) */
-  .map-view-toggle {
-    top: 6rem;
-    bottom: auto;
-    right: 1rem;
-  }
+  /* clear the floating search panel at the top of the map area */
   .map-fallback-notice {
-    top: 9.5rem;
-  }
-  /* the raised control stack would cover the toggle in the short map strip above the room sheet */
-  .map-view-toggle-sheet-open {
-    display: none;
+    top: 5rem;
   }
 }
 /* Below this width the hint cannot fit between the sidebar, center dock, and control stack. */

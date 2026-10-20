@@ -237,32 +237,24 @@ export default function AdminManagementPage() {
   // Render: Admin Console Dashboard
   // -------------------------------------------------------------------------
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col">
+    <div className="flex min-h-screen flex-col bg-white text-ink">
       {/* Shared Unified Floating TopBar */}
       <TopBar />
 
       {/* Main Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto pt-20 sm:pt-22 px-4 sm:px-6 pb-12 space-y-6">
+      <main className="mx-auto w-full max-w-7xl flex-1 px-5 pt-24 pb-12 sm:px-8 lg:px-10 space-y-8">
         {/* Navigation Tabs */}
-        <div className="flex items-center gap-2 border-b border-slate-200 pb-3">
+        <div className="flex flex-wrap items-center gap-2 border-b border-line-soft pb-3">
           <button
             onClick={() => setActiveTab('users')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors cursor-pointer ${
-              activeTab === 'users'
-                ? 'bg-rose-600 text-white shadow-xs'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-            }`}
+            className={`btn ${activeTab === 'users' ? 'btn-primary' : 'btn-ghost'}`}
           >
             <Users size={18} />
             <span>การจัดการผู้ใช้และสิทธิ์</span>
           </button>
           <button
             onClick={() => setActiveTab('building')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors cursor-pointer ${
-              activeTab === 'building'
-                ? 'bg-rose-600 text-white shadow-xs'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-            }`}
+            className={`btn ${activeTab === 'building' ? 'btn-primary' : 'btn-ghost'}`}
           >
             <Trash size={18} />
             <span>จัดการข้อมูลอาคาร</span>
@@ -271,17 +263,17 @@ export default function AdminManagementPage() {
 
         {/* Global Feedback Banners */}
         {actionSuccess && (
-          <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-3.5 text-xs text-emerald-800 flex items-center gap-2">
-            <Check size={16} className="shrink-0 text-emerald-600" />
+          <div className="card flex items-center gap-2 p-3 text-button text-ink">
+            <Check size={16} className="shrink-0 text-ink" />
             <span>{actionSuccess}</span>
           </div>
         )}
 
         {usersError && (
-          <div className="rounded-xl bg-rose-50 border border-rose-200 p-3.5 text-xs text-rose-800 flex items-center gap-2">
-            <Warning size={16} className="shrink-0 text-rose-600" />
+          <div className="card flex items-center gap-2 border-ink p-3 text-button text-ink">
+            <Warning size={16} className="shrink-0 text-ink" />
             <span>{usersError}</span>
-            <button onClick={() => setUsersError(null)} className="ml-auto text-rose-500 hover:text-rose-700">
+            <button onClick={() => setUsersError(null)} className="btn btn-ghost btn-icon-sm ml-auto">
               <X size={14} />
             </button>
           </div>
@@ -294,11 +286,11 @@ export default function AdminManagementPage() {
           <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                  <Shield size={22} className="text-rose-600" />
+                <h2 className="font-display text-h3 font-bold text-ink flex items-center gap-2">
+                  <Shield size={22} className="text-ink" />
                   การจัดการผู้ใช้และสิทธิ์
                 </h2>
-                <p className="text-xs text-slate-500 mt-0.5">
+                <p className="mt-1 text-button text-ink-2">
                   จัดการบัญชีผู้ใช้งาน สิทธิ์การเข้าถึง และสถานะบัญชีผ่าน AWS Cognito
                 </p>
               </div>
@@ -306,7 +298,7 @@ export default function AdminManagementPage() {
               <button
                 type="button"
                 onClick={() => setIsAddUserOpen(true)}
-                className="inline-flex items-center gap-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold px-4 py-2.5 transition-colors cursor-pointer self-start sm:self-auto shadow-xs"
+                className="btn btn-primary self-start sm:self-auto"
               >
                 <UserPlus size={16} />
                 <span>เพิ่มผู้ใช้ใหม่</span>
@@ -314,28 +306,28 @@ export default function AdminManagementPage() {
             </div>
 
             {/* Users Table Card */}
-            <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-2xs">
+            <div className="card overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50 text-slate-600 border-b border-slate-200 font-semibold uppercase tracking-wider text-[11px]">
+                <table className="w-full text-button">
+                  <thead>
                     <tr>
-                      <th className="py-3 px-4">อีเมล / ชื่อผู้ใช้</th>
-                      <th className="py-3 px-4">สิทธิ์ (Role)</th>
-                      <th className="py-3 px-4">สถานะบัญชี</th>
-                      <th className="py-3 px-4">การใช้งาน</th>
-                      <th className="py-3 px-4 text-right">การจัดการ</th>
+                      <th className="bg-surface-2 px-4 py-3 text-left text-xs font-medium text-ink-2 uppercase">อีเมล / ชื่อผู้ใช้</th>
+                      <th className="bg-surface-2 px-4 py-3 text-left text-xs font-medium text-ink-2 uppercase">สิทธิ์ (Role)</th>
+                      <th className="bg-surface-2 px-4 py-3 text-left text-xs font-medium text-ink-2 uppercase">สถานะบัญชี</th>
+                      <th className="bg-surface-2 px-4 py-3 text-left text-xs font-medium text-ink-2 uppercase">การใช้งาน</th>
+                      <th className="bg-surface-2 px-4 py-3 text-right text-xs font-medium text-ink-2 uppercase">การจัดการ</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody>
                     {usersLoading ? (
-                      <tr>
-                        <td colSpan={5} className="py-8 text-center text-slate-400">
+                      <tr className="border-t border-line-soft">
+                        <td colSpan={5} className="px-4 py-8 text-center text-ink-3">
                           กำลังโหลดข้อมูลผู้ใช้...
                         </td>
                       </tr>
                     ) : users.length === 0 ? (
-                      <tr>
-                        <td colSpan={5} className="py-8 text-center text-slate-400">
+                      <tr className="border-t border-line-soft">
+                        <td colSpan={5} className="px-4 py-8 text-center text-ink-3">
                           ไม่พบข้อมูลผู้ใช้ในระบบ
                         </td>
                       </tr>
@@ -346,21 +338,21 @@ export default function AdminManagementPage() {
                         const protectedUser = self || lastAdmin
 
                         return (
-                          <tr key={u.username} className="hover:bg-slate-50/80 transition-colors">
-                            <td className="py-3 px-4">
-                              <div className="font-medium text-slate-900">{u.email}</div>
+                          <tr key={u.username} className="border-t border-line-soft transition-colors hover:bg-surface-2">
+                            <td className="px-4 py-3 text-ink">
+                              <div className="font-medium text-ink">{u.email}</div>
                               {self && (
-                                <span className="inline-block mt-0.5 text-[10px] text-rose-600 font-semibold">
+                                <span className="mt-0.5 inline-block text-xs font-medium text-ink-2">
                                   (บัญชีของคุณ)
                                 </span>
                               )}
                               {lastAdmin && !self && (
-                                <span className="inline-block mt-0.5 text-[10px] text-amber-600 font-semibold">
+                                <span className="mt-0.5 inline-block text-xs font-medium text-ink-2">
                                   (Admin คนสุดท้าย)
                                 </span>
                               )}
                             </td>
-                            <td className="py-3 px-4">
+                            <td className="px-4 py-3 text-ink">
                               <select
                                 value={u.role}
                                 disabled={protectedUser}
@@ -372,29 +364,19 @@ export default function AdminManagementPage() {
                                       ? 'ไม่สามารถลดสิทธิ์ Admin คนสุดท้ายได้'
                                       : 'เลือกสิทธิ์'
                                 }
-                                className={`rounded-lg border px-2.5 py-1 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-rose-500 cursor-pointer ${
-                                  protectedUser
-                                    ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed'
-                                    : 'bg-white border-slate-200 text-slate-800 hover:border-slate-300'
-                                }`}
+                                className="input-boxed w-auto cursor-pointer disabled:cursor-not-allowed"
                               >
                                 <option value="admin">Admin</option>
                                 <option value="staff">Staff</option>
                                 <option value="user">User</option>
                               </select>
                             </td>
-                            <td className="py-3 px-4">
-                              <span
-                                className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
-                                  u.status === 'CONFIRMED'
-                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                    : 'bg-amber-50 text-amber-700 border-amber-200'
-                                }`}
-                              >
+                            <td className="px-4 py-3 text-ink">
+                              <span className={u.status === 'CONFIRMED' ? 'chip' : 'chip bg-tertiary'}>
                                 {u.status === 'FORCE_CHANGE_PASSWORD' ? 'ต้องเปลี่ยนรหัสผ่าน' : u.status}
                               </span>
                             </td>
-                            <td className="py-3 px-4">
+                            <td className="px-4 py-3 text-ink">
                               <button
                                 type="button"
                                 data-testid="toggle-enabled-btn"
@@ -409,18 +391,12 @@ export default function AdminManagementPage() {
                                         ? 'คลิกเพื่อระงับการใช้งาน'
                                         : 'คลิกเพื่อเปิดใช้งาน'
                                 }
-                                className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors cursor-pointer ${
-                                  protectedUser
-                                    ? 'opacity-40 cursor-not-allowed bg-slate-100 border-slate-200 text-slate-400'
-                                    : u.enabled
-                                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200'
-                                      : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200'
-                                }`}
+                                className={`btn btn-sm ${u.enabled ? 'btn-secondary' : 'btn-tertiary'}`}
                               >
                                 {u.enabled ? 'เปิดใช้งาน' : 'ถูกระงับ'}
                               </button>
                             </td>
-                            <td className="py-3 px-4 text-right">
+                            <td className="px-4 py-3 text-right text-ink">
                               <button
                                 type="button"
                                 data-testid="delete-user-btn"
@@ -433,11 +409,7 @@ export default function AdminManagementPage() {
                                       ? 'ไม่สามารถลบ Admin คนสุดท้ายได้'
                                       : 'ลบผู้ใช้'
                                 }
-                                className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
-                                  protectedUser
-                                    ? 'opacity-40 cursor-not-allowed bg-slate-100 border-slate-200 text-slate-400'
-                                    : 'text-slate-400 hover:text-rose-600 bg-white border-slate-200 hover:border-rose-200 hover:bg-rose-50'
-                                }`}
+                                className="btn btn-ghost btn-icon-sm"
                               >
                                 <Trash size={15} />
                               </button>
@@ -459,19 +431,19 @@ export default function AdminManagementPage() {
         {activeTab === 'building' && (
           <div className="space-y-6">
             <div>
-              <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                <Trash size={22} className="text-rose-600" />
+              <h2 className="font-display text-h3 font-bold text-ink flex items-center gap-2">
+                <Trash size={22} className="text-ink" />
                 ลบข้อมูลห้องและตารางเรียน
               </h2>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p className="mt-1 text-button text-ink-2">
                 สิทธิ์ระดับ Admin สามารถลบห้อง (Cascade delete ตารางเรียน) และลบตารางเรียนรายวิชาได้
               </p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* Room list column */}
-              <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3 shadow-2xs">
-                <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              <div className="card p-5 sm:p-6 space-y-3">
+                <h3 className="text-xs font-medium uppercase text-ink-2">
                   เลือกห้องที่ต้องการจัดการ ({rooms.length})
                 </h3>
                 <div className="space-y-1.5 max-h-[500px] overflow-y-auto pr-1">
@@ -479,17 +451,17 @@ export default function AdminManagementPage() {
                     <button
                       key={r.id}
                       onClick={() => setSelectedRoomId(r.id)}
-                      className={`w-full text-left p-2.5 rounded-xl border transition-colors flex items-center justify-between text-xs cursor-pointer ${
+                      className={`w-full text-left p-3 rounded-none border transition-colors flex items-center justify-between gap-2 text-button cursor-pointer ${
                         selectedRoomId === r.id
-                          ? 'bg-rose-50 border-rose-200 text-rose-900 shadow-2xs'
-                          : 'bg-slate-50/80 border-slate-200/80 text-slate-700 hover:bg-slate-100'
+                          ? 'border-ink bg-surface-2 text-ink'
+                          : 'border-line-soft bg-white text-ink-2 hover:bg-surface-2'
                       }`}
                     >
-                      <div>
-                        <span className={`font-bold ${selectedRoomId === r.id ? 'text-rose-900' : 'text-slate-900'}`}>ห้อง {r.roomNumber || r.code}</span>
-                        <div className={`text-[11px] ${selectedRoomId === r.id ? 'text-rose-600' : 'text-slate-500'}`}>{r.nameThai}</div>
+                      <div className="min-w-0">
+                        <span className="font-bold text-ink">ห้อง {r.roomNumber || r.code}</span>
+                        <div className="text-xs text-ink-3">{r.nameThai}</div>
                       </div>
-                      <span className={`text-[10px] px-2 py-0.5 rounded-md ${selectedRoomId === r.id ? 'bg-rose-100 text-rose-700' : 'bg-slate-200/60 text-slate-600'}`}>
+                      <span className="chip shrink-0">
                         ชั้น {r.floor}
                       </span>
                     </button>
@@ -498,15 +470,15 @@ export default function AdminManagementPage() {
               </div>
 
               {/* Room details & delete actions column */}
-              <div className="md:col-span-2 rounded-2xl border border-slate-200 bg-white p-5 space-y-5 shadow-2xs">
+              <div className="md:col-span-2 card p-5 sm:p-6 space-y-5">
                 {selectedRoom ? (
                   <>
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-line-soft pb-4">
                       <div>
-                        <h3 className="text-lg font-bold text-slate-900">
+                        <h3 className="text-h3-sm font-bold text-ink">
                           ห้อง {selectedRoom.roomNumber || selectedRoom.code} ({selectedRoom.nameThai})
                         </h3>
-                        <p className="text-xs text-slate-500">
+                        <p className="text-xs text-ink-3">
                           รหัสห้อง: {selectedRoom.code} • ชั้น {selectedRoom.floor} อาคาร {selectedRoom.building}
                         </p>
                       </div>
@@ -515,7 +487,7 @@ export default function AdminManagementPage() {
                         type="button"
                         disabled={roomActionLoading}
                         onClick={() => handleDeleteRoom(selectedRoom.id)}
-                        className="inline-flex items-center gap-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold px-4 py-2 transition-colors cursor-pointer self-start sm:self-auto disabled:opacity-50 shadow-xs"
+                        className="btn btn-secondary self-start sm:self-auto"
                       >
                         <Trash size={15} />
                         <span>ลบห้องนี้ (Cascade Delete)</span>
@@ -524,13 +496,13 @@ export default function AdminManagementPage() {
 
                     {/* Schedule slots list */}
                     <div className="space-y-3">
-                      <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                        <Calendar size={15} className="text-rose-600" />
+                      <h4 className="flex items-center gap-1.5 text-xs font-medium uppercase text-ink-2">
+                        <Calendar size={15} className="text-ink" />
                         ตารางเรียนในห้องนี้ ({roomSchedules.length})
                       </h4>
 
                       {roomSchedules.length === 0 ? (
-                        <p className="text-xs text-slate-400 italic">ไม่มีตารางเรียนในห้องนี้</p>
+                        <p className="text-button text-ink-3 italic">ไม่มีตารางเรียนในห้องนี้</p>
                       ) : (
                         <div className="space-y-2">
                           {roomSchedules.map((slot) => {
@@ -538,13 +510,13 @@ export default function AdminManagementPage() {
                             return (
                               <div
                                 key={slotKey}
-                                className="flex items-center justify-between p-3 rounded-xl border border-slate-200 bg-slate-50/70 text-xs"
+                                className="card flex items-center justify-between gap-3 p-3 text-button"
                               >
-                                <div>
-                                  <div className="font-semibold text-slate-900">
+                                <div className="min-w-0">
+                                  <div className="font-medium text-ink">
                                     {slot.eventCode} - {slot.eventName || 'ไม่ระบุวิชา'}
                                   </div>
-                                  <div className="text-[11px] text-slate-500 flex items-center gap-2 mt-0.5">
+                                  <div className="mt-0.5 flex items-center gap-2 text-xs text-ink-3">
                                     <span>วัน{slot.dayOfWeek}</span>
                                     <span>
                                       {slot.startTime} - {slot.endTime || 'ไม่ระบุ'}
@@ -556,7 +528,7 @@ export default function AdminManagementPage() {
                                   type="button"
                                   disabled={roomActionLoading}
                                   onClick={() => handleDeleteSchedule(selectedRoom.code, slotKey)}
-                                  className="text-xs text-rose-600 hover:text-rose-700 bg-rose-50 border border-rose-200 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                                  className="btn btn-secondary btn-sm shrink-0"
                                 >
                                   <Trash size={14} />
                                   <span>ลบตาราง</span>
@@ -569,9 +541,9 @@ export default function AdminManagementPage() {
                     </div>
                   </>
                 ) : (
-                  <div className="h-64 flex flex-col items-center justify-center text-center text-slate-400">
-                    <Door size={40} className="mb-2 opacity-50" />
-                    <p className="text-sm">กรุณาเลือกห้องจากรายการด้านซ้ายเพื่อจัดการข้อมูล</p>
+                  <div className="h-64 flex flex-col items-center justify-center text-center text-ink-3">
+                    <Door size={40} className="mb-2" />
+                    <p className="text-button">กรุณาเลือกห้องจากรายการด้านซ้ายเพื่อจัดการข้อมูล</p>
                   </div>
                 )}
               </div>
@@ -584,31 +556,31 @@ export default function AdminManagementPage() {
       {/* MODAL: Add User Form */}
       {/* ===================================================================== */}
       {isAddUserOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-white border border-slate-200 rounded-3xl p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <UserPlus size={18} className="text-rose-600" />
+        <div className="modal-overlay flex items-center justify-center p-4">
+          <div className="modal w-full max-w-[500px] p-6 sm:p-8 space-y-4">
+            <div className="flex items-center justify-between border-b border-line-soft pb-3">
+              <h3 className="text-h3-sm font-bold text-ink flex items-center gap-2">
+                <UserPlus size={18} className="text-ink" />
                 เพิ่มผู้ใช้ใหม่ (Add User)
               </h3>
               <button
                 onClick={() => setIsAddUserOpen(false)}
-                className="text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                className="btn btn-ghost btn-icon-sm"
               >
                 <X size={18} />
               </button>
             </div>
 
             {addError && (
-              <div className="rounded-xl bg-rose-50 border border-rose-200 p-3 text-xs text-rose-800 flex items-center gap-2">
-                <Warning size={16} className="shrink-0 text-rose-600" />
+              <div className="card flex items-center gap-2 border-ink p-3 text-button text-ink">
+                <Warning size={16} className="shrink-0 text-ink" />
                 <span>{addError}</span>
               </div>
             )}
 
             <form onSubmit={handleCreateUser} className="space-y-4">
               <div>
-                <label htmlFor="newUserEmail" className="block text-xs font-semibold text-slate-700 mb-1">
+                <label htmlFor="newUserEmail" className="label">
                   อีเมลผู้ใช้
                 </label>
                 <input
@@ -618,12 +590,12 @@ export default function AdminManagementPage() {
                   value={newEmail}
                   onChange={(e) => setNewEmail(e.target.value)}
                   placeholder="user@torch.dev"
-                  className="w-full rounded-xl bg-slate-50 border border-slate-200 px-3.5 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-500/30 focus:bg-white transition-all"
+                  className="input-boxed"
                 />
               </div>
 
               <div>
-                <label htmlFor="newUserPassword" className="block text-xs font-semibold text-slate-700 mb-1">
+                <label htmlFor="newUserPassword" className="label">
                   รหัสผ่านเริ่มต้น
                 </label>
                 <input
@@ -633,22 +605,22 @@ export default function AdminManagementPage() {
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full rounded-xl bg-slate-50 border border-slate-200 px-3.5 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-500/30 focus:bg-white transition-all"
+                  className="input-boxed"
                 />
-                <p className="text-[11px] text-slate-500 mt-1">
+                <p className="mt-1 text-xs text-ink-3">
                   * ผู้ใช้จะถูกบังคับให้เปลี่ยนรหัสผ่านเมื่อเข้าสู่ระบบครั้งแรก (FORCE_CHANGE_PASSWORD)
                 </p>
               </div>
 
               <div>
-                <label htmlFor="newUserRole" className="block text-xs font-semibold text-slate-700 mb-1">
+                <label htmlFor="newUserRole" className="label">
                   สิทธิ์ (Role)
                 </label>
                 <select
                   id="newUserRole"
                   value={newRole}
                   onChange={(e) => setNewRole(e.target.value as UserRole)}
-                  className="w-full rounded-xl bg-slate-50 border border-slate-200 px-3.5 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-rose-500/30 focus:bg-white cursor-pointer transition-all"
+                  className="input-boxed cursor-pointer"
                 >
                   <option value="admin">Admin (ผู้ดูแลระบบทั้งหมด)</option>
                   <option value="staff">Staff (เจ้าหน้าที่แก้ไขห้อง/ตาราง)</option>
@@ -656,18 +628,18 @@ export default function AdminManagementPage() {
                 </select>
               </div>
 
-              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+              <div className="flex justify-end gap-2 border-t border-line-soft pt-2">
                 <button
                   type="button"
                   onClick={() => setIsAddUserOpen(false)}
-                  className="rounded-xl border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 px-4 py-2 text-xs font-medium cursor-pointer transition-colors"
+                  className="btn btn-secondary"
                 >
                   ยกเลิก
                 </button>
                 <button
                   type="submit"
                   disabled={addLoading}
-                  className="rounded-xl bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 text-xs font-medium cursor-pointer disabled:opacity-50 shadow-xs transition-colors"
+                  className="btn btn-primary"
                 >
                   {addLoading ? 'กำลังสร้าง...' : 'สร้างผู้ใช้'}
                 </button>
@@ -681,18 +653,18 @@ export default function AdminManagementPage() {
       {/* MODAL: Confirm Delete User */}
       {/* ===================================================================== */}
       {userToDelete && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="w-full max-w-sm bg-white border border-rose-200 rounded-3xl p-6 shadow-2xl space-y-4 text-center">
-            <div className="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-200 mx-auto flex items-center justify-center text-rose-600">
+        <div className="modal-overlay flex items-center justify-center p-4">
+          <div className="modal w-full max-w-[500px] p-6 sm:p-8 space-y-4 text-center">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-tertiary text-ink">
               <Trash size={24} weight="duotone" />
             </div>
 
             <div>
-              <h3 className="text-base font-bold text-slate-900">ยืนยันการลบบัญชีผู้ใช้</h3>
-              <p className="text-xs text-slate-600 mt-1">
-                คุณแน่ใจหรือไม่ว่าต้องการลบบัญชี <span className="font-semibold text-rose-600">{userToDelete.email}</span>?
+              <h3 className="text-h3-sm font-bold text-ink">ยืนยันการลบบัญชีผู้ใช้</h3>
+              <p className="mt-1 text-button text-ink-2">
+                คุณแน่ใจหรือไม่ว่าต้องการลบบัญชี <span className="font-bold text-ink">{userToDelete.email}</span>?
               </p>
-              <p className="text-[11px] text-slate-400 mt-1">
+              <p className="mt-1 text-xs text-ink-3">
                 การลบนี้จะลบบัญชีผู้ใช้ออกจาก AWS Cognito ทันทีและไม่สามารถกู้คืนได้
               </p>
             </div>
@@ -701,7 +673,7 @@ export default function AdminManagementPage() {
               <button
                 type="button"
                 onClick={() => setUserToDelete(null)}
-                className="rounded-xl border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 px-4 py-2 text-xs font-medium cursor-pointer transition-colors"
+                className="btn btn-secondary"
               >
                 ยกเลิก
               </button>
@@ -709,7 +681,7 @@ export default function AdminManagementPage() {
                 type="button"
                 disabled={deleteLoading}
                 onClick={handleConfirmDeleteUser}
-                className="rounded-xl bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 text-xs font-medium cursor-pointer disabled:opacity-50 shadow-xs transition-colors"
+                className="btn btn-primary"
               >
                 {deleteLoading ? 'กำลังลบ...' : 'ยืนยันการลบ'}
               </button>

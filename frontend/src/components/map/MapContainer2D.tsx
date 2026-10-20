@@ -100,14 +100,14 @@ function MapContainer({
     <div className="map2d relative h-full w-full overflow-hidden">
       {/* Unified Right-Edge Vertical Zoom Stack (⌖, +, -) */}
       <div
-        className={`absolute z-10 flex flex-col items-center rounded-2xl bg-white/95 backdrop-blur-md shadow-md border border-slate-200/80 divide-y divide-slate-100 overflow-hidden transition-all ${
+        className={`absolute z-2 flex flex-col items-center overflow-hidden border border-line-soft bg-white shadow-floating divide-y divide-line-soft transition-all ${
           hideBottomControls
             ? selectedRoomId && isDetailOpen
               ? 'bottom-[calc(55dvh+1rem)] right-4 sm:bottom-5 sm:right-5'
               : 'bottom-5 right-4 sm:bottom-5 sm:right-5'
             : selectedRoomId && isDetailOpen
-              ? 'bottom-[calc(55dvh+4.5rem)] right-4 sm:bottom-18 sm:right-5'
-              : 'bottom-18 right-4 sm:bottom-18 sm:right-5'
+              ? 'bottom-[calc(55dvh+5rem)] right-4 sm:bottom-20 sm:right-5'
+              : 'bottom-20 right-4 sm:bottom-20 sm:right-5'
         }`}
       >
         <button
@@ -115,16 +115,16 @@ function MapContainer({
           aria-label="จัดกึ่งกลางแผนที่"
           title="คืนมุมเริ่มต้น"
           onClick={() => transformRef.current?.resetTransform(motion(650), 'easeOutCubic')}
-          className="flex h-10 w-10 items-center justify-center text-slate-600 hover:bg-slate-100 hover:text-slate-900 active:bg-slate-200 transition-colors cursor-pointer"
+          className="flex h-11 w-11 cursor-pointer items-center justify-center text-ink-2 transition-colors hover:bg-tertiary hover:text-ink active:bg-tertiary-hover"
         >
           <Crosshair size={19} weight="bold" aria-hidden="true" />
         </button>
-        <div role="group" aria-label="Zoom controls" className="flex flex-col divide-y divide-slate-100">
+        <div role="group" aria-label="Zoom controls" className="flex flex-col divide-y divide-line-soft">
           <button
             type="button"
             aria-label="ขยายแผนที่"
             onClick={() => transformRef.current?.zoomIn(0.4, motion(250), 'easeOutCubic')}
-            className="flex h-10 w-10 items-center justify-center text-slate-600 hover:bg-slate-100 hover:text-slate-900 active:bg-slate-200 transition-colors cursor-pointer"
+            className="flex h-11 w-11 cursor-pointer items-center justify-center text-ink-2 transition-colors hover:bg-tertiary hover:text-ink active:bg-tertiary-hover"
           >
             <Plus size={18} weight="bold" aria-hidden="true" />
           </button>
@@ -132,7 +132,7 @@ function MapContainer({
             type="button"
             aria-label="ย่อแผนที่"
             onClick={() => transformRef.current?.zoomOut(0.4, motion(250), 'easeOutCubic')}
-            className="flex h-10 w-10 items-center justify-center text-slate-600 hover:bg-slate-100 hover:text-slate-900 active:bg-slate-200 transition-colors cursor-pointer"
+            className="flex h-11 w-11 cursor-pointer items-center justify-center text-ink-2 transition-colors hover:bg-tertiary hover:text-ink active:bg-tertiary-hover"
           >
             <Minus size={18} weight="bold" aria-hidden="true" />
           </button>
@@ -144,7 +144,7 @@ function MapContainer({
         <div
           role="group"
           aria-label="Floor switcher"
-          className={`absolute z-10 flex h-10 items-center gap-1 rounded-full border border-slate-200/80 bg-white/95 p-1 shadow-md backdrop-blur-xl ${
+          className={`absolute z-2 flex h-12 items-center gap-1 rounded-full border border-line-soft bg-white p-1.5 shadow-floating sm:h-11 sm:p-1 ${
             selectedRoomId && isDetailOpen
               ? 'bottom-[calc(55dvh+1rem)] right-4 sm:bottom-[calc(55dvh+1rem)] sm:right-5'
               : 'bottom-5 right-4 sm:bottom-5 sm:right-5'
@@ -158,11 +158,7 @@ function MapContainer({
                 type="button"
                 aria-pressed={isActive}
                 onClick={() => onFloorChange(config.floor)}
-                className={`h-8 rounded-full px-3 text-xs font-semibold transition-all cursor-pointer ${
-                  isActive
-                    ? 'bg-slate-900 text-white shadow-2xs'
-                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                }`}
+                className={`btn btn-sm ${isActive ? 'btn-primary' : 'btn-ghost'}`}
               >
                 {config.label}
               </button>

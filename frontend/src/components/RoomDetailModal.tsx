@@ -62,23 +62,23 @@ export function RoomDetailModal({
   const hasLandmarks = landmarks.length > 0
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center pointer-events-none sm:justify-end sm:items-start sm:p-4">
+    <div className="fixed inset-0 z-2002 flex items-end justify-center pointer-events-none sm:justify-end sm:items-start sm:p-4">
       {/* Modal Card: Bottom Sheet on Mobile, Floating Side Card on Desktop */}
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="room-modal-title"
-        className="pointer-events-auto relative flex max-h-[85vh] w-full max-w-md flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl animate-modal-mobile sm:animate-modal-desktop sm:max-h-[calc(100vh-2rem)] sm:w-96 sm:rounded-3xl sm:border sm:border-slate-100"
+        className="pointer-events-auto relative flex max-h-[85vh] w-full max-w-md flex-col overflow-hidden rounded-none bg-white shadow-modal animate-modal-mobile sm:animate-modal-desktop sm:max-h-[calc(100vh-2rem)] sm:w-96 sm:border sm:border-line-soft"
       >
         {/* Top Header with Close Button */}
         <div className="relative flex shrink-0 items-center justify-between bg-white px-5 pt-3 pb-1 sm:pt-4 sm:pb-2">
-          <div className="h-1.5 w-10 rounded-full bg-slate-200 sm:hidden mx-auto absolute left-1/2 -translate-x-1/2 top-2" aria-hidden="true" />
+          <div className="h-1.5 w-10 rounded-full bg-line-soft sm:hidden mx-auto absolute left-1/2 -translate-x-1/2 top-2" aria-hidden="true" />
 
           <button
             type="button"
             onClick={onClose}
             aria-label="ปิดหน้าต่างรายละเอียดห้อง"
-            className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700 active:bg-slate-200 transition-colors cursor-pointer ml-auto"
+            className="btn btn-ghost btn-icon-sm ml-auto"
           >
             <X size={18} weight="bold" />
           </button>
@@ -87,30 +87,30 @@ export function RoomDetailModal({
         {/* เนื้อหา */}
         <div className="overflow-y-auto px-5 pb-8 pt-2">
           {loading && (
-            <p className="py-6 text-center text-sm text-gray-500">กำลังโหลดข้อมูลห้อง...</p>
+            <p className="py-6 text-center text-button text-ink-3">กำลังโหลดข้อมูลห้อง...</p>
           )}
 
           {!loading && error && (
-            <p className="py-6 text-center text-sm text-red-600">
+            <p className="py-6 text-center text-button text-ink">
               เกิดข้อผิดพลาดในการโหลดข้อมูลห้อง: {error.message}
             </p>
           )}
 
           {!loading && !error && !room && (
-            <p className="py-6 text-center text-sm text-gray-500">ไม่พบข้อมูลห้องนี้</p>
+            <p className="py-6 text-center text-button text-ink-3">ไม่พบข้อมูลห้องนี้</p>
           )}
 
           {!loading && !error && room && (
             <>
-              <p className="text-xs font-medium uppercase tracking-wide text-blue-600">
+              <p className="text-xs font-medium text-ink-3 uppercase">
                 {getBuildingLabel(room.building)} · ชั้น {room.floor}
               </p>
 
-              <h2 id="room-modal-title" className="mt-1 text-xl font-semibold text-gray-900">
+              <h2 id="room-modal-title" className="mt-1 font-display text-h3-sm font-bold text-ink">
                 {displayName || 'ไม่ระบุชื่อห้อง'}
               </h2>
 
-              <div className="mt-1 flex items-center gap-1.5 text-sm text-gray-500">
+              <div className="mt-1 flex items-center gap-1.5 text-button text-ink-2">
                 <span>
                   ห้อง {room.roomNumber || room.code || '-'}
                   {room.code ? ` (${room.code})` : ''}
@@ -127,7 +127,7 @@ export function RoomDetailModal({
                 const color = getCategoryColor(room.category)
                 return (
                   <span
-                    className={`mt-3 inline-flex items-center gap-1.5 w-fit rounded-full border ${color.border} ${color.bg} px-3 py-1 text-xs font-medium ${color.text} shadow-sm`}
+                    className={`mt-3 inline-flex items-center gap-1.5 w-fit rounded-full border ${color.border} ${color.bg} px-3 py-1 text-xs font-medium ${color.text}`}
                   >
                     {renderCategoryIcon(room.category, room.nameThai)}
                     <span>{getCategoryLabel(room.category)}</span>
@@ -135,23 +135,23 @@ export function RoomDetailModal({
                 )
               })()}
 
-              <div className="mt-5 border-t border-gray-100 pt-4">
-                <h3 className="text-sm font-semibold text-gray-800">จุดสังเกตใกล้เคียง</h3>
+              <div className="mt-5 border-t border-line-soft pt-4">
+                <h3 className="text-button font-medium text-ink">จุดสังเกตใกล้เคียง</h3>
 
                 {hasLandmarks ? (
                   <ul className="mt-2 space-y-2">
                     {landmarks.map((landmark, index) => (
                       <li
                         key={`${landmark.kind}-${landmark.ref_location_id ?? index}`}
-                        className="flex items-start gap-2 text-sm text-gray-700"
+                        className="flex items-start gap-2 text-button text-ink-2"
                       >
-                        <MapPin size={16} weight="fill" className="text-red-500 shrink-0 mt-0.5" aria-hidden="true" />
+                        <MapPin size={16} weight="fill" className="text-ink shrink-0 mt-0.5" aria-hidden="true" />
                         <span>{getLandmarkText(landmark)}</span>
                       </li>
                     ))}
                   </ul>
                 ) : (
-                  <p className="mt-2 text-sm text-gray-400">
+                  <p className="mt-2 text-button text-ink-3">
                     ยังไม่มีข้อมูลจุดสังเกตสำหรับห้องนี้
                   </p>
                 )}

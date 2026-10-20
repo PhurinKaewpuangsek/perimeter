@@ -106,8 +106,8 @@ export default function MapContainer3D(props: MapContainerProps & { onUnavailabl
               ? 'bottom-[calc(55dvh+1rem)] right-4 sm:bottom-5 sm:right-5'
               : 'bottom-5 right-4 sm:bottom-5 sm:right-5'
             : selectedRoomId && isDetailOpen
-              ? 'bottom-[calc(55dvh+4.5rem)] right-4 sm:bottom-18 sm:right-5'
-              : 'bottom-18 right-4 sm:bottom-18 sm:right-5'
+              ? 'bottom-[calc(55dvh+5rem)] right-4 sm:bottom-20 sm:right-5'
+              : 'bottom-20 right-4 sm:bottom-20 sm:right-5'
         }`}
       >
         <div className="map3d-zoom-stack">
