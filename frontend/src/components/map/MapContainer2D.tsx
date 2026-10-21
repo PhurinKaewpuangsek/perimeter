@@ -144,12 +144,35 @@ function MapContainer({
         <div
           role="group"
           aria-label="Floor switcher"
-          className={`absolute z-2 flex h-12 items-center gap-1 rounded-full border border-line-soft bg-white p-1.5 shadow-floating sm:h-11 sm:p-1 ${
+          className={`gooey-switch-group absolute z-2 h-12 rounded-full border border-line-soft bg-white p-1.5 shadow-floating sm:h-11 sm:p-1 ${
             selectedRoomId && isDetailOpen
               ? 'bottom-[calc(55dvh+1rem)] right-4 sm:bottom-[calc(55dvh+1rem)] sm:right-5'
               : 'bottom-5 right-4 sm:bottom-5 sm:right-5'
           }`}
         >
+          {(() => {
+            const activeIdx = Math.max(
+              0,
+              FLOOR_CONFIGS.findIndex((f) => f.floor === currentFloor),
+            )
+            const blobTransform = `translateX(${activeIdx * 100}%)`
+            return (
+              <div aria-hidden="true" className="gooey-switch-blobs inset-1.5 sm:inset-1">
+                <span
+                  className="gooey-pill-lead"
+                  style={{ width: `${100 / FLOOR_CONFIGS.length}%`, transform: blobTransform }}
+                />
+                <span
+                  className="gooey-pill-drop"
+                  style={{ width: `${100 / FLOOR_CONFIGS.length}%`, transform: blobTransform }}
+                />
+                <span
+                  className="gooey-pill-trail"
+                  style={{ width: `${100 / FLOOR_CONFIGS.length}%`, transform: blobTransform }}
+                />
+              </div>
+            )
+          })()}
           {FLOOR_CONFIGS.map((config) => {
             const isActive = config.floor === currentFloor
             return (
@@ -158,7 +181,9 @@ function MapContainer({
                 type="button"
                 aria-pressed={isActive}
                 onClick={() => onFloorChange(config.floor)}
-                className={`btn btn-sm ${isActive ? 'btn-primary' : 'btn-ghost'}`}
+                className={`btn btn-sm gooey-switch-btn ${
+                  isActive ? 'text-white' : 'text-ink-2 hover:text-ink'
+                }`}
               >
                 {config.label}
               </button>

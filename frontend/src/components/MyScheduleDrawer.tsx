@@ -152,21 +152,23 @@ export default function MyScheduleDrawer() {
         data-testid="my-schedule-placeholder"
         aria-label="My Schedule"
         title="My Schedule"
-        className="btn btn-nav shrink-0"
+        className={`btn btn-nav gooey-fluid-btn shrink-0 ${
+          isDrawerOpen ? 'animate-gooey-trigger-open bg-ink-2' : ''
+        }`}
       >
         <Calendar size={16} weight="bold" />
         <span className="hidden sm:inline">My Schedule</span>
         {pins.length > 0 && (
           <span
             data-testid="pins-count-badge"
-            className="flex h-5 min-w-5 items-center justify-center rounded-full bg-white px-1 text-xs leading-none font-bold text-ink"
+            className="animate-gooey-badge-pop flex h-5 min-w-5 items-center justify-center rounded-full bg-white px-1 text-xs leading-none font-bold text-ink"
           >
             {pins.length}
           </span>
         )}
       </button>
 
-      {/* Drawer Overlay & Panel (Teleported to document.body to escape header containing block) */}
+      {/* Drawer Overlay & Panel (Constrained below the 64px top navbar so the header stays crisp and unobstructed) */}
       {isDrawerOpen &&
         typeof document !== 'undefined' &&
         createPortal(
@@ -174,19 +176,29 @@ export default function MyScheduleDrawer() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="my-schedule-title"
-            className="fixed inset-0 z-2001 flex justify-end"
+            className="fixed inset-x-0 top-16 bottom-0 z-95 flex justify-end overflow-hidden"
           >
             {/* Backdrop */}
             <div
               data-testid="drawer-backdrop"
               onClick={() => setIsDrawerOpen(false)}
-              className="absolute inset-0 bg-black/50"
+              className="animate-fade-in absolute inset-0 bg-black/50"
             />
 
-            {/* Slide-out Sheet */}
-            <div className="relative z-2002 flex h-full w-full max-w-md flex-col bg-white shadow-modal">
+            {/* Slide-out Sheet with Single Dynamic Quadratic Bezier Liquid Curtain */}
+            <div className="gooey-drawer-sheet animate-gooey-pane-in relative z-10 flex h-full w-full max-w-md flex-col bg-white">
+              {/* Single dynamic quadratic Bezier curtain that pulls left during slide-in and spring-settles to a flat 0px vertical edge */}
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 56 1000"
+                preserveAspectRatio="none"
+                className="gooey-drawer-curtain"
+              >
+                <path d="M 56 0 Q 2 280 56 1000 Z" fill="#ffffff" />
+              </svg>
+
               {/* Header */}
-              <div className="flex items-center justify-between border-b border-line-soft px-5 py-4 shrink-0">
+              <div className="animate-gooey-item-1 relative z-10 flex shrink-0 items-center justify-between border-b border-line-soft px-5 py-4">
                 <div className="flex items-center gap-2">
                   <div className="flex h-9 w-9 items-center justify-center rounded-full bg-tertiary text-ink">
                     <Calendar size={18} weight="bold" />
@@ -203,7 +215,7 @@ export default function MyScheduleDrawer() {
                   onClick={() => setIsDrawerOpen(false)}
                   data-testid="close-my-schedule-drawer"
                   aria-label="ปิด"
-                  className="btn btn-ghost btn-icon-sm"
+                  className="btn btn-ghost btn-icon-sm gooey-fluid-btn"
                 >
                   <X size={18} weight="bold" />
                 </button>
@@ -211,7 +223,7 @@ export default function MyScheduleDrawer() {
 
               {/* Export Toolbar */}
               {/* Always rendered: sync stays usable with zero pins (removing the last pin must still be syncable). */}
-              <div className="surface px-5 py-4 space-y-2 shrink-0">
+              <div className="surface animate-gooey-item-2 relative z-10 shrink-0 space-y-2 px-5 py-4">
                 <span className="block text-xs font-medium text-ink-2">
                   ส่งออกไปยังแอปปฏิทิน
                 </span>
@@ -224,7 +236,7 @@ export default function MyScheduleDrawer() {
                       disabled={!gisReady || syncing || loading || Boolean(error)}
                       data-testid="sync-google-button"
                       title="เพิ่ม/อัปเดตตารางทั้งหมดลง Google Calendar และลบรายการที่นำออกจากตารางแล้ว"
-                      className="btn btn-secondary btn-sm w-full"
+                      className="btn btn-secondary btn-sm gooey-fluid-btn w-full"
                     >
                       {syncing ? (
                         <CircleNotch size={14} weight="bold" className="animate-spin" />
@@ -239,7 +251,7 @@ export default function MyScheduleDrawer() {
                     onClick={handleExportIcs}
                     disabled={pins.length === 0}
                     data-testid="export-ics-button"
-                    className="btn btn-primary btn-sm w-full col-start-2"
+                    className="btn btn-primary btn-sm gooey-fluid-btn col-start-2 w-full"
                   >
                     <DownloadSimple size={14} weight="bold" />
                     <span>ดาวน์โหลด (.ics)</span>
@@ -276,7 +288,7 @@ export default function MyScheduleDrawer() {
               )}
 
               {/* Body: List of Pins */}
-              <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3 min-h-0">
+              <div className="animate-gooey-item-3 relative z-10 min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-4">
                 {removeError && (
                   <div
                     role="alert"

@@ -249,12 +249,26 @@ function DayView({ slots, renderActions }: Pick<WeeklyTimetableProps, 'slots' | 
   const firstBusyDay = TIMETABLE_DAYS.find((day) => layout.days[day].length > 0) ?? 'MON'
   const [chosenDay, setChosenDay] = useState<TimetableDay | null>(null)
   const day = chosenDay ?? firstBusyDay
+  const activeDayIdx = Math.max(0, TIMETABLE_DAYS.indexOf(day))
   const items = layout.days[day]
   const { startMinute, endMinute } = layout
 
   return (
     <div data-testid="timetable-day" className="space-y-3">
-      <div role="tablist" aria-label="เลือกวัน" className="grid grid-cols-7 gap-1">
+      <div
+        role="tablist"
+        aria-label="เลือกวัน"
+        data-active-day={day}
+        style={{ '--day-idx': activeDayIdx } as React.CSSProperties}
+        className="day-tablist grid grid-cols-7 gap-1"
+      >
+        {/* Full-button dynamic liquid gradient sliding gooey indicator layer (background only) */}
+        <div aria-hidden="true" className="day-gooey-indicator-layer">
+          <span className="day-indicator-lead" />
+          <span className="day-indicator-drop" />
+          <span className="day-indicator-trail" />
+        </div>
+
         {TIMETABLE_DAYS.map((d) => {
           const count = layout.days[d].length
           const active = d === day
@@ -263,14 +277,19 @@ function DayView({ slots, renderActions }: Pick<WeeklyTimetableProps, 'slots' | 
               key={d}
               type="button"
               role="tab"
+              data-day={d}
               aria-selected={active}
               aria-label={`${DAY_LABELS[d].full} (${count} คาบ)`}
               onClick={() => setChosenDay(d)}
-              className={`rounded-none py-1.5 text-xs font-bold cursor-pointer transition-colors ${
-                active ? 'bg-ink text-white' : count > 0 ? 'bg-tertiary text-ink' : 'bg-surface-2 text-ink-3'
+              className={`day-tab-btn py-1.5 text-xs font-bold cursor-pointer ${
+                active
+                  ? 'day-tab-active text-white'
+                  : count > 0
+                    ? 'day-tab-inactive bg-tertiary text-ink'
+                    : 'day-tab-inactive bg-surface-2 text-ink-3'
               }`}
             >
-              {DAY_LABELS[d].short}
+              <span className="day-glyph-text">{DAY_LABELS[d].short}</span>
             </button>
           )
         })}

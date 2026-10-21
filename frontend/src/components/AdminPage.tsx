@@ -1430,7 +1430,27 @@ export default function AdminPage() {
           <div className="relative pointer-events-auto flex flex-col h-full bg-white border-r border-line-soft">
             {/* View Tab Switcher: ห้องและพื้นที่ vs ตารางเวลาทั้งหมด */}
             <div className="shrink-0 p-3 border-b border-line-soft bg-white">
-              <div className="flex gap-1 rounded-full bg-surface-2 p-1">
+              <div className="gooey-switch-group flex w-full rounded-full bg-surface-2 p-1">
+                {(() => {
+                  const activeTabIdx = leftTab === 'schedules' ? 1 : 0
+                  const blobTransform = `translateX(${activeTabIdx * 100}%)`
+                  return (
+                    <div aria-hidden="true" className="gooey-switch-blobs inset-1">
+                      <span
+                        className="gooey-pill-lead"
+                        style={{ width: '50%', transform: blobTransform }}
+                      />
+                      <span
+                        className="gooey-pill-drop"
+                        style={{ width: '50%', transform: blobTransform }}
+                      />
+                      <span
+                        className="gooey-pill-trail"
+                        style={{ width: '50%', transform: blobTransform }}
+                      />
+                    </div>
+                  )
+                })()}
                 <button
                   type="button"
                   onClick={() => {
@@ -1438,10 +1458,10 @@ export default function AdminPage() {
                     setPanelMode('list')
                     setSelectedRoomId(null)
                   }}
-                  className={`btn btn-sm flex-1 ${
+                  className={`btn btn-sm gooey-switch-btn flex-1 ${
                     leftTab === 'rooms'
-                      ? 'btn-primary'
-                      : 'btn-ghost'
+                      ? 'text-white'
+                      : 'text-ink-2 hover:text-ink'
                   }`}
                 >
                   <Door size={14} weight="duotone" />
@@ -1454,10 +1474,10 @@ export default function AdminPage() {
                 <button
                   type="button"
                   onClick={() => setLeftTab('schedules')}
-                  className={`btn btn-sm flex-1 ${
+                  className={`btn btn-sm gooey-switch-btn flex-1 ${
                     leftTab === 'schedules'
-                      ? 'btn-primary'
-                      : 'btn-ghost'
+                      ? 'text-white'
+                      : 'text-ink-2 hover:text-ink'
                   }`}
                 >
                   <Calendar size={14} weight="duotone" />
@@ -1480,14 +1500,34 @@ export default function AdminPage() {
                 />
 
                 {/* Floor Filter Quick Pills (syncs with map floor) */}
-                <div className="flex items-center gap-1.5">
+                <div className="gooey-switch-group-3 rounded-full bg-tertiary p-0.5">
+                  {(() => {
+                    const activeFloorIdx = floorFilter === '1' ? 1 : floorFilter === '2' ? 2 : 0
+                    const blobTransform = `translateX(${activeFloorIdx * 100}%)`
+                    return (
+                      <div aria-hidden="true" className="gooey-switch-blobs inset-0.5">
+                        <span
+                          className="gooey-pill-lead"
+                          style={{ width: '33.3333%', transform: blobTransform }}
+                        />
+                        <span
+                          className="gooey-pill-drop"
+                          style={{ width: '33.3333%', transform: blobTransform }}
+                        />
+                        <span
+                          className="gooey-pill-trail"
+                          style={{ width: '33.3333%', transform: blobTransform }}
+                        />
+                      </div>
+                    )
+                  })()}
                   <button
                     type="button"
                     onClick={() => setFloorFilter('all')}
-                    className={`btn btn-sm ${
+                    className={`btn btn-sm gooey-switch-btn ${
                       floorFilter === 'all'
-                        ? 'btn-primary'
-                        : 'btn-tertiary'
+                        ? 'text-white'
+                        : 'text-ink-2 hover:text-ink'
                     }`}
                   >
                     ทั้งหมด ({rooms.length})
@@ -1498,10 +1538,10 @@ export default function AdminPage() {
                       setFloorFilter('1')
                       if (currentFloor !== 1) setCurrentFloor(1)
                     }}
-                    className={`btn btn-sm ${
+                    className={`btn btn-sm gooey-switch-btn ${
                       floorFilter === '1'
-                        ? 'btn-primary'
-                        : 'btn-tertiary'
+                        ? 'text-white'
+                        : 'text-ink-2 hover:text-ink'
                     }`}
                   >
                     ชั้น 1 ({floor1Count})
@@ -1512,10 +1552,10 @@ export default function AdminPage() {
                       setFloorFilter('2')
                       if (currentFloor !== 2) setCurrentFloor(2)
                     }}
-                    className={`btn btn-sm ${
+                    className={`btn btn-sm gooey-switch-btn ${
                       floorFilter === '2'
-                        ? 'btn-primary'
-                        : 'btn-tertiary'
+                        ? 'text-white'
+                        : 'text-ink-2 hover:text-ink'
                     }`}
                   >
                     ชั้น 2 ({floor2Count})

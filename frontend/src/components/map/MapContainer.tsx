@@ -86,7 +86,30 @@ export default function MapContainer(props: MapContainerProps) {
           }`}
         >
           {/* Floor Switcher (1st Floor | 2nd Floor) */}
-          <div role="group" aria-label="Floor switcher" className="flex items-center gap-0.5">
+          <div role="group" aria-label="Floor switcher" className="gooey-switch-group">
+            {(() => {
+              const activeIdx = Math.max(
+                0,
+                FLOOR_CONFIGS.findIndex((f) => f.floor === props.currentFloor),
+              )
+              const blobTransform = `translateX(${activeIdx * 100}%)`
+              return (
+                <div aria-hidden="true" className="gooey-switch-blobs">
+                  <span
+                    className="gooey-pill-lead"
+                    style={{ width: `${100 / FLOOR_CONFIGS.length}%`, transform: blobTransform }}
+                  />
+                  <span
+                    className="gooey-pill-drop"
+                    style={{ width: `${100 / FLOOR_CONFIGS.length}%`, transform: blobTransform }}
+                  />
+                  <span
+                    className="gooey-pill-trail"
+                    style={{ width: `${100 / FLOOR_CONFIGS.length}%`, transform: blobTransform }}
+                  />
+                </div>
+              )
+            })()}
             {FLOOR_CONFIGS.map((floor) => {
               const isActive = floor.floor === props.currentFloor
               return (
@@ -95,7 +118,9 @@ export default function MapContainer(props: MapContainerProps) {
                   type="button"
                   aria-pressed={isActive}
                   onClick={() => props.onFloorChange(floor.floor)}
-                  className={`btn btn-sm ${isActive ? 'btn-primary' : 'btn-ghost'}`}
+                  className={`btn btn-sm gooey-switch-btn ${
+                    isActive ? 'text-white' : 'text-ink-2 hover:text-ink'
+                  }`}
                 >
                   {floor.label}
                 </button>
@@ -114,7 +139,7 @@ export default function MapContainer(props: MapContainerProps) {
               setView(showing3d ? '2d' : '3d')
               setFailed(false)
             }}
-            className="btn btn-sm btn-tertiary"
+            className="btn btn-sm btn-tertiary gooey-fluid-btn"
           >
             {showing3d ? 'แผนที่ 2D' : 'แผนที่ 3D'}
           </button>
