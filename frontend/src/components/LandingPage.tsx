@@ -220,7 +220,7 @@ export default function LandingPage() {
               {/* Quick Suggestion Chips */}
               <div className="relative z-1 mt-3 flex w-full flex-wrap items-center gap-2">
                 <span className="text-xs font-medium text-ink-3">แนะนำ:</span>
-                {['LC3-101', 'ห้องบรรยาย 1', 'ห้องน้ำ'].map((chip) => (
+                {['LC3-101', 'ห้องบรรยาย', 'ห้องน้ำ'].map((chip) => (
                   <button
                     key={chip}
                     type="button"

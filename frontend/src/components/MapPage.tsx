@@ -14,7 +14,6 @@ import { useSearchParams } from 'react-router-dom'
 import {
   X,
   MapPin,
-  Calendar,
   CalendarPlus,
   ArrowCounterClockwise,
   BookOpen,
@@ -210,17 +209,42 @@ function RoomDetailContent({
       <div className="border-t border-line-soft pt-4">
         {/* Schedule Tabs Header */}
         <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <h3 className="flex items-center gap-1.5 font-display text-h3-sm font-bold text-ink">
-            <Calendar size={16} weight="bold" />
-            <span>ตารางการใช้ห้อง</span>
+          <h3 className="font-display text-h3-sm font-bold text-ink">
+            ตารางการใช้ห้อง
           </h3>
 
-          <div role="group" aria-label="ประเภทตาราง" className="flex gap-1">
+          <div
+            role="group"
+            aria-label="ประเภทตาราง"
+            className="gooey-switch-group rounded-full bg-tertiary p-0.5"
+          >
+            {(() => {
+              const activeTabIdx = activeScheduleTab === 'exam' ? 1 : 0
+              const blobTransform = `translateX(${activeTabIdx * 100}%)`
+              return (
+                <div aria-hidden="true" className="gooey-switch-blobs inset-0.5">
+                  <span
+                    className="gooey-pill-lead"
+                    style={{ width: '50%', transform: blobTransform }}
+                  />
+                  <span
+                    className="gooey-pill-drop"
+                    style={{ width: '50%', transform: blobTransform }}
+                  />
+                  <span
+                    className="gooey-pill-trail"
+                    style={{ width: '50%', transform: blobTransform }}
+                  />
+                </div>
+              )
+            })()}
             <button
               type="button"
               onClick={() => setActiveScheduleTab('class')}
               aria-pressed={activeScheduleTab === 'class'}
-              className={`btn btn-sm ${activeScheduleTab === 'class' ? 'btn-primary' : 'btn-tertiary'}`}
+              className={`btn btn-sm gooey-switch-btn ${
+                activeScheduleTab === 'class' ? 'text-white' : 'text-ink-2 hover:text-ink'
+              }`}
             >
               <BookOpen size={13} weight="bold" />
               <span>ตารางเรียน</span>
@@ -230,7 +254,9 @@ function RoomDetailContent({
               type="button"
               onClick={() => setActiveScheduleTab('exam')}
               aria-pressed={activeScheduleTab === 'exam'}
-              className={`btn btn-sm ${activeScheduleTab === 'exam' ? 'btn-primary' : 'btn-tertiary'}`}
+              className={`btn btn-sm gooey-switch-btn ${
+                activeScheduleTab === 'exam' ? 'text-white' : 'text-ink-2 hover:text-ink'
+              }`}
             >
               <GraduationCap size={13} weight="bold" />
               <span>ตารางสอบ</span>
@@ -255,11 +281,12 @@ function RoomDetailContent({
             กำลังโหลดตารางห้อง...
           </p>
         ) : (
-          <WeeklyTimetable
-            key={activeScheduleTab}
-            slots={activeSchedules}
-            renderActions={renderScheduleActions}
-          />
+          <div key={activeScheduleTab} className="animate-gooey-content-swap">
+            <WeeklyTimetable
+              slots={activeSchedules}
+              renderActions={renderScheduleActions}
+            />
+          </div>
         )}
       </div>
     </div>
@@ -283,12 +310,11 @@ export default function MapPage() {
   const [floorOverride, setCurrentFloor] = useState<number | null>(null)
   const currentFloor = floorOverride ?? targetInitialRoom?.floor ?? 1
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(initialRoomId)
-  const [isDetailOpen, setIsDetailOpen] = useState<boolean>(Boolean(initialRoomId))
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false)
   const [mapView, setMapView] = useState<'2d' | '3d'>('3d')
   const [query, setQuery] = useState(initialQuery)
   const [categoryKey, setCategoryKey] = useState(DEFAULT_CATEGORY_KEY)
-  const [isDropdownOpen, setIsDropdownOpen] = useState(Boolean(initialQuery))
+  const [isDropdownOpen, setIsDropdownOpen] = useState(Boolean(initialQuery && !initialRoomId))
   const [isFilterExpanded, setIsFilterExpanded] = useState(false)
   const [activeScheduleTab, setActiveScheduleTab] = useState<'class' | 'exam'>('class')
 
@@ -326,6 +352,8 @@ export default function MapPage() {
 
   const hasActiveFilter = categoryKey !== DEFAULT_CATEGORY_KEY
   const hasActiveQueryOrFilter = query.trim() !== '' || hasActiveFilter
+  const isShowingSearchResults = isDropdownOpen && hasActiveQueryOrFilter
+  const isDetailOpen = Boolean(selectedRoom) && !isShowingSearchResults
 
   const searchResults = useMemo(
     () => (hasActiveQueryOrFilter ? filterRooms(rooms, query, categoryKey, schedules) : []),
@@ -339,10 +367,8 @@ export default function MapPage() {
 
   function handleSelectRoom(roomId: string) {
     setSelectedRoomId(roomId)
-    setIsDetailOpen(true)
     setIsSidebarCollapsed(false)
     setIsDropdownOpen(false)
-    // On phones the open filter chips cover the map once a room is found; the pinned-room pill replaces them.
     if (!isDesktop) setIsFilterExpanded(false)
     const targetRoom = rooms.find((r) => r.id === roomId)
     if (targetRoom && targetRoom.floor !== currentFloor) {
@@ -350,18 +376,20 @@ export default function MapPage() {
     }
   }
 
-  function handleCloseDetail() {
-    setIsDetailOpen(false)
+  function handleMapRoomSelect(roomId: string) {
+    if (selectedRoomId === roomId) {
+      handleUnpinRoom()
+      return
+    }
+    handleSelectRoom(roomId)
   }
 
   function handleUnpinRoom() {
     setSelectedRoomId(null)
-    setIsDetailOpen(false)
   }
 
   function handleResetMap() {
     setSelectedRoomId(null)
-    setIsDetailOpen(false)
     setQuery('')
     setIsDropdownOpen(false)
   }
@@ -371,9 +399,6 @@ export default function MapPage() {
       setIsDropdownOpen(false)
     }
     if (!isDesktop) setIsFilterExpanded(false)
-    if (isDetailOpen) {
-      setIsDetailOpen(false)
-    }
   }
 
   function handleDismissDetailMobile() {
@@ -383,7 +408,7 @@ export default function MapPage() {
       sheetRef.current.style.transform = 'translateY(100%)'
       sheetRef.current.style.opacity = '0'
       setTimeout(() => {
-        handleCloseDetail()
+        handleUnpinRoom()
         if (sheetRef.current) {
           sheetRef.current.style.transform = ''
           sheetRef.current.style.transition = ''
@@ -392,7 +417,7 @@ export default function MapPage() {
         }
       }, 230)
     } else {
-      handleCloseDetail()
+      handleUnpinRoom()
     }
   }
 
@@ -482,7 +507,7 @@ export default function MapPage() {
       sheetRef.current.style.opacity = '0'
 
       setTimeout(() => {
-        handleCloseDetail()
+        handleUnpinRoom()
         if (sheetRef.current) {
           sheetRef.current.style.transform = ''
           sheetRef.current.style.transition = ''
@@ -536,7 +561,7 @@ export default function MapPage() {
           selectedRoomId={selectedRoomId}
           isDetailOpen={isDetailOpen}
           sidebarWidth={isSidebarCollapsed ? 0 : 460}
-          onSelectRoom={handleSelectRoom}
+          onSelectRoom={handleMapRoomSelect}
           onClearSelection={handleMapBackgroundClick}
           viewMode={mapView}
           onViewModeChange={setMapView}
@@ -564,7 +589,6 @@ export default function MapPage() {
                         onChange={(newQuery) => {
                           setQuery(newQuery)
                           setIsDropdownOpen(true)
-                          if (isDetailOpen) setIsDetailOpen(false)
                         }}
                         onClear={() => {
                           setQuery('')
@@ -604,20 +628,19 @@ export default function MapPage() {
                         onChange={(newCategory) => {
                           setCategoryKey(newCategory)
                           setIsDropdownOpen(true)
-                          if (isDetailOpen) setIsDetailOpen(false)
                         }}
                       />
                     </div>
                   </div>
                 </div>
 
-                {/* Content Area: Switches between Search Results and Room Detail */}
+                {/* Content Area: Switches between Room Detail, Search Results, and Explore State */}
                 <div className="no-scrollbar flex-1 space-y-4 overflow-y-auto p-4">
-                  {/* STATE 1: ROOM DETAIL VIEW (When room is selected AND detail pane is open) */}
+                  {/* STATE 1: ROOM DETAIL VIEW */}
                   {selectedRoom && isDetailOpen ? (
                     <RoomDetailContent
                       room={selectedRoom}
-                      onClose={handleCloseDetail}
+                      onClose={handleUnpinRoom}
                       activeScheduleTab={activeScheduleTab}
                       setActiveScheduleTab={setActiveScheduleTab}
                       classSchedules={classSchedules}
@@ -626,80 +649,30 @@ export default function MapPage() {
                       schedulesError={roomSchedulesError}
                       reloadSchedules={reloadRoomSchedules}
                     />
+                  ) : isShowingSearchResults ? (
+                    /* STATE 2: SEARCH RESULTS LIST */
+                    <div>
+                      <SearchResultList
+                        rooms={searchResults}
+                        schedules={matchedSchedules}
+                        schedulesLoading={schedulesLoading}
+                        schedulesError={schedulesError}
+                        loading={loading}
+                        error={error}
+                        onSelectRoom={handleSelectRoom}
+                      />
+                    </div>
                   ) : (
-                    <>
-                      {/* Pinned Room Summary Banner (When room is pinned but detail view is closed) */}
-                      {selectedRoom && (
-                        <div className="card border-ink p-3">
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex min-w-0 items-center gap-2.5">
-                              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent text-white">
-                                <MapPin size={18} weight="fill" />
-                              </div>
-                              <div className="min-w-0">
-                                <div className="flex items-center gap-1.5 text-xs">
-                                  <span className="font-bold text-accent uppercase">ปักหมุดอยู่</span>
-                                  <span className="text-ink-3">·</span>
-                                  <span className="font-medium text-ink-3">ชั้น {selectedRoom.floor}</span>
-                                </div>
-                                <p className="truncate text-button font-bold text-ink">
-                                  {selectedRoom.roomNumber ? `ห้อง ${selectedRoom.roomNumber}` : selectedRoom.nameThai || selectedRoom.code}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="flex shrink-0 items-center gap-1.5">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (selectedRoom.floor !== currentFloor) {
-                                    setCurrentFloor(selectedRoom.floor)
-                                  }
-                                  setIsDetailOpen(true)
-                                }}
-                                className="btn btn-secondary btn-sm"
-                              >
-                                ดูข้อมูล
-                              </button>
-                              <button
-                                type="button"
-                                onClick={handleUnpinRoom}
-                                aria-label="ยกเลิกการปักหมุด"
-                                className="btn btn-ghost btn-icon-sm"
-                                title="ยกเลิกปักหมุด"
-                              >
-                                <X size={14} weight="bold" />
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* STATE 2: SEARCH RESULTS LIST */}
-                      {isDropdownOpen && hasActiveQueryOrFilter ? (
-                        <div>
-                          <SearchResultList
-                            rooms={searchResults}
-                            schedules={matchedSchedules}
-                            schedulesLoading={schedulesLoading}
-                            schedulesError={schedulesError}
-                            loading={loading}
-                            error={error}
-                            onSelectRoom={handleSelectRoom}
-                          />
-                        </div>
-                      ) : (
-                        /* STATE 3: DEFAULT EMPTY / EXPLORE STATE */
-                        <div className="flex flex-col items-center justify-center py-10 text-center">
-                          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-tertiary text-ink">
-                            <Sparkle size={24} weight="bold" />
-                          </div>
-                          <h3 className="font-display text-h3-sm font-bold text-ink">สำรวจอาคารเรียนรวม 3 (LC3)</h3>
-                          <p className="mt-1 max-w-xs text-button text-ink-2">
-                            คลิกที่ห้องบนผัง หรือค้นหาห้องเรียนด้านบนเพื่อดูข้อมูล จุดสังเกต และตารางเวลา
-                          </p>
-                        </div>
-                      )}
-                    </>
+                    /* STATE 3: DEFAULT EMPTY / EXPLORE STATE */
+                    <div className="flex flex-col items-center justify-center py-10 text-center">
+                      <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-tertiary text-ink">
+                        <Sparkle size={24} weight="bold" />
+                      </div>
+                      <h3 className="font-display text-h3-sm font-bold text-ink">สำรวจอาคารเรียนรวม 3 (LC3)</h3>
+                      <p className="mt-1 max-w-xs text-button text-ink-2">
+                        คลิกที่ห้องบนผัง หรือค้นหาห้องเรียนด้านบนเพื่อดูข้อมูล จุดสังเกต และตารางเวลา
+                      </p>
+                    </div>
                   )}
                 </div>
               </div>
@@ -712,10 +685,10 @@ export default function MapPage() {
                   className="flex cursor-pointer items-center gap-2 text-ink transition-opacity hover:opacity-80"
                   onClick={() => {
                     setIsSidebarCollapsed(false)
+                    setIsDropdownOpen(false)
                     if (selectedRoom.floor !== currentFloor) {
                       setCurrentFloor(selectedRoom.floor)
                     }
-                    setIsDetailOpen(true)
                   }}
                   title="ดูรายละเอียดห้อง"
                 >
@@ -757,7 +730,6 @@ export default function MapPage() {
                       onChange={(newQuery) => {
                         setQuery(newQuery)
                         setIsDropdownOpen(true)
-                        if (isDetailOpen) setIsDetailOpen(false)
                       }}
                       onClear={() => {
                         setQuery('')
@@ -798,7 +770,6 @@ export default function MapPage() {
                         onChange={(newCategory) => {
                           setCategoryKey(newCategory)
                           setIsDropdownOpen(true)
-                          if (isDetailOpen) setIsDetailOpen(false)
                         }}
                       />
                     </div>
@@ -806,50 +777,12 @@ export default function MapPage() {
                 </div>
               </div>
 
-              {/* Mobile Pinned Room Floating Pill (Directly under search bar / filter pane at top left) */}
-              {selectedRoom && !isDetailOpen && (
-                <div className="pointer-events-none mt-2 flex justify-start">
-                  <div className="pointer-events-auto flex max-w-[calc(100vw-2.5rem)] items-center gap-2 border border-line-soft bg-white px-3 py-1.5 text-xs shadow-floating animate-fade-in">
-                    <div
-                      className="flex min-w-0 cursor-pointer items-center gap-2 text-ink transition-opacity active:opacity-80"
-                      onClick={() => {
-                        if (selectedRoom.floor !== currentFloor) {
-                          setCurrentFloor(selectedRoom.floor)
-                        }
-                        setIsDetailOpen(true)
-                      }}
-                      title="ดูรายละเอียดห้อง"
-                    >
-                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent text-white">
-                        <MapPin size={15} weight="fill" />
-                      </div>
-                      <div className="flex min-w-0 flex-col text-left">
-                        <span className="max-w-[140px] truncate text-button leading-tight font-bold text-ink">
-                          {selectedRoom.roomNumber ? `ห้อง ${selectedRoom.roomNumber}` : selectedRoom.nameThai || selectedRoom.code}
-                        </span>
-                        <span className="text-xs font-medium text-ink-3">แตะเพื่อดูข้อมูล</span>
-                      </div>
-                    </div>
-                    <span aria-hidden="true" className="mx-0.5 h-4 w-px shrink-0 bg-line-soft" />
-                    <button
-                      type="button"
-                      onClick={handleUnpinRoom}
-                      aria-label="ยกเลิกการปักหมุด"
-                      className="btn btn-ghost btn-icon-sm"
-                      title="ยกเลิกปักหมุด"
-                    >
-                      <X size={13} weight="bold" />
-                    </button>
-                  </div>
-                </div>
-              )}
-
               {/* Mobile Search Results Floating Dropdown Sheet.
                   The wrapper above is pointer-events-none so the map stays usable around the
                   search bar. Both layers here must opt back in with pointer-events-auto:
                   otherwise a tap on a result falls through to the map underneath and selects
                   whichever room pin happens to sit under the finger (issue #91). */}
-              {isDropdownOpen && hasActiveQueryOrFilter && (!isDetailOpen || !selectedRoom) && (
+              {isShowingSearchResults && (
                 <>
                   <div
                     data-testid="mobile-search-backdrop"

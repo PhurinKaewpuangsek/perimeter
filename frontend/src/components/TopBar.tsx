@@ -2,7 +2,6 @@ import { useEffect, useState, useRef } from 'react'
 import type { ReactNode } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import {
-  CaretLeft,
   SignIn,
   MapTrifold,
   SquaresFour,
@@ -13,7 +12,7 @@ import {
   Check,
   ArrowRight,
 } from '@phosphor-icons/react'
-import perimeterLogoNoBg from '../assets/perimeter_logo_negative_nobg.png'
+import perimeterLogoDarkNoBg from '../assets/perimeter_logo_negative_dark_nobg.png'
 import AccountMenu from './AccountMenu'
 import MyScheduleDrawer from './MyScheduleDrawer'
 import { FLOOR_CONFIGS } from './map/floorConfig'
@@ -41,21 +40,37 @@ interface WorkspaceLinkProps {
   title: string
   description: string
   active: boolean
+  animClass?: string
   onNavigate: () => void
 }
 
-function WorkspaceLink({ to, ariaLabel, icon, title, description, active, onNavigate }: WorkspaceLinkProps) {
+function WorkspaceLink({
+  to,
+  ariaLabel,
+  icon,
+  title,
+  description,
+  active,
+  animClass = '',
+  onNavigate,
+}: WorkspaceLinkProps) {
   return (
     <Link
       to={to}
       aria-label={ariaLabel}
       onClick={onNavigate}
-      className={`group flex items-center justify-between gap-3 p-2.5 transition-colors ${
+      className={`group flex items-center justify-between gap-3 p-2.5 transition-colors duration-200 ${animClass} ${
         active ? 'bg-surface-2' : 'hover:bg-surface-2'
       }`}
     >
       <div className="flex min-w-0 items-center gap-3">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-tertiary text-ink">
+        <div
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-all duration-300 ${
+            active
+              ? 'bg-ink text-white'
+              : 'bg-tertiary text-ink group-hover:scale-110 group-hover:bg-ink group-hover:text-white'
+          }`}
+        >
           {icon}
         </div>
         <div className="min-w-0">
@@ -168,19 +183,13 @@ export default function TopBar({
               data-testid="back-to-home"
               aria-label="กลับหน้าแรก"
               title="กลับหน้าแรก"
-              className="group flex shrink-0 items-center gap-2 rounded-full"
+              className="flex shrink-0 items-center"
             >
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-ink-2 text-white transition-colors group-hover:bg-surface-3">
-                <CaretLeft size={14} weight="bold" />
-              </span>
-              {/* The wordmark in the asset is black; crop to the cube and set the name in white. */}
               <img
-                src={perimeterLogoNoBg}
-                alt=""
-                aria-hidden="true"
-                className="h-8 w-[22px] object-cover object-left"
+                src={perimeterLogoDarkNoBg}
+                alt="Perimeter"
+                className="h-12 w-auto object-contain transition-opacity hover:opacity-90"
               />
-              <span className="font-display text-h3-sm leading-none font-bold">perimeter</span>
             </Link>
 
             {consoleTitle && (
@@ -241,20 +250,35 @@ export default function TopBar({
                 aria-expanded={isWorkspaceOpen}
                 data-testid="workspace-switcher-trigger"
                 onClick={() => setIsWorkspaceOpen((prev) => !prev)}
-                className={`btn btn-sm ${isWorkspaceOpen ? 'btn-primary' : 'btn-tertiary'}`}
+                className={`btn btn-sm gooey-fluid-btn ${
+                  isWorkspaceOpen ? 'btn-primary animate-gooey-trigger-open' : 'btn-tertiary'
+                }`}
               >
                 <WorkspaceIcon size={14} weight="fill" />
                 <span>{workspaceLabel}</span>
                 <CaretUp
                   size={11}
                   weight="bold"
-                  className={`transition-transform duration-200 ${isWorkspaceOpen ? 'rotate-180' : ''}`}
+                  className={`transition-transform duration-300 ${isWorkspaceOpen ? 'rotate-180' : ''}`}
                 />
               </button>
 
               {isWorkspaceOpen && (
-                <div className="absolute bottom-full left-1/2 mb-3 w-76 -translate-x-1/2 animate-fade-in">
-                  <div className="dropdown divide-y divide-line-soft">
+                <div className="gooey-popover-wrapper absolute bottom-full left-1/2 z-101 mb-3 w-76 -translate-x-1/2">
+                  {/* Concave cubic-Bezier liquid bridge that stretches during transition and retracts cleanly */}
+                  <svg
+                    aria-hidden="true"
+                    viewBox="0 0 72 16"
+                    preserveAspectRatio="none"
+                    className="gooey-neck-up"
+                  >
+                    <path
+                      d="M 0 0 C 16 0, 22 16, 36 16 C 50 16, 56 0, 72 0 Z"
+                      fill="#ffffff"
+                    />
+                  </svg>
+
+                  <div className="gooey-popover-surface animate-gooey-menu-up divide-y divide-line-soft">
                     <WorkspaceLink
                       to="/map"
                       ariaLabel="ดูผังอาคาร LC3"
@@ -262,6 +286,7 @@ export default function TopBar({
                       title="แผนที่อาคารเรียนรวม 3"
                       description="ค้นหาห้องเรียนและตารางเวลา"
                       active={pathname === '/map'}
+                      animClass="animate-gooey-item-1"
                       onNavigate={closeWorkspace}
                     />
                     <WorkspaceLink
@@ -271,6 +296,7 @@ export default function TopBar({
                       title="Staff Console"
                       description="จัดการห้องเรียนและพิกัดแผนที่"
                       active={pathname === '/staff'}
+                      animClass="animate-gooey-item-2"
                       onNavigate={closeWorkspace}
                     />
                     {role === 'admin' && (
@@ -281,6 +307,7 @@ export default function TopBar({
                         title="Admin Console"
                         description="จัดการบัญชีผู้ใช้และระบบ"
                         active={pathname === '/admin'}
+                        animClass="animate-gooey-item-3"
                         onNavigate={closeWorkspace}
                       />
                     )}
@@ -293,7 +320,30 @@ export default function TopBar({
           {hasFloorSwitcher && onFloorChange && (
             <>
               {isStaffOrAdmin && <span aria-hidden="true" className="mx-1 h-5 w-px shrink-0 bg-line-soft" />}
-              <div role="group" aria-label="Floor switcher" className="flex items-center gap-0.5">
+              <div role="group" aria-label="Floor switcher" className="gooey-switch-group">
+                {(() => {
+                  const activeIdx = Math.max(
+                    0,
+                    FLOOR_CONFIGS.findIndex((f) => f.floor === currentFloor),
+                  )
+                  const blobTransform = `translateX(${activeIdx * 100}%)`
+                  return (
+                    <div aria-hidden="true" className="gooey-switch-blobs">
+                      <span
+                        className="gooey-pill-lead"
+                        style={{ width: `${100 / FLOOR_CONFIGS.length}%`, transform: blobTransform }}
+                      />
+                      <span
+                        className="gooey-pill-drop"
+                        style={{ width: `${100 / FLOOR_CONFIGS.length}%`, transform: blobTransform }}
+                      />
+                      <span
+                        className="gooey-pill-trail"
+                        style={{ width: `${100 / FLOOR_CONFIGS.length}%`, transform: blobTransform }}
+                      />
+                    </div>
+                  )
+                })()}
                 {FLOOR_CONFIGS.map((floor) => {
                   const isActive = floor.floor === currentFloor
                   return (
@@ -302,7 +352,9 @@ export default function TopBar({
                       type="button"
                       aria-pressed={isActive}
                       onClick={() => onFloorChange(floor.floor)}
-                      className={`btn btn-sm ${isActive ? 'btn-primary' : 'btn-ghost'}`}
+                      className={`btn btn-sm gooey-switch-btn ${
+                        isActive ? 'text-white' : 'text-ink-2 hover:text-ink'
+                      }`}
                     >
                       {floor.label}
                     </button>
@@ -315,7 +367,11 @@ export default function TopBar({
           {hasViewToggle && onToggleMapView && (
             <>
               <span aria-hidden="true" className="mx-1 h-5 w-px shrink-0 bg-line-soft" />
-              <button type="button" onClick={onToggleMapView} className="btn btn-sm btn-tertiary">
+              <button
+                type="button"
+                onClick={onToggleMapView}
+                className="btn btn-sm btn-tertiary gooey-fluid-btn"
+              >
                 {mapView === '3d' ? 'แผนที่ 2D' : 'แผนที่ 3D'}
               </button>
             </>
