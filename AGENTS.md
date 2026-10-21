@@ -11,11 +11,13 @@
 - **No secrets.** Keep `.env` local; track only `.env.example`.
 - **Leave workflows alone.** Do not edit `.github/workflows/` unless explicitly requested or required for Pipeline Parity when introducing new stack outputs.
 
-## Architecture (V2)
-Project TORCH is a serverless information service mapping cloud data onto interactive SVG floor plans.
-- **Frontend**: React + Vite + TypeScript + Tailwind (`frontend/`)
-- **Backend**: AWS Lambda (Node.js 24) (`functions/<name>/`)
-- **Database**: Amazon DynamoDB (on-demand)
+## Architecture (V3)
+Project TORCH is a serverless information service mapping cloud data onto interactive 2D SVG and 3D floor plans with authenticated user schedule pinning.
+- **Frontend**: React 18 + Vite + TypeScript + Tailwind + Three.js (`frontend/`)
+- **Routes**: `/` (landing), `/login` (unified sign-in & password challenge), `/map` (floor plan & My Schedule), `/staff` (room/schedule editor), `/admin` (user management)
+- **Backend**: AWS Lambda (Node.js 24) (`functions/<name>/`) via Implicit API Gateway with Cognito User Pool Authorizer on write routes
+- **Auth**: AWS Cognito User Pool with groups (`admin`, `staff`, `user`)
+- **Database**: Amazon DynamoDB (on-demand: `SmartFacultyLocations`, `SmartFacultySchedules`, `SmartFacultyPins`)
 - **Infrastructure**: AWS SAM (`template.yaml` at repo root)
 
 ## Directory Boundaries
