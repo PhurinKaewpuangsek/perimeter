@@ -12,7 +12,7 @@
  * - Rejection page (403) for non-admin callers (staff, user, guest).
  */
 
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef, type CSSProperties } from 'react'
 import {
   Users,
   UserPlus,
@@ -23,6 +23,10 @@ import {
   Warning,
   Calendar,
   Door,
+  Clock,
+  Lock,
+  CaretDown,
+  ArrowClockwise,
 } from '@phosphor-icons/react'
 import {
   getSession,
@@ -40,6 +44,139 @@ import TopBar from './TopBar'
 import { useRooms } from '../hooks/useRooms'
 import { useSchedules } from '../hooks/useSchedules'
 import type { UserRole } from '../types/auth'
+
+const ROLE_OPTIONS: { value: UserRole; label: string }[] = [
+  { value: 'admin', label: 'Admin' },
+  { value: 'staff', label: 'Staff' },
+  { value: 'user', label: 'User' },
+]
+
+interface RoleGooeyDropdownProps {
+  value: UserRole
+  disabled: boolean
+  title: string
+  onChange: (nextRole: UserRole) => void
+}
+
+function RoleGooeyDropdown({ value, disabled, title, onChange }: RoleGooeyDropdownProps) {
+  const [isOpen, setIsOpen] = useState(false)
+  const selectedIdx = Math.max(0, ROLE_OPTIONS.findIndex((opt) => opt.value === value))
+  const [hoverIdx, setHoverIdx] = useState<number>(selectedIdx)
+  const wrapperRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!isOpen) return
+
+    function handleMouseDown(e: MouseEvent) {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setIsOpen(false)
+      }
+    }
+
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        setIsOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleMouseDown)
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', handleMouseDown)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [isOpen])
+
+  const currentLabel = ROLE_OPTIONS[selectedIdx]?.label ?? value
+
+  return (
+    <div ref={wrapperRef} className="admin-role-dropdown">
+      <button
+        type="button"
+        data-testid="role-dropdown-trigger"
+        disabled={disabled}
+        title={title}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        onClick={() => {
+          if (disabled) return
+          setHoverIdx(selectedIdx)
+          setIsOpen((prev) => !prev)
+        }}
+        className={`admin-role-trigger gooey-fluid-btn ${
+          isOpen ? 'animate-gooey-trigger-open' : ''
+        }`}
+      >
+        <span className="inline-flex items-center gap-2">
+          <span className="admin-role-dot" data-role={value} aria-hidden="true" />
+          <span>{currentLabel}</span>
+        </span>
+        <CaretDown
+          size={14}
+          weight="bold"
+          className={`admin-role-chevron ${isOpen ? 'admin-role-chevron-open' : ''}`}
+        />
+      </button>
+
+      {isOpen && !disabled && (
+        <div className="admin-role-menu-shell">
+          <svg
+            className="admin-role-menu-neck"
+            viewBox="0 0 44 12"
+            preserveAspectRatio="none"
+            aria-hidden="true"
+          >
+            <path
+              d="M 8 0 C 14 0, 16 12, 0 12 L 44 12 C 28 12, 30 0, 36 0 Z"
+              fill="#ffffff"
+            />
+          </svg>
+          <div
+            role="listbox"
+            aria-label="เลือกสิทธิ์"
+            onMouseLeave={() => setHoverIdx(selectedIdx)}
+            style={{ '--role-hover-idx': hoverIdx } as CSSProperties}
+            className="admin-role-menu"
+          >
+            <div className="admin-role-hover-blobs" aria-hidden="true">
+              <div className="admin-role-hover-trail" />
+              <div className="admin-role-hover-lead" />
+            </div>
+            {ROLE_OPTIONS.map((opt, idx) => {
+              const isSelected = opt.value === value
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  role="option"
+                  aria-selected={isSelected}
+                  onMouseEnter={() => setHoverIdx(idx)}
+                  onClick={() => {
+                    setIsOpen(false)
+                    if (opt.value !== value) {
+                      onChange(opt.value)
+                    }
+                  }}
+                  className="admin-role-option"
+                >
+                  <span className="inline-flex items-center gap-2.5">
+                    <span
+                      className="admin-role-dot"
+                      data-role={opt.value}
+                      aria-hidden="true"
+                    />
+                    <span>{opt.label}</span>
+                  </span>
+                  {isSelected && <Check size={14} weight="bold" className="text-ink shrink-0" />}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function AdminManagementPage() {
   const session = getSession()
@@ -96,8 +233,10 @@ export default function AdminManagementPage() {
     }
   }, [isUserAdmin, refreshTrigger])
 
-  const fetchUsersList = useCallback(async () => {
-    setUsersLoading(true)
+  const fetchUsersList = useCallback(async (silent = false) => {
+    if (!silent) {
+      setUsersLoading(true)
+    }
     setRefreshTrigger((n) => n + 1)
   }, [])
 
@@ -142,7 +281,7 @@ export default function AdminManagementPage() {
       setNewRole('staff')
       setActionSuccess(`สร้างผู้ใช้ ${newEmail.trim()} สำเร็จ`)
       setTimeout(() => setActionSuccess(null), 4000)
-      await fetchUsersList()
+      await fetchUsersList(true)
     } catch (err) {
       setAddError((err as Error).message || 'Failed to create user')
     } finally {
@@ -151,26 +290,48 @@ export default function AdminManagementPage() {
   }
 
   async function handleRoleChange(user: ManagedUser, nextRole: UserRole) {
+    const previousRole = user.role
+    setUsers((prev) =>
+      prev.map((item) =>
+        item.username === user.username ? { ...item, role: nextRole } : item,
+      ),
+    )
     try {
       await updateUser(user.username, { role: nextRole })
       setActionSuccess(`เปลี่ยนสิทธิ์ ${user.email} เป็น ${nextRole} สำเร็จ`)
       setTimeout(() => setActionSuccess(null), 4000)
-      await fetchUsersList()
+      await fetchUsersList(true)
     } catch (err) {
+      setUsers((prev) =>
+        prev.map((item) =>
+          item.username === user.username ? { ...item, role: previousRole } : item,
+        ),
+      )
       setUsersError((err as Error).message || 'Failed to change user role')
     }
   }
 
   async function handleToggleEnabled(user: ManagedUser) {
+    const previousEnabled = user.enabled
+    const nextState = !user.enabled
+    setUsers((prev) =>
+      prev.map((item) =>
+        item.username === user.username ? { ...item, enabled: nextState } : item,
+      ),
+    )
     try {
-      const nextState = !user.enabled
       await updateUser(user.username, { enabled: nextState })
       setActionSuccess(
         `${nextState ? 'เปิดใช้งาน' : 'ระงับการใช้งาน'} บัญชี ${user.email} สำเร็จ`,
       )
       setTimeout(() => setActionSuccess(null), 4000)
-      await fetchUsersList()
+      await fetchUsersList(true)
     } catch (err) {
+      setUsers((prev) =>
+        prev.map((item) =>
+          item.username === user.username ? { ...item, enabled: previousEnabled } : item,
+        ),
+      )
       setUsersError((err as Error).message || 'Failed to update user status')
     }
   }
@@ -180,10 +341,11 @@ export default function AdminManagementPage() {
     setDeleteLoading(true)
     try {
       await deleteUser(userToDelete.username)
+      setUsers((prev) => prev.filter((item) => item.username !== userToDelete.username))
       setActionSuccess(`ลบบัญชีผู้ใช้ ${userToDelete.email} สำเร็จ`)
       setTimeout(() => setActionSuccess(null), 4000)
       setUserToDelete(null)
-      await fetchUsersList()
+      await fetchUsersList(true)
     } catch (err) {
       setUsersError((err as Error).message || 'Failed to delete user')
     } finally {
@@ -237,51 +399,74 @@ export default function AdminManagementPage() {
   // Render: Admin Console Dashboard
   // -------------------------------------------------------------------------
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col">
+    <div className="flex min-h-screen flex-col bg-white text-ink">
       {/* Shared Unified Floating TopBar */}
       <TopBar />
 
       {/* Main Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto pt-20 sm:pt-22 px-4 sm:px-6 pb-12 space-y-6">
-        {/* Navigation Tabs */}
-        <div className="flex items-center gap-2 border-b border-slate-200 pb-3">
-          <button
-            onClick={() => setActiveTab('users')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors cursor-pointer ${
-              activeTab === 'users'
-                ? 'bg-rose-600 text-white shadow-xs'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-            }`}
+      <main className="mx-auto w-full max-w-7xl flex-1 px-5 pt-24 pb-12 sm:px-8 lg:px-10 space-y-8">
+        {/* Navigation Tabs — Unified Gooey Fluid Segmented Pill Switcher */}
+        <div className="flex flex-wrap items-center border-b border-line-soft pb-4">
+          <div
+            className="admin-mode-switcher"
+            data-active-index={activeTab === 'users' ? 0 : 1}
           >
-            <Users size={18} />
-            <span>การจัดการผู้ใช้และสิทธิ์</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('building')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors cursor-pointer ${
-              activeTab === 'building'
-                ? 'bg-rose-600 text-white shadow-xs'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-            }`}
-          >
-            <Trash size={18} />
-            <span>จัดการข้อมูลอาคาร</span>
-          </button>
+            {(() => {
+              const activeTabIdx = activeTab === 'building' ? 1 : 0
+              const blobTransform = `translateX(${activeTabIdx * 100}%)`
+              return (
+                <div className="admin-mode-blobs" aria-hidden="true">
+                  <span
+                    className="gooey-pill-trail"
+                    style={{ width: '50%', transform: blobTransform, backgroundColor: '#000000' }}
+                  />
+                  <span
+                    className="gooey-pill-drop"
+                    style={{ width: '50%', transform: blobTransform, backgroundColor: '#000000' }}
+                  />
+                  <span
+                    className="gooey-pill-lead"
+                    style={{ width: '50%', transform: blobTransform, backgroundColor: '#000000' }}
+                  />
+                </div>
+              )
+            })()}
+            <button
+              type="button"
+              onClick={() => setActiveTab('users')}
+              className={`admin-mode-tab ${
+                activeTab === 'users' ? 'admin-mode-tab-active' : 'admin-mode-tab-inactive'
+              }`}
+            >
+              <Users size={18} />
+              <span>การจัดการผู้ใช้และสิทธิ์</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('building')}
+              className={`admin-mode-tab ${
+                activeTab === 'building' ? 'admin-mode-tab-active' : 'admin-mode-tab-inactive'
+              }`}
+            >
+              <Trash size={18} />
+              <span>จัดการข้อมูลอาคาร</span>
+            </button>
+          </div>
         </div>
 
         {/* Global Feedback Banners */}
         {actionSuccess && (
-          <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-3.5 text-xs text-emerald-800 flex items-center gap-2">
-            <Check size={16} className="shrink-0 text-emerald-600" />
+          <div className="card flex items-center gap-2 p-3 text-button text-ink">
+            <Check size={16} className="shrink-0 text-ink" />
             <span>{actionSuccess}</span>
           </div>
         )}
 
         {usersError && (
-          <div className="rounded-xl bg-rose-50 border border-rose-200 p-3.5 text-xs text-rose-800 flex items-center gap-2">
-            <Warning size={16} className="shrink-0 text-rose-600" />
+          <div className="card flex items-center gap-2 border-ink p-3 text-button text-ink">
+            <Warning size={16} className="shrink-0 text-ink" />
             <span>{usersError}</span>
-            <button onClick={() => setUsersError(null)} className="ml-auto text-rose-500 hover:text-rose-700">
+            <button onClick={() => setUsersError(null)} className="btn btn-ghost btn-icon-sm ml-auto">
               <X size={14} />
             </button>
           </div>
@@ -291,51 +476,67 @@ export default function AdminManagementPage() {
         {/* TAB 1: User & Role Management */}
         {/* =================================================================== */}
         {activeTab === 'users' && (
-          <div className="space-y-6">
+          <div className="animate-gooey-content-swap space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                  <Shield size={22} className="text-rose-600" />
+                <h2 className="font-display text-h3 font-bold text-ink flex items-center gap-2">
+                  <Shield size={22} className="text-ink" />
                   การจัดการผู้ใช้และสิทธิ์
                 </h2>
-                <p className="text-xs text-slate-500 mt-0.5">
+                <p className="mt-1 text-button text-ink-2">
                   จัดการบัญชีผู้ใช้งาน สิทธิ์การเข้าถึง และสถานะบัญชีผ่าน AWS Cognito
                 </p>
               </div>
 
-              <button
-                type="button"
-                onClick={() => setIsAddUserOpen(true)}
-                className="inline-flex items-center gap-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold px-4 py-2.5 transition-colors cursor-pointer self-start sm:self-auto shadow-xs"
-              >
-                <UserPlus size={16} />
-                <span>เพิ่มผู้ใช้ใหม่</span>
-              </button>
+              <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+                <button
+                  type="button"
+                  data-testid="refresh-users-btn"
+                  disabled={usersLoading}
+                  onClick={() => fetchUsersList(false)}
+                  className="btn btn-secondary gooey-fluid-btn"
+                  title="รีเฟรชตารางผู้ใช้"
+                >
+                  <ArrowClockwise size={16} className={usersLoading ? 'animate-spin' : ''} />
+                  <span>รีเฟรช</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsAddUserOpen(true)}
+                  className={`btn btn-primary gooey-fluid-btn ${
+                    isAddUserOpen ? 'animate-gooey-trigger-open' : ''
+                  }`}
+                >
+                  <UserPlus size={16} />
+                  <span>เพิ่มผู้ใช้ใหม่</span>
+                </button>
+              </div>
             </div>
 
-            {/* Users Table Card */}
-            <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-2xs">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50 text-slate-600 border-b border-slate-200 font-semibold uppercase tracking-wider text-[11px]">
+            {/* Users Table Card (overflow-visible so custom Gooey Role Dropdown popovers are not clipped) */}
+            <div className="card overflow-visible">
+              <div className="overflow-x-auto sm:overflow-visible">
+                <table className="w-full text-button">
+                  <thead>
                     <tr>
-                      <th className="py-3 px-4">อีเมล / ชื่อผู้ใช้</th>
-                      <th className="py-3 px-4">สิทธิ์ (Role)</th>
-                      <th className="py-3 px-4">สถานะบัญชี</th>
-                      <th className="py-3 px-4">การใช้งาน</th>
-                      <th className="py-3 px-4 text-right">การจัดการ</th>
+                      <th className="bg-surface-2 px-4 py-3 text-left text-xs font-medium text-ink-2 uppercase">อีเมล / ชื่อผู้ใช้</th>
+                      <th className="bg-surface-2 px-4 py-3 text-left text-xs font-medium text-ink-2 uppercase">สิทธิ์ (Role)</th>
+                      <th className="bg-surface-2 px-4 py-3 text-left text-xs font-medium text-ink-2 uppercase">สถานะบัญชี</th>
+                      <th className="bg-surface-2 px-4 py-3 text-left text-xs font-medium text-ink-2 uppercase">การใช้งาน</th>
+                      <th className="bg-surface-2 px-4 py-3 text-right text-xs font-medium text-ink-2 uppercase">การจัดการ</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody>
                     {usersLoading ? (
-                      <tr>
-                        <td colSpan={5} className="py-8 text-center text-slate-400">
+                      <tr className="border-t border-line-soft">
+                        <td colSpan={5} className="px-4 py-8 text-center text-ink-3">
                           กำลังโหลดข้อมูลผู้ใช้...
                         </td>
                       </tr>
                     ) : users.length === 0 ? (
-                      <tr>
-                        <td colSpan={5} className="py-8 text-center text-slate-400">
+                      <tr className="border-t border-line-soft">
+                        <td colSpan={5} className="px-4 py-8 text-center text-ink-3">
                           ไม่พบข้อมูลผู้ใช้ในระบบ
                         </td>
                       </tr>
@@ -344,27 +545,58 @@ export default function AdminManagementPage() {
                         const self = isCaller(u)
                         const lastAdmin = isLastAdmin(u)
                         const protectedUser = self || lastAdmin
+                        const isWarningStatus =
+                          u.status === 'FORCE_CHANGE_PASSWORD' ||
+                          u.status === 'UNCONFIRMED' ||
+                          u.status === 'RESET_REQUIRED'
+                        const statusBadgeClass =
+                          u.status === 'CONFIRMED'
+                            ? 'admin-status-badge admin-status-confirmed'
+                            : isWarningStatus
+                              ? 'admin-status-badge admin-status-warning'
+                              : 'admin-status-badge admin-status-danger'
+                        const statusLabel =
+                          u.status === 'FORCE_CHANGE_PASSWORD'
+                            ? 'ต้องเปลี่ยนรหัสผ่าน'
+                            : u.status
+
+                        const rowClass = !u.enabled
+                          ? 'admin-row-suspended'
+                          : self
+                            ? 'admin-row-self hover:bg-surface-2'
+                            : 'hover:bg-surface-2'
 
                         return (
-                          <tr key={u.username} className="hover:bg-slate-50/80 transition-colors">
-                            <td className="py-3 px-4">
-                              <div className="font-medium text-slate-900">{u.email}</div>
-                              {self && (
-                                <span className="inline-block mt-0.5 text-[10px] text-rose-600 font-semibold">
-                                  (บัญชีของคุณ)
+                          <tr
+                            key={u.username}
+                            className={`border-t border-line-soft transition-colors ${rowClass}`}
+                          >
+                            <td className="px-4 py-3 text-ink">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span
+                                  className={`font-medium ${
+                                    !u.enabled ? 'text-ink-3' : 'text-ink'
+                                  }`}
+                                >
+                                  {u.email}
                                 </span>
-                              )}
-                              {lastAdmin && !self && (
-                                <span className="inline-block mt-0.5 text-[10px] text-amber-600 font-semibold">
-                                  (Admin คนสุดท้าย)
-                                </span>
-                              )}
+                                {self && (
+                                  <span className="admin-self-chip">
+                                    (บัญชีของคุณ)
+                                  </span>
+                                )}
+                                {lastAdmin && !self && (
+                                  <span className="admin-self-chip">
+                                    (Admin คนสุดท้าย)
+                                  </span>
+                                )}
+                              </div>
                             </td>
-                            <td className="py-3 px-4">
-                              <select
+                            <td className="px-4 py-3 text-ink">
+                              <RoleGooeyDropdown
                                 value={u.role}
                                 disabled={protectedUser}
-                                onChange={(e) => handleRoleChange(u, e.target.value as UserRole)}
+                                onChange={(nextRole) => handleRoleChange(u, nextRole)}
                                 title={
                                   self
                                     ? 'ไม่สามารถเปลี่ยนสิทธิ์บัญชีของตนเองได้'
@@ -372,55 +604,75 @@ export default function AdminManagementPage() {
                                       ? 'ไม่สามารถลดสิทธิ์ Admin คนสุดท้ายได้'
                                       : 'เลือกสิทธิ์'
                                 }
-                                className={`rounded-lg border px-2.5 py-1 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-rose-500 cursor-pointer ${
-                                  protectedUser
-                                    ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed'
-                                    : 'bg-white border-slate-200 text-slate-800 hover:border-slate-300'
-                                }`}
-                              >
-                                <option value="admin">Admin</option>
-                                <option value="staff">Staff</option>
-                                <option value="user">User</option>
-                              </select>
+                              />
                             </td>
-                            <td className="py-3 px-4">
+                            <td className="px-4 py-3 text-ink">
                               <span
-                                className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
-                                  u.status === 'CONFIRMED'
-                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                    : 'bg-amber-50 text-amber-700 border-amber-200'
-                                }`}
+                                data-testid="user-status-badge"
+                                className={statusBadgeClass}
                               >
-                                {u.status === 'FORCE_CHANGE_PASSWORD' ? 'ต้องเปลี่ยนรหัสผ่าน' : u.status}
+                                <span className="admin-status-dot" aria-hidden="true" />
+                                {u.status === 'CONFIRMED' ? (
+                                  <Check size={12} weight="bold" className="shrink-0" />
+                                ) : isWarningStatus ? (
+                                  <Clock size={12} weight="bold" className="shrink-0" />
+                                ) : (
+                                  <Warning size={12} weight="bold" className="shrink-0" />
+                                )}
+                                <span>{statusLabel}</span>
                               </span>
                             </td>
-                            <td className="py-3 px-4">
-                              <button
-                                type="button"
-                                data-testid="toggle-enabled-btn"
-                                disabled={protectedUser}
-                                onClick={() => handleToggleEnabled(u)}
-                                title={
-                                  self
-                                    ? 'ไม่สามารถระงับบัญชีของตนเองได้'
-                                    : lastAdmin
-                                      ? 'ไม่สามารถระงับ Admin คนสุดท้ายได้'
-                                      : u.enabled
-                                        ? 'คลิกเพื่อระงับการใช้งาน'
-                                        : 'คลิกเพื่อเปิดใช้งาน'
-                                }
-                                className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors cursor-pointer ${
-                                  protectedUser
-                                    ? 'opacity-40 cursor-not-allowed bg-slate-100 border-slate-200 text-slate-400'
-                                    : u.enabled
-                                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200'
-                                      : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200'
-                                }`}
-                              >
-                                {u.enabled ? 'เปิดใช้งาน' : 'ถูกระงับ'}
-                              </button>
+                            <td className="px-4 py-3 text-ink">
+                              {protectedUser ? (
+                                <span
+                                  data-testid="protected-usage-indicator"
+                                  className="admin-usage-protected-text"
+                                  title={
+                                    self
+                                      ? 'ไม่สามารถระงับบัญชีของตนเองได้'
+                                      : 'ไม่สามารถระงับ Admin คนสุดท้ายได้'
+                                  }
+                                >
+                                  <Lock size={15} weight="duotone" className="shrink-0" />
+                                  <span>
+                                    {self
+                                      ? 'บัญชีของคุณ (เปิดใช้งาน)'
+                                      : 'Admin คนสุดท้าย (เปิดใช้งาน)'}
+                                  </span>
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  role="switch"
+                                  aria-checked={Boolean(u.enabled)}
+                                  data-testid="toggle-enabled-btn"
+                                  onClick={() => handleToggleEnabled(u)}
+                                  title={
+                                    u.enabled
+                                      ? 'คลิกเพื่อระงับการใช้งาน'
+                                      : 'คลิกเพื่อเปิดใช้งาน'
+                                  }
+                                  className="admin-usage-switch-btn"
+                                >
+                                  <span
+                                    className="admin-gooey-switch-track"
+                                    data-enabled={String(Boolean(u.enabled))}
+                                    aria-hidden="true"
+                                  >
+                                    <span className="admin-gooey-switch-blobs">
+                                      <span className="admin-gooey-switch-trail" />
+                                      <span className="admin-gooey-switch-thumb" />
+                                    </span>
+                                  </span>
+                                  {u.enabled ? (
+                                    <span className="admin-usage-label-active">เปิดใช้งาน</span>
+                                  ) : (
+                                    <span className="admin-usage-label-suspended">ถูกระงับ</span>
+                                  )}
+                                </button>
+                              )}
                             </td>
-                            <td className="py-3 px-4 text-right">
+                            <td className="px-4 py-3 text-right text-ink">
                               <button
                                 type="button"
                                 data-testid="delete-user-btn"
@@ -433,11 +685,7 @@ export default function AdminManagementPage() {
                                       ? 'ไม่สามารถลบ Admin คนสุดท้ายได้'
                                       : 'ลบผู้ใช้'
                                 }
-                                className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
-                                  protectedUser
-                                    ? 'opacity-40 cursor-not-allowed bg-slate-100 border-slate-200 text-slate-400'
-                                    : 'text-slate-400 hover:text-rose-600 bg-white border-slate-200 hover:border-rose-200 hover:bg-rose-50'
-                                }`}
+                                className="btn btn-ghost btn-icon-sm admin-delete-btn"
                               >
                                 <Trash size={15} />
                               </button>
@@ -457,21 +705,21 @@ export default function AdminManagementPage() {
         {/* TAB 2: Building Data Deletion */}
         {/* =================================================================== */}
         {activeTab === 'building' && (
-          <div className="space-y-6">
+          <div className="animate-gooey-content-swap space-y-6">
             <div>
-              <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                <Trash size={22} className="text-rose-600" />
+              <h2 className="font-display text-h3 font-bold text-ink flex items-center gap-2">
+                <Trash size={22} className="text-ink" />
                 ลบข้อมูลห้องและตารางเรียน
               </h2>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p className="mt-1 text-button text-ink-2">
                 สิทธิ์ระดับ Admin สามารถลบห้อง (Cascade delete ตารางเรียน) และลบตารางเรียนรายวิชาได้
               </p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* Room list column */}
-              <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3 shadow-2xs">
-                <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              <div className="card p-5 sm:p-6 space-y-3">
+                <h3 className="text-xs font-medium uppercase text-ink-2">
                   เลือกห้องที่ต้องการจัดการ ({rooms.length})
                 </h3>
                 <div className="space-y-1.5 max-h-[500px] overflow-y-auto pr-1">
@@ -479,17 +727,17 @@ export default function AdminManagementPage() {
                     <button
                       key={r.id}
                       onClick={() => setSelectedRoomId(r.id)}
-                      className={`w-full text-left p-2.5 rounded-xl border transition-colors flex items-center justify-between text-xs cursor-pointer ${
+                      className={`w-full text-left p-3 rounded-none border transition-colors flex items-center justify-between gap-2 text-button cursor-pointer ${
                         selectedRoomId === r.id
-                          ? 'bg-rose-50 border-rose-200 text-rose-900 shadow-2xs'
-                          : 'bg-slate-50/80 border-slate-200/80 text-slate-700 hover:bg-slate-100'
+                          ? 'border-ink bg-surface-2 text-ink'
+                          : 'border-line-soft bg-white text-ink-2 hover:bg-surface-2'
                       }`}
                     >
-                      <div>
-                        <span className={`font-bold ${selectedRoomId === r.id ? 'text-rose-900' : 'text-slate-900'}`}>ห้อง {r.roomNumber || r.code}</span>
-                        <div className={`text-[11px] ${selectedRoomId === r.id ? 'text-rose-600' : 'text-slate-500'}`}>{r.nameThai}</div>
+                      <div className="min-w-0">
+                        <span className="font-bold text-ink">ห้อง {r.roomNumber || r.code}</span>
+                        <div className="text-xs text-ink-3">{r.nameThai}</div>
                       </div>
-                      <span className={`text-[10px] px-2 py-0.5 rounded-md ${selectedRoomId === r.id ? 'bg-rose-100 text-rose-700' : 'bg-slate-200/60 text-slate-600'}`}>
+                      <span className="chip shrink-0">
                         ชั้น {r.floor}
                       </span>
                     </button>
@@ -498,15 +746,15 @@ export default function AdminManagementPage() {
               </div>
 
               {/* Room details & delete actions column */}
-              <div className="md:col-span-2 rounded-2xl border border-slate-200 bg-white p-5 space-y-5 shadow-2xs">
+              <div className="md:col-span-2 card p-5 sm:p-6 space-y-5">
                 {selectedRoom ? (
                   <>
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-line-soft pb-4">
                       <div>
-                        <h3 className="text-lg font-bold text-slate-900">
+                        <h3 className="text-h3-sm font-bold text-ink">
                           ห้อง {selectedRoom.roomNumber || selectedRoom.code} ({selectedRoom.nameThai})
                         </h3>
-                        <p className="text-xs text-slate-500">
+                        <p className="text-xs text-ink-3">
                           รหัสห้อง: {selectedRoom.code} • ชั้น {selectedRoom.floor} อาคาร {selectedRoom.building}
                         </p>
                       </div>
@@ -515,7 +763,7 @@ export default function AdminManagementPage() {
                         type="button"
                         disabled={roomActionLoading}
                         onClick={() => handleDeleteRoom(selectedRoom.id)}
-                        className="inline-flex items-center gap-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold px-4 py-2 transition-colors cursor-pointer self-start sm:self-auto disabled:opacity-50 shadow-xs"
+                        className="btn btn-secondary gooey-fluid-btn self-start sm:self-auto"
                       >
                         <Trash size={15} />
                         <span>ลบห้องนี้ (Cascade Delete)</span>
@@ -524,13 +772,13 @@ export default function AdminManagementPage() {
 
                     {/* Schedule slots list */}
                     <div className="space-y-3">
-                      <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                        <Calendar size={15} className="text-rose-600" />
+                      <h4 className="flex items-center gap-1.5 text-xs font-medium uppercase text-ink-2">
+                        <Calendar size={15} className="text-ink" />
                         ตารางเรียนในห้องนี้ ({roomSchedules.length})
                       </h4>
 
                       {roomSchedules.length === 0 ? (
-                        <p className="text-xs text-slate-400 italic">ไม่มีตารางเรียนในห้องนี้</p>
+                        <p className="text-button text-ink-3 italic">ไม่มีตารางเรียนในห้องนี้</p>
                       ) : (
                         <div className="space-y-2">
                           {roomSchedules.map((slot) => {
@@ -538,13 +786,13 @@ export default function AdminManagementPage() {
                             return (
                               <div
                                 key={slotKey}
-                                className="flex items-center justify-between p-3 rounded-xl border border-slate-200 bg-slate-50/70 text-xs"
+                                className="card flex items-center justify-between gap-3 p-3 text-button"
                               >
-                                <div>
-                                  <div className="font-semibold text-slate-900">
+                                <div className="min-w-0">
+                                  <div className="font-medium text-ink">
                                     {slot.eventCode} - {slot.eventName || 'ไม่ระบุวิชา'}
                                   </div>
-                                  <div className="text-[11px] text-slate-500 flex items-center gap-2 mt-0.5">
+                                  <div className="mt-0.5 flex items-center gap-2 text-xs text-ink-3">
                                     <span>วัน{slot.dayOfWeek}</span>
                                     <span>
                                       {slot.startTime} - {slot.endTime || 'ไม่ระบุ'}
@@ -556,7 +804,7 @@ export default function AdminManagementPage() {
                                   type="button"
                                   disabled={roomActionLoading}
                                   onClick={() => handleDeleteSchedule(selectedRoom.code, slotKey)}
-                                  className="text-xs text-rose-600 hover:text-rose-700 bg-rose-50 border border-rose-200 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                                  className="btn btn-secondary btn-sm gooey-fluid-btn shrink-0"
                                 >
                                   <Trash size={14} />
                                   <span>ลบตาราง</span>
@@ -569,9 +817,9 @@ export default function AdminManagementPage() {
                     </div>
                   </>
                 ) : (
-                  <div className="h-64 flex flex-col items-center justify-center text-center text-slate-400">
-                    <Door size={40} className="mb-2 opacity-50" />
-                    <p className="text-sm">กรุณาเลือกห้องจากรายการด้านซ้ายเพื่อจัดการข้อมูล</p>
+                  <div className="h-64 flex flex-col items-center justify-center text-center text-ink-3">
+                    <Door size={40} className="mb-2" />
+                    <p className="text-button">กรุณาเลือกห้องจากรายการด้านซ้ายเพื่อจัดการข้อมูล</p>
                   </div>
                 )}
               </div>
@@ -584,31 +832,31 @@ export default function AdminManagementPage() {
       {/* MODAL: Add User Form */}
       {/* ===================================================================== */}
       {isAddUserOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-white border border-slate-200 rounded-3xl p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <UserPlus size={18} className="text-rose-600" />
+        <div className="modal-overlay flex items-center justify-center p-4">
+          <div className="modal animate-gooey-menu-up w-full max-w-[500px] p-6 sm:p-8 space-y-4">
+            <div className="flex items-center justify-between border-b border-line-soft pb-3">
+              <h3 className="text-h3-sm font-bold text-ink flex items-center gap-2">
+                <UserPlus size={18} className="text-ink" />
                 เพิ่มผู้ใช้ใหม่ (Add User)
               </h3>
               <button
                 onClick={() => setIsAddUserOpen(false)}
-                className="text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                className="btn btn-ghost btn-icon-sm"
               >
                 <X size={18} />
               </button>
             </div>
 
             {addError && (
-              <div className="rounded-xl bg-rose-50 border border-rose-200 p-3 text-xs text-rose-800 flex items-center gap-2">
-                <Warning size={16} className="shrink-0 text-rose-600" />
+              <div className="card flex items-center gap-2 border-ink p-3 text-button text-ink">
+                <Warning size={16} className="shrink-0 text-ink" />
                 <span>{addError}</span>
               </div>
             )}
 
             <form onSubmit={handleCreateUser} className="space-y-4">
               <div>
-                <label htmlFor="newUserEmail" className="block text-xs font-semibold text-slate-700 mb-1">
+                <label htmlFor="newUserEmail" className="label">
                   อีเมลผู้ใช้
                 </label>
                 <input
@@ -618,12 +866,12 @@ export default function AdminManagementPage() {
                   value={newEmail}
                   onChange={(e) => setNewEmail(e.target.value)}
                   placeholder="user@torch.dev"
-                  className="w-full rounded-xl bg-slate-50 border border-slate-200 px-3.5 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-500/30 focus:bg-white transition-all"
+                  className="input-boxed"
                 />
               </div>
 
               <div>
-                <label htmlFor="newUserPassword" className="block text-xs font-semibold text-slate-700 mb-1">
+                <label htmlFor="newUserPassword" className="label">
                   รหัสผ่านเริ่มต้น
                 </label>
                 <input
@@ -633,22 +881,22 @@ export default function AdminManagementPage() {
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full rounded-xl bg-slate-50 border border-slate-200 px-3.5 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-500/30 focus:bg-white transition-all"
+                  className="input-boxed"
                 />
-                <p className="text-[11px] text-slate-500 mt-1">
+                <p className="mt-1 text-xs text-ink-3">
                   * ผู้ใช้จะถูกบังคับให้เปลี่ยนรหัสผ่านเมื่อเข้าสู่ระบบครั้งแรก (FORCE_CHANGE_PASSWORD)
                 </p>
               </div>
 
               <div>
-                <label htmlFor="newUserRole" className="block text-xs font-semibold text-slate-700 mb-1">
+                <label htmlFor="newUserRole" className="label">
                   สิทธิ์ (Role)
                 </label>
                 <select
                   id="newUserRole"
                   value={newRole}
                   onChange={(e) => setNewRole(e.target.value as UserRole)}
-                  className="w-full rounded-xl bg-slate-50 border border-slate-200 px-3.5 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-rose-500/30 focus:bg-white cursor-pointer transition-all"
+                  className="input-boxed cursor-pointer"
                 >
                   <option value="admin">Admin (ผู้ดูแลระบบทั้งหมด)</option>
                   <option value="staff">Staff (เจ้าหน้าที่แก้ไขห้อง/ตาราง)</option>
@@ -656,18 +904,18 @@ export default function AdminManagementPage() {
                 </select>
               </div>
 
-              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+              <div className="flex justify-end gap-2 border-t border-line-soft pt-2">
                 <button
                   type="button"
                   onClick={() => setIsAddUserOpen(false)}
-                  className="rounded-xl border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 px-4 py-2 text-xs font-medium cursor-pointer transition-colors"
+                  className="btn btn-secondary gooey-fluid-btn"
                 >
                   ยกเลิก
                 </button>
                 <button
                   type="submit"
                   disabled={addLoading}
-                  className="rounded-xl bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 text-xs font-medium cursor-pointer disabled:opacity-50 shadow-xs transition-colors"
+                  className="btn btn-primary gooey-fluid-btn"
                 >
                   {addLoading ? 'กำลังสร้าง...' : 'สร้างผู้ใช้'}
                 </button>
@@ -681,18 +929,18 @@ export default function AdminManagementPage() {
       {/* MODAL: Confirm Delete User */}
       {/* ===================================================================== */}
       {userToDelete && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="w-full max-w-sm bg-white border border-rose-200 rounded-3xl p-6 shadow-2xl space-y-4 text-center">
-            <div className="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-200 mx-auto flex items-center justify-center text-rose-600">
+        <div className="modal-overlay flex items-center justify-center p-4">
+          <div className="modal animate-gooey-menu-up w-full max-w-[500px] p-6 sm:p-8 space-y-4 text-center">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-tertiary text-ink">
               <Trash size={24} weight="duotone" />
             </div>
 
             <div>
-              <h3 className="text-base font-bold text-slate-900">ยืนยันการลบบัญชีผู้ใช้</h3>
-              <p className="text-xs text-slate-600 mt-1">
-                คุณแน่ใจหรือไม่ว่าต้องการลบบัญชี <span className="font-semibold text-rose-600">{userToDelete.email}</span>?
+              <h3 className="text-h3-sm font-bold text-ink">ยืนยันการลบบัญชีผู้ใช้</h3>
+              <p className="mt-1 text-button text-ink-2">
+                คุณแน่ใจหรือไม่ว่าต้องการลบบัญชี <span className="font-bold text-ink">{userToDelete.email}</span>?
               </p>
-              <p className="text-[11px] text-slate-400 mt-1">
+              <p className="mt-1 text-xs text-ink-3">
                 การลบนี้จะลบบัญชีผู้ใช้ออกจาก AWS Cognito ทันทีและไม่สามารถกู้คืนได้
               </p>
             </div>
@@ -701,7 +949,7 @@ export default function AdminManagementPage() {
               <button
                 type="button"
                 onClick={() => setUserToDelete(null)}
-                className="rounded-xl border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 px-4 py-2 text-xs font-medium cursor-pointer transition-colors"
+                className="btn btn-secondary gooey-fluid-btn"
               >
                 ยกเลิก
               </button>
@@ -709,7 +957,7 @@ export default function AdminManagementPage() {
                 type="button"
                 disabled={deleteLoading}
                 onClick={handleConfirmDeleteUser}
-                className="rounded-xl bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 text-xs font-medium cursor-pointer disabled:opacity-50 shadow-xs transition-colors"
+                className="btn btn-primary gooey-fluid-btn"
               >
                 {deleteLoading ? 'กำลังลบ...' : 'ยืนยันการลบ'}
               </button>

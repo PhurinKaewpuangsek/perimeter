@@ -152,21 +152,23 @@ export default function MyScheduleDrawer() {
         data-testid="my-schedule-placeholder"
         aria-label="My Schedule"
         title="My Schedule"
-        className="inline-flex h-8 items-center gap-1.5 rounded-full px-2 sm:px-3 text-xs font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900 active:bg-slate-200/70 transition-colors cursor-pointer shrink-0 select-none"
+        className={`btn btn-nav gooey-fluid-btn shrink-0 ${
+          isDrawerOpen ? 'animate-gooey-trigger-open bg-ink-2' : ''
+        }`}
       >
-        <Calendar size={15} weight="bold" className="text-slate-500" />
+        <Calendar size={16} weight="bold" />
         <span className="hidden sm:inline">My Schedule</span>
         {pins.length > 0 && (
           <span
             data-testid="pins-count-badge"
-            className="flex h-4 min-w-4 items-center justify-center rounded-full bg-slate-900 px-1 text-[10px] font-bold text-white leading-none"
+            className="animate-gooey-badge-pop flex h-5 min-w-5 items-center justify-center rounded-full bg-white px-1 text-xs leading-none font-bold text-ink"
           >
             {pins.length}
           </span>
         )}
       </button>
 
-      {/* Drawer Overlay & Panel (Teleported to document.body to escape header containing block) */}
+      {/* Drawer Overlay & Panel (Constrained below the 64px top navbar so the header stays crisp and unobstructed) */}
       {isDrawerOpen &&
         typeof document !== 'undefined' &&
         createPortal(
@@ -174,28 +176,38 @@ export default function MyScheduleDrawer() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="my-schedule-title"
-            className="fixed inset-0 z-50 flex justify-end"
+            className="fixed inset-x-0 top-16 bottom-0 z-95 flex justify-end overflow-hidden"
           >
             {/* Backdrop */}
             <div
               data-testid="drawer-backdrop"
               onClick={() => setIsDrawerOpen(false)}
-              className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs transition-opacity"
+              className="animate-fade-in absolute inset-0 bg-black/50"
             />
 
-            {/* Slide-out Sheet */}
-            <div className="relative z-10 flex h-full w-full max-w-md flex-col bg-white shadow-2xl animate-in slide-in-from-right duration-200">
+            {/* Slide-out Sheet with Single Dynamic Quadratic Bezier Liquid Curtain */}
+            <div className="gooey-drawer-sheet animate-gooey-pane-in relative z-10 flex h-full w-full max-w-md flex-col bg-white">
+              {/* Single dynamic quadratic Bezier curtain that pulls left during slide-in and spring-settles to a flat 0px vertical edge */}
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 56 1000"
+                preserveAspectRatio="none"
+                className="gooey-drawer-curtain"
+              >
+                <path d="M 56 0 Q 2 280 56 1000 Z" fill="#ffffff" />
+              </svg>
+
               {/* Header */}
-              <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4 shrink-0">
+              <div className="animate-gooey-item-1 relative z-10 flex shrink-0 items-center justify-between border-b border-line-soft px-5 py-4">
                 <div className="flex items-center gap-2">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-tertiary text-ink">
                     <Calendar size={18} weight="bold" />
                   </div>
                   <div>
-                    <h2 id="my-schedule-title" className="text-sm font-bold text-slate-900">
+                    <h2 id="my-schedule-title" className="font-display text-h3-sm font-bold text-ink">
                       My Schedule
                     </h2>
-                    <p className="text-[11px] text-slate-500">ตารางเรียนและตารางสอบของฉัน ({pins.length})</p>
+                    <p className="text-xs text-ink-3">ตารางเรียนและตารางสอบของฉัน ({pins.length})</p>
                   </div>
                 </div>
                 <button
@@ -203,7 +215,7 @@ export default function MyScheduleDrawer() {
                   onClick={() => setIsDrawerOpen(false)}
                   data-testid="close-my-schedule-drawer"
                   aria-label="ปิด"
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors cursor-pointer"
+                  className="btn btn-ghost btn-icon-sm gooey-fluid-btn"
                 >
                   <X size={18} weight="bold" />
                 </button>
@@ -211,8 +223,8 @@ export default function MyScheduleDrawer() {
 
               {/* Export Toolbar */}
               {/* Always rendered: sync stays usable with zero pins (removing the last pin must still be syncable). */}
-              <div className="border-b border-slate-100 bg-slate-50/70 px-5 py-3 space-y-2 shrink-0">
-                <span className="block text-xs text-slate-600 font-medium">
+              <div className="surface animate-gooey-item-2 relative z-10 shrink-0 space-y-2 px-5 py-4">
+                <span className="block text-xs font-medium text-ink-2">
                   ส่งออกไปยังแอปปฏิทิน
                 </span>
                 {/* Fixed two-column grid with constant labels so buttons never reflow while syncing or when pins change. */}
@@ -224,7 +236,7 @@ export default function MyScheduleDrawer() {
                       disabled={!gisReady || syncing || loading || Boolean(error)}
                       data-testid="sync-google-button"
                       title="เพิ่ม/อัปเดตตารางทั้งหมดลง Google Calendar และลบรายการที่นำออกจากตารางแล้ว"
-                      className="inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs font-semibold text-slate-800 shadow-xs hover:bg-slate-50 active:bg-slate-100 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="btn btn-secondary btn-sm gooey-fluid-btn w-full"
                     >
                       {syncing ? (
                         <CircleNotch size={14} weight="bold" className="animate-spin" />
@@ -239,7 +251,7 @@ export default function MyScheduleDrawer() {
                     onClick={handleExportIcs}
                     disabled={pins.length === 0}
                     data-testid="export-ics-button"
-                    className="col-start-2 inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-slate-900 px-2 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-slate-800 active:bg-slate-950 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="btn btn-primary btn-sm gooey-fluid-btn col-start-2 w-full"
                   >
                     <DownloadSimple size={14} weight="bold" />
                     <span>ดาวน์โหลด (.ics)</span>
@@ -252,17 +264,11 @@ export default function MyScheduleDrawer() {
                 <div
                   role={syncResult.kind === 'error' ? 'alert' : 'status'}
                   data-testid="sync-google-result"
-                  className={`mx-5 mt-3 flex items-start gap-2 rounded-xl border p-3 text-xs shrink-0 ${
-                    syncResult.kind === 'error'
-                      ? 'border-rose-200 bg-rose-50 text-rose-800'
-                      : 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                  className={`card mx-5 mt-3 flex items-start gap-2 p-3 text-xs text-ink shrink-0 ${
+                    syncResult.kind === 'error' ? 'border-ink' : ''
                   }`}
                 >
-                  <WarningCircle
-                    size={16}
-                    weight="fill"
-                    className={`shrink-0 mt-0.5 ${syncResult.kind === 'error' ? 'text-rose-600' : 'text-emerald-600'}`}
-                  />
+                  <WarningCircle size={16} weight="fill" className="shrink-0 mt-0.5 text-ink" />
                   <p className="leading-relaxed">{syncResult.message}</p>
                 </div>
               )}
@@ -271,32 +277,32 @@ export default function MyScheduleDrawer() {
               {skippedNotice && (
                 <div
                   role="status"
-                  className="mx-5 mt-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 shrink-0"
+                  className="card mx-5 mt-3 flex items-start gap-2 p-3 text-xs text-ink shrink-0"
                 >
-                  <WarningCircle size={16} weight="fill" className="shrink-0 text-amber-600 mt-0.5" />
+                  <WarningCircle size={16} weight="fill" className="shrink-0 text-ink mt-0.5" />
                   <div className="space-y-1">
-                    <p className="font-semibold">ข้อควรทราบการส่งออก</p>
-                    <p className="text-[11px] leading-relaxed text-amber-800">{skippedNotice}</p>
+                    <p className="font-bold">ข้อควรทราบการส่งออก</p>
+                    <p className="text-xs leading-relaxed text-ink-2">{skippedNotice}</p>
                   </div>
                 </div>
               )}
 
               {/* Body: List of Pins */}
-              <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3 min-h-0">
+              <div className="animate-gooey-item-3 relative z-10 min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-4">
                 {removeError && (
                   <div
                     role="alert"
-                    className="flex items-center justify-between gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-medium text-rose-800 shrink-0"
+                    className="card flex items-center justify-between gap-2 border-ink p-3 text-xs font-medium text-ink shrink-0"
                   >
                     <div className="flex items-center gap-2">
-                      <WarningCircle size={16} weight="fill" className="text-rose-600 shrink-0" />
+                      <WarningCircle size={16} weight="fill" className="text-ink shrink-0" />
                       <span>{removeError}</span>
                     </div>
                     <button
                       type="button"
                       onClick={() => setRemoveError(null)}
                       aria-label="ปิดข้อความแจ้งเตือน"
-                      className="text-rose-500 hover:text-rose-700 p-0.5 cursor-pointer"
+                      className="btn btn-ghost btn-icon-sm"
                     >
                       <X size={14} weight="bold" />
                     </button>
@@ -305,14 +311,14 @@ export default function MyScheduleDrawer() {
 
               {pins.length === 0 ? (
                 <div className="flex h-full flex-col items-center justify-center text-center p-6 space-y-3">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-tertiary text-ink-3">
                     <Calendar size={24} weight="duotone" />
                   </div>
                   <div className="space-y-1 max-w-xs">
-                    <p className="text-sm font-bold text-slate-700">
+                    <p className="text-button font-bold text-ink">
                       ยังไม่มีตารางใน My Schedule
                     </p>
-                    <p className="text-xs text-slate-500 leading-relaxed">
+                    <p className="text-xs text-ink-3 leading-relaxed">
                       เลือกห้องเรียนบนแผนที่ แล้วคลิกปุ่มบันทึก (Bookmark) ที่ช่องตารางเพื่อเพิ่มลงในปฏิทินส่วนตัว
                     </p>
                   </div>
@@ -328,19 +334,17 @@ export default function MyScheduleDrawer() {
                     <div
                       key={pin.pinKey || `${pin.roomCode}#${pin.scheduleSlot}`}
                       data-testid={`pinned-item-${pin.roomCode}-${pin.scheduleSlot}`}
-                      className="rounded-2xl border border-slate-200/90 bg-white p-3.5 shadow-2xs hover:border-slate-300 hover:shadow-xs transition-all space-y-2.5"
+                      className="card card-hover p-4 space-y-2.5"
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="space-y-0.5">
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="font-mono text-xs font-bold text-slate-900">
+                            <span className="font-mono text-xs font-bold text-ink">
                               {pin.eventCode || '-'}
                             </span>
                             <span
-                              className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold ${
-                                isExam
-                                  ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                                  : 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                              className={`chip ${
+                                isExam ? 'border-line bg-tertiary text-ink' : 'border-accent text-accent'
                               }`}
                             >
                               {isExam ? (
@@ -351,13 +355,13 @@ export default function MyScheduleDrawer() {
                               <span>{isExam ? 'สอบ' : 'เรียน'}</span>
                             </span>
                             {pin.dayOfWeek && (
-                              <span className="inline-flex items-center rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-600">
+                              <span className="chip">
                                 {pin.dayOfWeek}
                               </span>
                             )}
                           </div>
                           {pin.eventName && (
-                            <p className="text-xs font-medium text-slate-600 line-clamp-1">
+                            <p className="text-xs font-medium text-ink-2 line-clamp-1">
                               {pin.eventName}
                             </p>
                           )}
@@ -371,14 +375,14 @@ export default function MyScheduleDrawer() {
                           data-testid={`remove-pin-${pin.roomCode}-${pin.scheduleSlot}`}
                           aria-label={`นำ ${pin.eventCode} ออกจากตาราง`}
                           title="นำออกจากตารางของฉัน"
-                          className={`flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors shrink-0 ${
+                          className={`btn btn-ghost btn-icon-sm ${
                             isDeleting || Boolean(deletingKey)
                               ? 'opacity-50 cursor-not-allowed'
                               : 'cursor-pointer'
                           }`}
                         >
                           {isDeleting ? (
-                            <CircleNotch size={14} weight="bold" className="animate-spin text-rose-500" />
+                            <CircleNotch size={14} weight="bold" className="animate-spin" />
                           ) : (
                             <Trash size={14} weight="bold" />
                           )}
@@ -386,29 +390,29 @@ export default function MyScheduleDrawer() {
                       </div>
 
                       {/* Room & Time information */}
-                      <div className="flex items-center gap-3 text-[11px] text-slate-600 font-medium">
-                        <span className="inline-flex items-center gap-1 text-slate-700 font-semibold">
-                          <MapPin size={12} weight="bold" className="text-slate-400" />
+                      <div className="flex items-center gap-3 text-xs font-medium text-ink-2">
+                        <span className="inline-flex items-center gap-1 font-medium text-ink">
+                          <MapPin size={12} weight="bold" className="text-ink-3" />
                           ห้อง {pin.roomCode}
                         </span>
                         <span className="inline-flex items-center gap-1">
-                          <Clock size={12} weight="bold" className="text-slate-400" />
+                          <Clock size={12} weight="bold" className="text-ink-3" />
                           {pin.startTime} - {pin.endTime}
                         </span>
                       </div>
 
                       {/* Real date for exam or Google Calendar action */}
-                      <div className="pt-1.5 border-t border-slate-100 flex items-center justify-between gap-2">
+                      <div className="pt-1.5 border-t border-line-soft flex items-center justify-between gap-2">
                         {isExam && pin.eventDate ? (
-                          <span className="text-[10px] text-rose-700 font-semibold bg-rose-50 border border-rose-200/80 rounded px-1.5 py-0.5">
+                          <span className="chip border-line bg-tertiary text-ink">
                             วันสอบ: {pin.eventDate}
                           </span>
                         ) : isExam ? (
-                          <span className="text-[10px] text-slate-400 italic">
+                          <span className="text-xs text-ink-3">
                             (ยังไม่ประกาศวันสอบจริง)
                           </span>
                         ) : (
-                          <span className="text-[10px] text-slate-400">
+                          <span className="text-xs text-ink-3">
                             ประจำทุกสัปดาห์
                           </span>
                         )}
@@ -419,13 +423,13 @@ export default function MyScheduleDrawer() {
                             target="_blank"
                             rel="noopener noreferrer"
                             data-testid={`gcal-link-${pin.roomCode}-${pin.scheduleSlot}`}
-                            className="inline-flex items-center gap-1 text-[11px] font-semibold text-sky-600 hover:text-sky-700 hover:underline"
+                            className="link inline-flex items-center gap-1 text-xs"
                           >
                             <span>Google Calendar</span>
                             <ArrowSquareOut size={12} weight="bold" />
                           </a>
                         ) : (
-                          <span className="text-[10px] text-slate-400" title="ต้องมีวันสอบจริงเพื่อเพิ่มลง Google Calendar">
+                          <span className="text-xs text-ink-3" title="ต้องมีวันสอบจริงเพื่อเพิ่มลง Google Calendar">
                             รอประกาศวันสอบ
                           </span>
                         )}

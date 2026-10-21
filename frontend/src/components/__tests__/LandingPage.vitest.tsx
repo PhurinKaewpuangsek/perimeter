@@ -53,10 +53,10 @@ describe('LandingPage', () => {
     const signInButtons = screen.getAllByRole('button', { name: /เข้าสู่ระบบ|Sign in/i })
     expect(signInButtons.length).toBeGreaterThanOrEqual(1)
 
-    // Desktop Sign in button has dark tone styling
+    // Desktop Sign in button is the black primary pill (DesignMD primary button)
     const desktopSignIn = signInButtons[0]
-    expect(desktopSignIn.className).toContain('bg-slate-900')
-    expect(desktopSignIn.className).toContain('text-white')
+    expect(desktopSignIn.className).toContain('btn-primary')
+    expect(desktopSignIn.className).toContain('btn')
 
     // Clicking Sign in navigates to /login
     fireEvent.click(desktopSignIn)

@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
+import type { ReactNode } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import {
-  CaretLeft,
   SignIn,
   MapTrifold,
   SquaresFour,
@@ -12,7 +12,7 @@ import {
   Check,
   ArrowRight,
 } from '@phosphor-icons/react'
-import perimeterLogoNoBg from '../assets/perimeter_logo_negative_nobg.png'
+import perimeterLogoDarkNoBg from '../assets/perimeter_logo_negative_dark_nobg.png'
 import AccountMenu from './AccountMenu'
 import MyScheduleDrawer from './MyScheduleDrawer'
 import { FLOOR_CONFIGS } from './map/floorConfig'
@@ -30,14 +30,75 @@ export interface TopBarProps {
   onToggleMapView?: () => void
 }
 
+/** Height of the fixed top bar in px. Pages offset their content with `top-16` / `pt-16`. */
+export const TOP_BAR_HEIGHT = 64
+
+interface WorkspaceLinkProps {
+  to: string
+  ariaLabel: string
+  icon: ReactNode
+  title: string
+  description: string
+  active: boolean
+  animClass?: string
+  onNavigate: () => void
+}
+
+function WorkspaceLink({
+  to,
+  ariaLabel,
+  icon,
+  title,
+  description,
+  active,
+  animClass = '',
+  onNavigate,
+}: WorkspaceLinkProps) {
+  return (
+    <Link
+      to={to}
+      aria-label={ariaLabel}
+      onClick={onNavigate}
+      className={`group flex items-center justify-between gap-3 p-2.5 transition-colors duration-200 ${animClass} ${
+        active ? 'bg-surface-2' : 'hover:bg-surface-2'
+      }`}
+    >
+      <div className="flex min-w-0 items-center gap-3">
+        <div
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-all duration-300 ${
+            active
+              ? 'bg-ink text-white'
+              : 'bg-tertiary text-ink group-hover:scale-110 group-hover:bg-ink group-hover:text-white'
+          }`}
+        >
+          {icon}
+        </div>
+        <div className="min-w-0">
+          <div className="truncate text-button font-medium text-ink">{title}</div>
+          <p className="mt-0.5 truncate text-xs text-ink-3">{description}</p>
+        </div>
+      </div>
+      {active ? (
+        <Check size={14} weight="bold" className="mr-0.5 shrink-0 text-ink" />
+      ) : (
+        <ArrowRight
+          size={14}
+          weight="bold"
+          className="mr-0.5 shrink-0 -translate-x-1 text-ink-3 opacity-0 transition-all duration-150 group-hover:translate-x-0 group-hover:text-ink group-hover:opacity-100"
+        />
+      )}
+    </Link>
+  )
+}
+
 /**
- * TopBar — Figma UI3-inspired Spatial Navigation System (Clean Frosted-White Theme)
- * Shared across /map, /staff, and /admin.
+ * TopBar — fixed 64px black navigation bar (DesignMD "Top Navigation Bar") shared by
+ * /map, /staff and /admin, plus the desktop bottom-centre dock for map controls.
  *
- * Zones:
- * 1. Top-Left Brand Header: Docks flush as the top header of the Left Sidebar (or floats as a compact pill when collapsed / on /admin).
- * 2. Top-Right Corner Cluster: Sleek h-10 pill for "My Schedule" and AccountMenu / Sign In with 1px divider (no nested pill borders).
- * 3. Bottom-Center Unified Dock: Mode switcher (Map / Consoles) + Floor switcher + 2D/3D toggle centered over the visible map canvas.
+ * - Left: back-to-home brand lockup, console title, sidebar toggle.
+ * - Right: My Schedule link and the account menu / sign-in button.
+ * - Bottom-centre dock (>= sm): workspace switcher (staff/admin), floor switcher, 2D/3D toggle,
+ *   centred over the visible map canvas (offset by the sidebar width when it is open).
  */
 export default function TopBar({
   className = '',
@@ -57,21 +118,11 @@ export default function TopBar({
   const role = getUserRole(session)
   const isStaffOrAdmin = role === 'staff' || role === 'admin'
 
-  const activeWorkspace =
-    pathname === '/admin'
-      ? {
-          label: 'Admin Console',
-          icon: <Shield size={14} weight="fill" className="text-rose-400" />,
-        }
-      : pathname === '/staff'
-        ? {
-            label: 'Staff Console',
-            icon: <SquaresFour size={14} weight="fill" className="text-amber-400" />,
-          }
-        : {
-            label: 'แผนที่ LC3',
-            icon: <Compass size={14} weight="fill" className="text-sky-400" />,
-          }
+  const workspaceLabel =
+    pathname === '/admin' ? 'Admin Console' : pathname === '/staff' ? 'Staff Console' : 'แผนที่ LC3'
+  const WorkspaceIcon = pathname === '/admin' ? Shield : pathname === '/staff' ? SquaresFour : Compass
+  const consoleTitle =
+    pathname === '/admin' ? 'Admin Console' : pathname === '/staff' ? 'จัดการข้อมูลอาคาร LC3' : null
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -108,277 +159,225 @@ export default function TopBar({
     }
   }, [session])
 
-  const isDockedSidebarHeader = Boolean(sidebarWidth && !isSidebarCollapsed)
   const dockCenterLeft =
     sidebarWidth && !isSidebarCollapsed ? `calc(50% + ${Math.round(sidebarWidth / 2)}px)` : '50%'
+  const hasFloorSwitcher = currentFloor !== undefined && Boolean(onFloorChange)
+  const hasViewToggle = mapView !== undefined && Boolean(onToggleMapView)
+  const showDock = isStaffOrAdmin || hasFloorSwitcher || hasViewToggle
+
+  function closeWorkspace() {
+    setIsWorkspaceOpen(false)
+  }
 
   return (
-    <header
-      data-testid="map-top-bar"
-      className={`pointer-events-none fixed inset-0 z-50 select-none ${className}`}
-    >
-      {/* =====================================================================
-          ZONE 1: TOP-LEFT BRAND HEADER (Docked flush to Left Sidebar or Compact Pill)
-          ===================================================================== */}
-      <div
-        style={isDockedSidebarHeader ? { width: `${sidebarWidth}px` } : undefined}
-        className={
-          isDockedSidebarHeader
-            ? 'pointer-events-auto absolute top-0 left-0 flex h-14 max-w-full items-center justify-between border-b border-r border-slate-200/90 bg-white px-3.5 sm:px-4 transition-all duration-300'
-            : 'pointer-events-auto absolute top-3 left-3 sm:left-4 flex h-10 items-center gap-2 rounded-full border border-slate-200/80 bg-white/95 px-2.5 sm:px-3.5 shadow-md backdrop-blur-xl transition-all duration-300'
-        }
+    <>
+      <header
+        data-testid="map-top-bar"
+        className={`fixed inset-x-0 top-0 z-100 h-16 bg-ink text-white select-none ${className}`}
       >
-        <div className="flex items-center gap-2 min-w-0">
-          <Link
-            to="/"
-            data-testid="back-to-home"
-            aria-label="กลับหน้าแรก"
-            title="กลับหน้าแรก"
-            className="flex items-center gap-1.5 group cursor-pointer shrink-0"
-          >
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 text-slate-500 group-hover:bg-slate-200 group-hover:text-slate-900 transition-colors">
-              <CaretLeft size={15} weight="bold" />
-            </div>
-            <img
-              src={perimeterLogoNoBg}
-              alt="Perimeter"
-              className="h-8 sm:h-10 w-auto object-contain drop-shadow-xs"
-            />
-          </Link>
-
-          {pathname === '/admin' ? (
-            <>
-              <div className="h-4 w-px bg-slate-200 shrink-0" />
-              <span className="truncate text-xs font-bold text-slate-800">Admin Console</span>
-            </>
-          ) : pathname === '/staff' ? (
-            <>
-              <div className="h-4 w-px bg-slate-200 shrink-0" />
-              <span className="truncate text-xs font-bold text-slate-800">จัดการข้อมูลอาคาร LC3</span>
-            </>
-          ) : null}
-        </div>
-
-        {onToggleSidebar && (
-          <button
-            type="button"
-            onClick={onToggleSidebar}
-            aria-label={isSidebarCollapsed ? 'ขยายแผงด้านซ้าย' : 'ซ่อนแผงด้านซ้าย'}
-            title={isSidebarCollapsed ? 'ขยายแผงด้านซ้าย' : 'ซ่อนแผงด้านซ้าย'}
-            className="hidden sm:flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-800 active:scale-95 transition-all cursor-pointer"
-          >
-            <SidebarSimple size={17} weight="bold" />
-          </button>
-        )}
-      </div>
-
-      {/* =====================================================================
-          ZONE 2: TOP-RIGHT CORNER CLUSTER (Sleek h-10 Pill, Zero Nested Borders)
-          ===================================================================== */}
-      <div className="pointer-events-auto absolute top-3 right-3 sm:right-5 flex h-10 items-center gap-1 rounded-full border border-slate-200/80 bg-white/95 px-1.5 shadow-md backdrop-blur-xl">
-        {/* My Schedule Drawer */}
-        <MyScheduleDrawer />
-
-        <div className="h-4 w-px bg-slate-200 shrink-0" />
-
-        {/* Account Menu (authenticated) or Login Entry (unauthenticated) */}
-        {session ? (
-          <AccountMenu />
-        ) : (
-          <Link
-            to="/login"
-            data-testid="login-link"
-            aria-label="เข้าสู่ระบบ"
-            title="เข้าสู่ระบบ"
-            className="inline-flex h-7 items-center gap-1.5 rounded-full bg-slate-900 px-2.5 sm:px-3 text-xs font-semibold text-white hover:bg-slate-800 active:bg-slate-950 transition-all cursor-pointer shrink-0"
-          >
-            <SignIn size={13} weight="bold" />
-            <span className="hidden sm:inline">เข้าสู่ระบบ</span>
-          </Link>
-        )}
-      </div>
-
-      {/* =====================================================================
-          ZONE 3: BOTTOM-CENTER UNIFIED FIGMA DOCK (Centered to Visible Map Canvas)
-          ===================================================================== */}
-      <nav
-        style={{ left: dockCenterLeft }}
-        className="pointer-events-auto hidden sm:flex absolute bottom-5 -translate-x-1/2 h-11 items-center gap-1 rounded-full border border-slate-200/90 bg-white/95 px-1.5 text-xs font-semibold shadow-xl backdrop-blur-xl transition-[left] duration-300 ease-in-out"
-      >
-        {/* Dynamic Workspace Switcher (Only visible for Staff / Admin) */}
-        {isStaffOrAdmin && (
-          <div className="relative" ref={workspaceRef}>
-            <button
-              type="button"
-              aria-label="สลับพื้นที่ทำงาน"
-              aria-expanded={isWorkspaceOpen}
-              data-testid="workspace-switcher-trigger"
-              onClick={() => setIsWorkspaceOpen((prev) => !prev)}
-              className={`inline-flex h-8 items-center gap-1.5 px-3 rounded-full text-xs font-semibold shadow-2xs transition-all cursor-pointer ${
-                isWorkspaceOpen
-                  ? 'bg-slate-200 text-slate-900'
-                  : 'bg-slate-100/90 text-slate-700 hover:bg-slate-200/80 hover:text-slate-900 active:bg-slate-200'
-              }`}
+        <div className="flex h-full items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
+          {/* Brand lockup + console title + sidebar toggle */}
+          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+            <Link
+              to="/"
+              data-testid="back-to-home"
+              aria-label="กลับหน้าแรก"
+              title="กลับหน้าแรก"
+              className="flex shrink-0 items-center"
             >
-              {activeWorkspace.icon}
-              <span>{activeWorkspace.label}</span>
-              <CaretUp
-                size={11}
-                weight="bold"
-                className={`transition-transform duration-200 ${isWorkspaceOpen ? 'rotate-180' : ''}`}
+              <img
+                src={perimeterLogoDarkNoBg}
+                alt="Perimeter"
+                className="h-12 w-auto object-contain transition-opacity hover:opacity-90"
               />
-            </button>
+            </Link>
 
-            {/* Upward Workspace Popover */}
-            {isWorkspaceOpen && (
-              <div className="absolute left-1/2 -translate-x-1/2 bottom-full pb-2.5 z-50 w-76 animate-in fade-in zoom-in-95 duration-100">
-                <div className="rounded-2xl border border-slate-200/90 bg-white p-1.5 shadow-2xl ring-1 ring-slate-900/5 space-y-1">
-                {/* Workspace 1: แผนที่ (Map View) */}
-                <Link
-                  to="/map"
-                  aria-label="ดูผังอาคาร LC3"
-                  onClick={() => setIsWorkspaceOpen(false)}
-                  className={`group flex items-center justify-between gap-3 rounded-xl p-2.5 transition-all ${
-                    pathname === '/map' ? 'bg-slate-100/80' : 'hover:bg-slate-100/80'
-                  }`}
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-sky-200/60 bg-sky-50 text-sky-600">
-                      <MapTrifold size={18} weight="fill" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-xs font-bold text-slate-900 truncate">
-                        แผนที่อาคารเรียนรวม 3
-                      </div>
-                      <p className="text-[11px] text-slate-500 mt-0.5 truncate">
-                        ค้นหาห้องเรียนและตารางเวลา
-                      </p>
-                    </div>
-                  </div>
-                  {pathname === '/map' ? (
-                    <Check size={14} weight="bold" className="text-slate-900 shrink-0 mr-0.5" />
-                  ) : (
-                    <ArrowRight
-                      size={14}
-                      weight="bold"
-                      className="text-slate-400 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 group-hover:text-slate-700 transition-all duration-150 shrink-0 mr-0.5"
-                    />
-                  )}
-                </Link>
+            {consoleTitle && (
+              <>
+                <span aria-hidden="true" className="hidden h-5 w-px bg-surface-3 sm:block" />
+                <span className="hidden truncate text-button font-medium text-secondary-active sm:inline">
+                  {consoleTitle}
+                </span>
+              </>
+            )}
 
-                {/* Workspace 2: Staff Console */}
-                <Link
-                  to="/staff"
-                  aria-label="แผงจัดการข้อมูล Staff"
-                  onClick={() => setIsWorkspaceOpen(false)}
-                  className={`group flex items-center justify-between gap-3 rounded-xl p-2.5 transition-all ${
-                    pathname === '/staff' ? 'bg-slate-100/80' : 'hover:bg-slate-100/80'
-                  }`}
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-amber-200/60 bg-amber-50 text-amber-600">
-                      <SquaresFour size={18} weight="fill" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-xs font-bold text-slate-900 truncate">Staff Console</div>
-                      <p className="text-[11px] text-slate-500 mt-0.5 truncate">
-                        จัดการห้องเรียนและพิกัดแผนที่
-                      </p>
-                    </div>
-                  </div>
-                  {pathname === '/staff' ? (
-                    <Check size={14} weight="bold" className="text-slate-900 shrink-0 mr-0.5" />
-                  ) : (
-                    <ArrowRight
-                      size={14}
-                      weight="bold"
-                      className="text-slate-400 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 group-hover:text-slate-700 transition-all duration-150 shrink-0 mr-0.5"
-                    />
-                  )}
-                </Link>
-
-                {/* Workspace 3: Admin Console (Admin Only) */}
-                {role === 'admin' && (
-                  <Link
-                    to="/admin"
-                    aria-label="แผงจัดการระบบ Admin"
-                    onClick={() => setIsWorkspaceOpen(false)}
-                    className={`group flex items-center justify-between gap-3 rounded-xl p-2.5 transition-all ${
-                      pathname === '/admin' ? 'bg-slate-100/80' : 'hover:bg-slate-100/80'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-rose-200/60 bg-rose-50 text-rose-600">
-                        <Shield size={18} weight="fill" />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="text-xs font-bold text-slate-900 truncate">
-                          Admin Console
-                        </div>
-                        <p className="text-[11px] text-slate-500 mt-0.5 truncate">
-                          จัดการบัญชีผู้ใช้และระบบ
-                        </p>
-                      </div>
-                    </div>
-                    {pathname === '/admin' ? (
-                      <Check size={14} weight="bold" className="text-slate-900 shrink-0 mr-0.5" />
-                    ) : (
-                      <ArrowRight
-                        size={14}
-                        weight="bold"
-                        className="text-slate-400 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 group-hover:text-slate-700 transition-all duration-150 shrink-0 mr-0.5"
-                      />
-                    )}
-                  </Link>
-                )}
-              </div>
-            </div>
+            {onToggleSidebar && (
+              <button
+                type="button"
+                onClick={onToggleSidebar}
+                aria-label={isSidebarCollapsed ? 'ขยายแผงด้านซ้าย' : 'ซ่อนแผงด้านซ้าย'}
+                title={isSidebarCollapsed ? 'ขยายแผงด้านซ้าย' : 'ซ่อนแผงด้านซ้าย'}
+                className="btn btn-nav btn-icon-sm hidden sm:inline-flex"
+              >
+                <SidebarSimple size={18} weight="bold" />
+              </button>
             )}
           </div>
-        )}
 
-        {/* Integrated Floor Switcher (1st Floor | 2nd Floor) when on Map / Staff */}
-        {currentFloor !== undefined && onFloorChange && (
-          <>
-            {isStaffOrAdmin && <div className="mx-1 h-4 w-px bg-slate-200 shrink-0" />}
-            <div role="group" aria-label="Floor switcher" className="flex items-center gap-0.5">
-              {FLOOR_CONFIGS.map((floor) => {
-                const isActive = floor.floor === currentFloor
-                return (
-                  <button
-                    key={floor.floor}
-                    type="button"
-                    aria-pressed={isActive}
-                    onClick={() => onFloorChange(floor.floor)}
-                    className={`h-8 rounded-full px-3 text-xs font-semibold transition-all cursor-pointer shrink-0 ${
-                      isActive
-                        ? 'bg-slate-900 text-white shadow-2xs'
-                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                    }`}
+          {/* My Schedule + account / sign in */}
+          <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+            <MyScheduleDrawer />
+            {session ? (
+              <AccountMenu />
+            ) : (
+              <Link
+                to="/login"
+                data-testid="login-link"
+                aria-label="เข้าสู่ระบบ"
+                title="เข้าสู่ระบบ"
+                className="btn btn-on-dark shrink-0"
+              >
+                <SignIn size={16} weight="bold" />
+                <span className="hidden sm:inline">เข้าสู่ระบบ</span>
+              </Link>
+            )}
+          </div>
+        </div>
+      </header>
+
+      {/* Bottom-centre dock (desktop only), centred over the visible map canvas */}
+      {showDock && (
+        <nav
+          aria-label="แถบควบคุมแผนที่"
+          style={{ left: dockCenterLeft }}
+          className="fixed bottom-5 z-100 hidden -translate-x-1/2 items-center gap-1 rounded-full border border-line-soft bg-white p-1 shadow-floating transition-[left] duration-300 ease-in-out select-none sm:flex"
+        >
+          {isStaffOrAdmin && (
+            <div className="relative" ref={workspaceRef}>
+              <button
+                type="button"
+                aria-label="สลับพื้นที่ทำงาน"
+                aria-expanded={isWorkspaceOpen}
+                data-testid="workspace-switcher-trigger"
+                onClick={() => setIsWorkspaceOpen((prev) => !prev)}
+                className={`btn btn-sm gooey-fluid-btn ${
+                  isWorkspaceOpen ? 'btn-primary animate-gooey-trigger-open' : 'btn-tertiary'
+                }`}
+              >
+                <WorkspaceIcon size={14} weight="fill" />
+                <span>{workspaceLabel}</span>
+                <CaretUp
+                  size={11}
+                  weight="bold"
+                  className={`transition-transform duration-300 ${isWorkspaceOpen ? 'rotate-180' : ''}`}
+                />
+              </button>
+
+              {isWorkspaceOpen && (
+                <div className="gooey-popover-wrapper absolute bottom-full left-1/2 z-101 mb-3 w-76 -translate-x-1/2">
+                  {/* Concave cubic-Bezier liquid bridge that stretches during transition and retracts cleanly */}
+                  <svg
+                    aria-hidden="true"
+                    viewBox="0 0 72 16"
+                    preserveAspectRatio="none"
+                    className="gooey-neck-up"
                   >
-                    {floor.label}
-                  </button>
-                )
-              })}
-            </div>
-          </>
-        )}
+                    <path
+                      d="M 0 0 C 16 0, 22 16, 36 16 C 50 16, 56 0, 72 0 Z"
+                      fill="#ffffff"
+                    />
+                  </svg>
 
-        {/* Integrated 2D / 3D View Toggle when on Map / Staff */}
-        {mapView !== undefined && onToggleMapView && (
-          <>
-            <div className="mx-1 h-4 w-px bg-slate-200 shrink-0" />
-            <button
-              type="button"
-              onClick={onToggleMapView}
-              className="h-8 rounded-full bg-slate-100/90 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-200/80 hover:text-slate-900 transition-colors cursor-pointer shrink-0"
-            >
-              {mapView === '3d' ? 'แผนที่ 2D' : 'แผนที่ 3D'}
-            </button>
-          </>
-        )}
-      </nav>
-    </header>
+                  <div className="gooey-popover-surface animate-gooey-menu-up divide-y divide-line-soft">
+                    <WorkspaceLink
+                      to="/map"
+                      ariaLabel="ดูผังอาคาร LC3"
+                      icon={<MapTrifold size={18} weight="fill" />}
+                      title="แผนที่อาคารเรียนรวม 3"
+                      description="ค้นหาห้องเรียนและตารางเวลา"
+                      active={pathname === '/map'}
+                      animClass="animate-gooey-item-1"
+                      onNavigate={closeWorkspace}
+                    />
+                    <WorkspaceLink
+                      to="/staff"
+                      ariaLabel="แผงจัดการข้อมูล Staff"
+                      icon={<SquaresFour size={18} weight="fill" />}
+                      title="Staff Console"
+                      description="จัดการห้องเรียนและพิกัดแผนที่"
+                      active={pathname === '/staff'}
+                      animClass="animate-gooey-item-2"
+                      onNavigate={closeWorkspace}
+                    />
+                    {role === 'admin' && (
+                      <WorkspaceLink
+                        to="/admin"
+                        ariaLabel="แผงจัดการระบบ Admin"
+                        icon={<Shield size={18} weight="fill" />}
+                        title="Admin Console"
+                        description="จัดการบัญชีผู้ใช้และระบบ"
+                        active={pathname === '/admin'}
+                        animClass="animate-gooey-item-3"
+                        onNavigate={closeWorkspace}
+                      />
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {hasFloorSwitcher && onFloorChange && (
+            <>
+              {isStaffOrAdmin && <span aria-hidden="true" className="mx-1 h-5 w-px shrink-0 bg-line-soft" />}
+              <div role="group" aria-label="Floor switcher" className="gooey-switch-group">
+                {(() => {
+                  const activeIdx = Math.max(
+                    0,
+                    FLOOR_CONFIGS.findIndex((f) => f.floor === currentFloor),
+                  )
+                  const blobTransform = `translateX(${activeIdx * 100}%)`
+                  return (
+                    <div aria-hidden="true" className="gooey-switch-blobs">
+                      <span
+                        className="gooey-pill-lead"
+                        style={{ width: `${100 / FLOOR_CONFIGS.length}%`, transform: blobTransform }}
+                      />
+                      <span
+                        className="gooey-pill-drop"
+                        style={{ width: `${100 / FLOOR_CONFIGS.length}%`, transform: blobTransform }}
+                      />
+                      <span
+                        className="gooey-pill-trail"
+                        style={{ width: `${100 / FLOOR_CONFIGS.length}%`, transform: blobTransform }}
+                      />
+                    </div>
+                  )
+                })()}
+                {FLOOR_CONFIGS.map((floor) => {
+                  const isActive = floor.floor === currentFloor
+                  return (
+                    <button
+                      key={floor.floor}
+                      type="button"
+                      aria-pressed={isActive}
+                      onClick={() => onFloorChange(floor.floor)}
+                      className={`btn btn-sm gooey-switch-btn ${
+                        isActive ? 'text-white' : 'text-ink-2 hover:text-ink'
+                      }`}
+                    >
+                      {floor.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </>
+          )}
+
+          {hasViewToggle && onToggleMapView && (
+            <>
+              <span aria-hidden="true" className="mx-1 h-5 w-px shrink-0 bg-line-soft" />
+              <button
+                type="button"
+                onClick={onToggleMapView}
+                className="btn btn-sm btn-tertiary gooey-fluid-btn"
+              >
+                {mapView === '3d' ? 'แผนที่ 2D' : 'แผนที่ 3D'}
+              </button>
+            </>
+          )}
+        </nav>
+      )}
+    </>
   )
 }
-

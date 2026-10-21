@@ -197,9 +197,6 @@ describe('MapPage course search (issue #91)', () => {
       const user = userEvent.setup()
       renderMap('/map?room=LC3-F1-R105')
 
-      if (!isDesktop) {
-        await user.click(screen.getByRole('button', { name: 'ปิดรายละเอียดห้อง' }))
-      }
       await user.clear(screen.getByRole('textbox'))
       await user.type(screen.getByRole('textbox'), 'CS102')
       const target = screen
@@ -318,10 +315,6 @@ describe('MapPage course search (issue #91)', () => {
         const user = userEvent.setup()
         renderMap('/map?room=LC3-F1-R105')
 
-        if (!isDesktop) {
-          await user.click(screen.getByRole('button', { name: 'ปิดรายละเอียดห้อง' }))
-        }
-
         const input = screen.getByRole('textbox')
         await user.type(input, 'CS102')
 
@@ -332,6 +325,56 @@ describe('MapPage course search (issue #91)', () => {
         const pinned = document.querySelectorAll('[role="button"][aria-pressed="true"]')
         expect(pinned).toHaveLength(1)
         expect(pinned[0]).toHaveTextContent('105')
+        expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent('105')
+      })
+
+      it('clicking (X) on the room detail card immediately unpins the room without a secondary pinned banner', async () => {
+        const user = userEvent.setup()
+        renderMap('/map?room=LC3-F1-R105')
+
+        expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent('105')
+        expect(document.querySelectorAll('[role="button"][aria-pressed="true"]')).toHaveLength(1)
+
+        await user.click(screen.getByRole('button', { name: 'ปิดรายละเอียดห้อง' }))
+
+        expect(screen.queryByRole('heading', { level: 2 })).not.toBeInTheDocument()
+        expect(screen.queryByText('ปักหมุดอยู่')).not.toBeInTheDocument()
+        expect(document.querySelectorAll('[role="button"][aria-pressed="true"]')).toHaveLength(0)
+      })
+
+      it('clicking the same room node on the map unpins it, and clicking another room switches the pin', async () => {
+        const user = userEvent.setup()
+        renderMap('/map?room=LC3-F1-R105')
+
+        const pinned105 = document.querySelector('[role="button"][aria-pressed="true"]') as HTMLElement
+        expect(pinned105).toBeTruthy()
+        expect(pinned105).toHaveTextContent('105')
+
+        // Clicking the same room node unpins it
+        await user.click(pinned105)
+        expect(document.querySelectorAll('[role="button"][aria-pressed="true"]')).toHaveLength(0)
+        expect(screen.queryByRole('heading', { level: 2 })).not.toBeInTheDocument()
+
+        // Clicking another room node pins that room
+        const marker121 = Array.from(document.querySelectorAll('svg [role="button"]')).find((el) =>
+          el.textContent?.includes('121'),
+        ) as HTMLElement
+        await user.click(marker121)
+
+        const pinnedAfter = document.querySelectorAll('[role="button"][aria-pressed="true"]')
+        expect(pinnedAfter).toHaveLength(1)
+        expect(pinnedAfter[0]).toHaveTextContent('121')
+        expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent('121')
+      })
+
+      it('clicking the map background keeps the room pinned and its detail card open', async () => {
+        const user = userEvent.setup()
+        renderMap('/map?room=LC3-F1-R105')
+
+        await user.click(screen.getByTestId('map-background'))
+
+        expect(document.querySelectorAll('[role="button"][aria-pressed="true"]')).toHaveLength(1)
+        expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent('105')
       })
     })
 
@@ -339,9 +382,6 @@ describe('MapPage course search (issue #91)', () => {
       mockViewport(false)
       const user = userEvent.setup()
       renderMap('/map?room=LC3-F1-R105')
-
-      // Close the bottom detail sheet so results panel can be opened
-      await user.click(screen.getByRole('button', { name: 'ปิดรายละเอียดห้อง' }))
 
       // Search for CS102
       await user.type(screen.getByRole('textbox'), 'CS102')
@@ -356,18 +396,17 @@ describe('MapPage course search (issue #91)', () => {
       // Search results dropdown is dismissed
       expect(screen.queryByTestId('mobile-search-results')).not.toBeInTheDocument()
 
-      // The selected room remains pinned
+      // The selected room remains pinned and its detail card returns
       const pinned = document.querySelectorAll('[role="button"][aria-pressed="true"]')
       expect(pinned).toHaveLength(1)
       expect(pinned[0]).toHaveTextContent('105')
+      expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent('105')
     })
 
     it('mobile results panel can be dismissed via backdrop click without losing selected room', async () => {
       mockViewport(false)
       const user = userEvent.setup()
       renderMap('/map?room=LC3-F1-R105')
-
-      await user.click(screen.getByRole('button', { name: 'ปิดรายละเอียดห้อง' }))
 
       await user.type(screen.getByRole('textbox'), 'CS102')
       const backdrop = screen.getByTestId('mobile-search-backdrop')
@@ -380,6 +419,7 @@ describe('MapPage course search (issue #91)', () => {
       const pinned = document.querySelectorAll('[role="button"][aria-pressed="true"]')
       expect(pinned).toHaveLength(1)
       expect(pinned[0]).toHaveTextContent('105')
+      expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent('105')
     })
   })
 })

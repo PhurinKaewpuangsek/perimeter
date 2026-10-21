@@ -214,17 +214,23 @@ describe('AdminManagementPage', () => {
     // Caller is admin@torch.dev
     const table = screen.getByRole('table')
     const callerRow = within(table).getByText('admin@torch.dev').closest('tr')!
-    const roleSelect = callerRow.querySelector('select')!
-    expect(roleSelect).toBeDisabled()
+    expect(callerRow).toHaveClass('admin-row-self')
+    const roleTrigger = callerRow.querySelector('button[data-testid="role-dropdown-trigger"]')!
+    expect(roleTrigger).toBeDisabled()
 
-    const toggleBtn = callerRow.querySelector('button[data-testid="toggle-enabled-btn"]')!
-    expect(toggleBtn).toBeDisabled()
+    const statusBadge = callerRow.querySelector('[data-testid="user-status-badge"]')!
+    expect(statusBadge).toHaveClass('admin-status-confirmed')
+
+    // Caller row renders a plain protected lock indicator instead of a clickable toggle switch
+    expect(callerRow.querySelector('button[data-testid="toggle-enabled-btn"]')).toBeNull()
+    const protectedIndicator = callerRow.querySelector('[data-testid="protected-usage-indicator"]')!
+    expect(protectedIndicator).toHaveTextContent('บัญชีของคุณ (เปิดใช้งาน)')
 
     const deleteBtn = callerRow.querySelector('button[data-testid="delete-user-btn"]')!
     expect(deleteBtn).toBeDisabled()
   })
 
-  it('allows changing role for another user', async () => {
+  it('allows changing role for another user via the custom Gooey Role Dropdown', async () => {
     const user = userEvent.setup()
     render(
       <MemoryRouter>
@@ -237,10 +243,14 @@ describe('AdminManagementPage', () => {
     })
 
     const staffRow = screen.getByText('staff@torch.dev').closest('tr')!
-    const roleSelect = staffRow.querySelector('select')!
-    expect(roleSelect).not.toBeDisabled()
+    const roleTrigger = staffRow.querySelector('button[data-testid="role-dropdown-trigger"]')!
+    expect(roleTrigger).not.toBeDisabled()
+    expect(roleTrigger).toHaveTextContent('Staff')
 
-    await user.selectOptions(roleSelect, 'user')
+    await user.click(roleTrigger)
+    const listbox = within(staffRow).getByRole('listbox')
+    const userOption = within(listbox).getByRole('option', { name: 'User' })
+    await user.click(userOption)
 
     const { updateUser } = await import('../../services/adminUserService')
     expect(updateUser).toHaveBeenCalledWith('staff@torch.dev', { role: 'user' })
@@ -260,6 +270,8 @@ describe('AdminManagementPage', () => {
 
     const staffRow = screen.getByText('staff@torch.dev').closest('tr')!
     const toggleBtn = staffRow.querySelector('button[data-testid="toggle-enabled-btn"]')!
+    expect(toggleBtn).toHaveAttribute('aria-checked', 'true')
+    expect(toggleBtn.querySelector('.admin-gooey-switch-track')).toHaveAttribute('data-enabled', 'true')
     await user.click(toggleBtn)
 
     const { updateUser, deleteUser } = await import('../../services/adminUserService')
@@ -270,6 +282,10 @@ describe('AdminManagementPage', () => {
     })
 
     const updatedStaffRow = screen.getByText('staff@torch.dev').closest('tr')!
+    expect(updatedStaffRow).toHaveClass('admin-row-suspended')
+    const updatedToggleBtn = updatedStaffRow.querySelector('button[data-testid="toggle-enabled-btn"]')!
+    expect(updatedToggleBtn).toHaveAttribute('aria-checked', 'false')
+    expect(updatedToggleBtn.querySelector('.admin-gooey-switch-track')).toHaveAttribute('data-enabled', 'false')
     const deleteBtn = updatedStaffRow.querySelector('button[data-testid="delete-user-btn"]')!
     await user.click(deleteBtn)
 

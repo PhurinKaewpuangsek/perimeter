@@ -3,8 +3,8 @@
  * Route: /admin (security by obscurity for V2).
  *
  * Refined design features:
- * 1. Perimeter Brand Theme: Soft slate pill with pulsing rose dot matching
- *    the Perimeter logo palette.
+ * 1. Perimeter Theme: light-only, Uber-inspired monochrome tokens and the
+ *    recipes in src/index.css (docs/design/uber-designmd.md, #137).
  * 2. Uncluttered Room List: Removed redundant room code boxes; clear typographic
  *    hierarchy with room numbers, Thai titles, and category badges.
  * 3. Functional Horizontal Scrollbars: Category and Day filter strips now feature
@@ -78,20 +78,20 @@ interface DayConfig {
 }
 
 const DAY_CONFIG: Record<string, DayConfig> = {
-  MON: { order: 1, th: 'วันจันทร์', shortTh: 'จันทร์', color: 'text-amber-800', dotColor: 'bg-amber-500', bgLight: 'bg-amber-50 border-amber-200' },
-  MONDAY: { order: 1, th: 'วันจันทร์', shortTh: 'จันทร์', color: 'text-amber-800', dotColor: 'bg-amber-500', bgLight: 'bg-amber-50 border-amber-200' },
-  TUE: { order: 2, th: 'วันอังคาร', shortTh: 'อังคาร', color: 'text-pink-800', dotColor: 'bg-pink-500', bgLight: 'bg-pink-50 border-pink-200' },
-  TUESDAY: { order: 2, th: 'วันอังคาร', shortTh: 'อังคาร', color: 'text-pink-800', dotColor: 'bg-pink-500', bgLight: 'bg-pink-50 border-pink-200' },
-  WED: { order: 3, th: 'วันพุธ', shortTh: 'พุธ', color: 'text-emerald-800', dotColor: 'bg-emerald-500', bgLight: 'bg-emerald-50 border-emerald-200' },
-  WEDNESDAY: { order: 3, th: 'วันพุธ', shortTh: 'พุธ', color: 'text-emerald-800', dotColor: 'bg-emerald-500', bgLight: 'bg-emerald-50 border-emerald-200' },
-  THU: { order: 4, th: 'วันพฤหัสบดี', shortTh: 'พฤหัสฯ', color: 'text-orange-800', dotColor: 'bg-orange-500', bgLight: 'bg-orange-50 border-orange-200' },
-  THURSDAY: { order: 4, th: 'วันพฤหัสบดี', shortTh: 'พฤหัสฯ', color: 'text-orange-800', dotColor: 'bg-orange-500', bgLight: 'bg-orange-50 border-orange-200' },
-  FRI: { order: 5, th: 'วันศุกร์', shortTh: 'ศุกร์', color: 'text-sky-800', dotColor: 'bg-sky-500', bgLight: 'bg-sky-50 border-sky-200' },
-  FRIDAY: { order: 5, th: 'วันศุกร์', shortTh: 'ศุกร์', color: 'text-sky-800', dotColor: 'bg-sky-500', bgLight: 'bg-sky-50 border-sky-200' },
-  SAT: { order: 6, th: 'วันเสาร์', shortTh: 'เสาร์', color: 'text-purple-800', dotColor: 'bg-purple-500', bgLight: 'bg-purple-50 border-purple-200' },
-  SATURDAY: { order: 6, th: 'วันเสาร์', shortTh: 'เสาร์', color: 'text-purple-800', dotColor: 'bg-purple-500', bgLight: 'bg-purple-50 border-purple-200' },
-  SUN: { order: 7, th: 'วันอาทิตย์', shortTh: 'อาทิตย์', color: 'text-rose-800', dotColor: 'bg-rose-500', bgLight: 'bg-rose-50 border-rose-200' },
-  SUNDAY: { order: 7, th: 'วันอาทิตย์', shortTh: 'อาทิตย์', color: 'text-rose-800', dotColor: 'bg-rose-500', bgLight: 'bg-rose-50 border-rose-200' },
+  MON: { order: 1, th: 'วันจันทร์', shortTh: 'จันทร์', color: 'text-ink', dotColor: 'bg-current', bgLight: 'bg-white border-line-soft' },
+  MONDAY: { order: 1, th: 'วันจันทร์', shortTh: 'จันทร์', color: 'text-ink', dotColor: 'bg-current', bgLight: 'bg-white border-line-soft' },
+  TUE: { order: 2, th: 'วันอังคาร', shortTh: 'อังคาร', color: 'text-ink', dotColor: 'bg-current', bgLight: 'bg-white border-line-soft' },
+  TUESDAY: { order: 2, th: 'วันอังคาร', shortTh: 'อังคาร', color: 'text-ink', dotColor: 'bg-current', bgLight: 'bg-white border-line-soft' },
+  WED: { order: 3, th: 'วันพุธ', shortTh: 'พุธ', color: 'text-ink', dotColor: 'bg-current', bgLight: 'bg-white border-line-soft' },
+  WEDNESDAY: { order: 3, th: 'วันพุธ', shortTh: 'พุธ', color: 'text-ink', dotColor: 'bg-current', bgLight: 'bg-white border-line-soft' },
+  THU: { order: 4, th: 'วันพฤหัสบดี', shortTh: 'พฤหัสฯ', color: 'text-ink', dotColor: 'bg-current', bgLight: 'bg-white border-line-soft' },
+  THURSDAY: { order: 4, th: 'วันพฤหัสบดี', shortTh: 'พฤหัสฯ', color: 'text-ink', dotColor: 'bg-current', bgLight: 'bg-white border-line-soft' },
+  FRI: { order: 5, th: 'วันศุกร์', shortTh: 'ศุกร์', color: 'text-ink', dotColor: 'bg-current', bgLight: 'bg-white border-line-soft' },
+  FRIDAY: { order: 5, th: 'วันศุกร์', shortTh: 'ศุกร์', color: 'text-ink', dotColor: 'bg-current', bgLight: 'bg-white border-line-soft' },
+  SAT: { order: 6, th: 'วันเสาร์', shortTh: 'เสาร์', color: 'text-ink', dotColor: 'bg-current', bgLight: 'bg-white border-line-soft' },
+  SATURDAY: { order: 6, th: 'วันเสาร์', shortTh: 'เสาร์', color: 'text-ink', dotColor: 'bg-current', bgLight: 'bg-white border-line-soft' },
+  SUN: { order: 7, th: 'วันอาทิตย์', shortTh: 'อาทิตย์', color: 'text-ink', dotColor: 'bg-current', bgLight: 'bg-white border-line-soft' },
+  SUNDAY: { order: 7, th: 'วันอาทิตย์', shortTh: 'อาทิตย์', color: 'text-ink', dotColor: 'bg-current', bgLight: 'bg-white border-line-soft' },
 }
 
 function getDayInfo(rawDay: string): DayConfig {
@@ -101,9 +101,9 @@ function getDayInfo(rawDay: string): DayConfig {
       order: 99,
       th: rawDay || 'ไม่ระบุวัน',
       shortTh: rawDay || 'ไม่ระบุ',
-      color: 'text-slate-800',
-      dotColor: 'bg-slate-400',
-      bgLight: 'bg-slate-50 border-slate-200',
+      color: 'text-ink-2',
+      dotColor: 'bg-current',
+      bgLight: 'bg-surface-2 border-line-soft',
     }
   )
 }
@@ -115,7 +115,7 @@ function RoomCategoryBadge({ category, nameThai }: { category: string; nameThai?
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${color.bg} ${color.text} border ${color.border} shadow-2xs`}
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${color.bg} ${color.text} border ${color.border}`}
     >
       {createElement(Icon, { size: 13, weight: 'duotone' })}
       <span>{label}</span>
@@ -172,9 +172,9 @@ function EventDateField({ eventType, value, onChange }: EventDateFieldProps) {
   const required = isExamEventType(eventType)
   return (
     <div className="col-span-2">
-      <label htmlFor={inputId} className="block text-[11px] font-semibold text-slate-700 mb-1">
+      <label htmlFor={inputId} className="label">
         {required ? 'วันสอบ' : 'วันที่จัด'}
-        {required && <span className="text-rose-500"> *</span>}
+        {required && <span className="text-ink-2"> *</span>}
       </label>
       <input
         id={inputId}
@@ -182,7 +182,7 @@ function EventDateField({ eventType, value, onChange }: EventDateFieldProps) {
         value={value}
         onChange={(e) => onChange(e.target.value)}
         required={required}
-        className="w-full rounded-xl border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-slate-900/10"
+        className="input-boxed font-mono"
       />
     </div>
   )
@@ -192,20 +192,20 @@ function EventTypeBadge({ type }: { type?: string }) {
   const lower = (type || '').toLowerCase()
   if (lower === 'lab') {
     return (
-      <span className="inline-flex items-center rounded-md bg-lime-50 px-2 py-0.5 text-[10px] font-medium text-lime-700 border border-lime-200/70">
+      <span className="chip">
         แลป
       </span>
     )
   }
   if (lower === 'exam') {
     return (
-      <span className="inline-flex items-center rounded-md bg-rose-50 px-2 py-0.5 text-[10px] font-medium text-rose-700 border border-rose-200/70">
+      <span className="chip">
         สอบ
       </span>
     )
   }
   return (
-    <span className="inline-flex items-center rounded-md bg-violet-50 px-2 py-0.5 text-[10px] font-medium text-violet-700 border border-violet-200/70">
+    <span className="chip">
       บรรยาย
     </span>
   )
@@ -226,7 +226,7 @@ function AdminSearchBox({
 }) {
   return (
     <div className="relative flex items-center w-full">
-      <div className="pointer-events-none absolute left-3 flex items-center text-slate-400">
+      <div className="pointer-events-none absolute left-3 flex items-center text-ink-3">
         <MagnifyingGlass size={16} weight="bold" />
       </div>
       <input
@@ -234,13 +234,13 @@ function AdminSearchBox({
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-xl border border-slate-200/90 bg-white py-2 pl-9 pr-8 text-xs text-slate-900 placeholder-slate-400 focus:border-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900/10 shadow-2xs transition-all [&::-webkit-search-cancel-button]:hidden"
+        className="input-search max-sm:min-h-11 pl-9 pr-10 [&::-webkit-search-cancel-button]:hidden"
       />
       {value && (
         <button
           type="button"
           onClick={() => onChange('')}
-          className="absolute right-2.5 flex h-4 w-4 items-center justify-center rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
+          className="btn btn-ghost btn-icon-sm absolute right-1"
           aria-label="ล้างคำค้นหา"
         >
           <X size={12} weight="bold" />
@@ -272,23 +272,23 @@ function RoomListItem({
     <button
       type="button"
       onClick={() => onSelect(room.id)}
-      className={`group flex w-full flex-col gap-1.5 rounded-2xl border p-3.5 text-left transition-all cursor-pointer ${
+      className={`group card flex w-full flex-col gap-1.5 p-3.5 text-left cursor-pointer ${
         isSelected
-          ? 'border-slate-900 bg-slate-50/90 shadow-xs ring-1 ring-slate-900/10'
-          : 'border-slate-200/90 bg-white hover:border-slate-300 hover:bg-slate-50/60 shadow-2xs'
+          ? 'border-accent'
+          : 'card-hover hover:border-line'
       }`}
     >
       {/* Header Row: Room Title + Floor Badge + Caret */}
       <div className="flex items-center justify-between w-full">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="truncate text-xs font-bold text-slate-900 group-hover:text-rose-600 transition-colors">
+          <span className="truncate text-button font-bold text-ink">
             {roomDisplayName}
           </span>
-          <span className="shrink-0 rounded-md bg-slate-100 border border-slate-200/60 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500">
+          <span className="chip shrink-0">
             ชั้น {room.floor}
           </span>
           {room.code && room.roomNumber && room.code !== room.roomNumber && (
-            <span className="shrink-0 font-mono text-[11px] text-slate-400">
+            <span className="shrink-0 font-mono text-xs text-ink-3">
               ({room.code})
             </span>
           )}
@@ -296,13 +296,13 @@ function RoomListItem({
         <CaretRight
           size={14}
           weight="bold"
-          className="shrink-0 text-slate-300 group-hover:text-slate-700 group-hover:translate-x-0.5 transition-all ml-1"
+          className="shrink-0 text-ink-3 group-hover:text-ink group-hover:translate-x-0.5 transition-all ml-1"
         />
       </div>
 
       {/* Optional distinct Thai Subtitle */}
       {hasDistinctThaiName && (
-        <p className="truncate text-xs text-slate-500 font-normal">
+        <p className="truncate text-xs text-ink-3 font-normal">
           {room.nameThai}
         </p>
       )}
@@ -311,13 +311,13 @@ function RoomListItem({
       <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
         <RoomCategoryBadge category={room.category} nameThai={room.nameThai} />
         {room.capacity !== undefined && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-slate-50 border border-slate-200/60 px-2 py-0.5 text-[10px] font-medium text-slate-500">
+          <span className="chip">
             <Users size={11} />
             {room.capacity} คน
           </span>
         )}
         {scheduleCount > 0 && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-slate-50 border border-slate-200/60 px-2 py-0.5 text-[10px] font-medium text-slate-500">
+          <span className="chip">
             <Calendar size={11} />
             {scheduleCount} คาบ
           </span>
@@ -386,25 +386,25 @@ function ScheduleRow({ slot, onDelete, onEdit, isAdmin = false }: ScheduleRowPro
 
   if (editing) {
     return (
-      <div className="rounded-2xl border border-slate-300 bg-slate-50/70 p-3.5 space-y-3 shadow-2xs">
+      <div className="surface p-3.5 space-y-3">
         <div className="flex items-center justify-between">
-          <span className="text-xs font-bold text-slate-900">แก้ไขข้อมูลตาราง</span>
+          <span className="text-button font-bold text-ink">แก้ไขข้อมูลตาราง</span>
           <button
             type="button"
             onClick={() => setEditing(false)}
-            className="text-slate-400 hover:text-slate-600 cursor-pointer"
+            className="btn btn-ghost btn-icon-sm"
           >
             <X size={14} weight="bold" />
           </button>
         </div>
-        {err && <p className="text-xs text-rose-600 bg-rose-50 p-2 rounded-lg border border-rose-200">{err}</p>}
+        {err && <p className="card border-ink p-3 text-button text-ink">{err}</p>}
         <div className="grid grid-cols-2 gap-2.5">
           <div>
-            <label className="block text-[11px] font-semibold text-slate-700 mb-1">วัน</label>
+            <label className="label">วัน</label>
             <select
               value={dayOfWeek}
               onChange={(e) => setDayOfWeek(e.target.value)}
-              className="w-full rounded-xl border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900/10"
+              className="input-boxed"
             >
               {['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'].map((d) => (
                 <option key={d} value={d}>
@@ -414,49 +414,49 @@ function ScheduleRow({ slot, onDelete, onEdit, isAdmin = false }: ScheduleRowPro
             </select>
           </div>
           <div>
-            <label className="block text-[11px] font-semibold text-slate-700 mb-1">รหัสวิชา</label>
+            <label className="label">รหัสวิชา</label>
             <input
               type="text"
               value={eventCode}
               onChange={(e) => setEventCode(e.target.value)}
-              className="w-full rounded-xl border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-slate-900/10"
+              className="input-boxed font-mono"
             />
           </div>
           <div>
-            <label className="block text-[11px] font-semibold text-slate-700 mb-1">เวลาเริ่ม (HH:MM)</label>
+            <label className="label">เวลาเริ่ม (HH:MM)</label>
             <input
               type="text"
               value={startTime}
               onChange={(e) => setStartTime(e.target.value)}
               placeholder="09:00"
-              className="w-full rounded-xl border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-slate-900/10"
+              className="input-boxed font-mono"
             />
           </div>
           <div>
-            <label className="block text-[11px] font-semibold text-slate-700 mb-1">เวลาสิ้นสุด (HH:MM)</label>
+            <label className="label">เวลาสิ้นสุด (HH:MM)</label>
             <input
               type="text"
               value={endTime}
               onChange={(e) => setEndTime(e.target.value)}
               placeholder="12:00"
-              className="w-full rounded-xl border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-slate-900/10"
+              className="input-boxed font-mono"
             />
           </div>
           <div className="col-span-2">
-            <label className="block text-[11px] font-semibold text-slate-700 mb-1">ชื่อวิชา</label>
+            <label className="label">ชื่อวิชา</label>
             <input
               type="text"
               value={eventName}
               onChange={(e) => setEventName(e.target.value)}
-              className="w-full rounded-xl border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900/10"
+              className="input-boxed"
             />
           </div>
           <div className="col-span-2">
-            <label className="block text-[11px] font-semibold text-slate-700 mb-1">ประเภท</label>
+            <label className="label">ประเภท</label>
             <select
               value={eventType}
               onChange={(e) => setEventType(e.target.value)}
-              className="w-full rounded-xl border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900/10"
+              className="input-boxed"
             >
               <option value="lecture">บรรยาย (Lecture)</option>
               <option value="lab">ปฏิบัติการ (Lab)</option>
@@ -471,7 +471,7 @@ function ScheduleRow({ slot, onDelete, onEdit, isAdmin = false }: ScheduleRowPro
             type="button"
             onClick={() => setEditing(false)}
             disabled={saving}
-            className="rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-600 border border-slate-200 bg-white hover:bg-slate-50 cursor-pointer disabled:opacity-50"
+            className="btn btn-secondary"
           >
             ยกเลิก
           </button>
@@ -479,7 +479,7 @@ function ScheduleRow({ slot, onDelete, onEdit, isAdmin = false }: ScheduleRowPro
             type="button"
             onClick={handleSave}
             disabled={saving}
-            className="rounded-xl bg-slate-900 px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-slate-800 cursor-pointer disabled:opacity-50"
+            className="btn btn-primary"
           >
             {saving ? 'กำลังบันทึก...' : 'บันทึกการแก้ไข'}
           </button>
@@ -489,23 +489,23 @@ function ScheduleRow({ slot, onDelete, onEdit, isAdmin = false }: ScheduleRowPro
   }
 
   return (
-    <div className="group flex items-center justify-between gap-2 rounded-2xl border border-slate-200/90 bg-white p-3 shadow-2xs hover:border-slate-300 transition-all">
+    <div className="group card card-hover flex items-center justify-between gap-2 p-3">
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold ${dayInfo.bgLight} ${dayInfo.color}`}>
+          <span className={`chip ${dayInfo.bgLight} ${dayInfo.color}`}>
             <span className={`h-1.5 w-1.5 rounded-full ${dayInfo.dotColor}`} />
             {dayInfo.shortTh}
           </span>
-          <span className="inline-flex items-center gap-1 text-[11px] font-mono font-medium text-slate-500">
+          <span className="inline-flex items-center gap-1 text-xs font-mono font-medium text-ink-3">
             <Clock size={12} />
             {slot.startTime}–{slot.endTime}
           </span>
           <EventTypeBadge type={slot.eventType} />
         </div>
         <div className="mt-1">
-          <span className="font-mono text-xs font-bold text-slate-900">{slot.eventCode}</span>
+          <span className="font-mono text-button font-bold text-ink">{slot.eventCode}</span>
           {slot.eventName && (
-            <span className="text-xs text-slate-600 ml-1.5 truncate">
+            <span className="text-button text-ink-2 ml-1.5 truncate">
               · {slot.eventName}
             </span>
           )}
@@ -516,7 +516,7 @@ function ScheduleRow({ slot, onDelete, onEdit, isAdmin = false }: ScheduleRowPro
         <button
           type="button"
           onClick={() => setEditing(true)}
-          className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 cursor-pointer transition-colors"
+          className="btn btn-ghost btn-icon-sm"
           title="แก้ไขตาราง"
           aria-label="แก้ไขตาราง"
         >
@@ -527,7 +527,7 @@ function ScheduleRow({ slot, onDelete, onEdit, isAdmin = false }: ScheduleRowPro
             type="button"
             onClick={handleDelete}
             disabled={saving}
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer transition-colors disabled:opacity-50"
+            className="btn btn-ghost btn-icon-sm"
             title="ลบตาราง"
             aria-label="ลบตาราง"
           >
@@ -592,32 +592,32 @@ function CreateScheduleForm({ roomCode, onCreated, onCancel }: CreateScheduleFor
   const DAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN']
 
   return (
-    <form onSubmit={handleSubmit} className="rounded-2xl border border-slate-300 bg-slate-50/70 p-3.5 space-y-3 shadow-xs">
+    <form onSubmit={handleSubmit} className="surface p-3.5 space-y-3">
       <div className="flex items-center justify-between">
-        <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+        <h4 className="text-button font-bold text-ink flex items-center gap-1.5">
           <Plus size={14} weight="bold" />
           เพิ่มตารางสอนใหม่
         </h4>
         <button
           type="button"
           onClick={onCancel}
-          className="text-slate-400 hover:text-slate-600 cursor-pointer"
+          className="btn btn-ghost btn-icon-sm"
         >
           <X size={14} weight="bold" />
         </button>
       </div>
 
-      {err && <p className="text-xs text-rose-600 bg-rose-50 p-2 rounded-lg border border-rose-200">{err}</p>}
+      {err && <p className="card border-ink p-3 text-button text-ink">{err}</p>}
 
       <div className="grid grid-cols-2 gap-2.5">
         <div>
-          <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-            วัน <span className="text-rose-500">*</span>
+          <label className="label">
+            วัน <span className="text-ink-2">*</span>
           </label>
           <select
             value={dayOfWeek}
             onChange={(e) => setDayOfWeek(e.target.value)}
-            className="w-full rounded-xl border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900/10"
+            className="input-boxed"
           >
             {DAYS.map((d) => (
               <option key={d} value={d}>
@@ -627,8 +627,8 @@ function CreateScheduleForm({ roomCode, onCreated, onCancel }: CreateScheduleFor
           </select>
         </div>
         <div>
-          <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-            รหัสวิชา <span className="text-rose-500">*</span>
+          <label className="label">
+            รหัสวิชา <span className="text-ink-2">*</span>
           </label>
           <input
             type="text"
@@ -636,12 +636,12 @@ function CreateScheduleForm({ roomCode, onCreated, onCancel }: CreateScheduleFor
             onChange={(e) => setEventCode(e.target.value)}
             placeholder="CS333"
             required
-            className="w-full rounded-xl border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-slate-900/10"
+            className="input-boxed font-mono"
           />
         </div>
         <div>
-          <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-            เวลาเริ่ม <span className="text-rose-500">*</span>
+          <label className="label">
+            เวลาเริ่ม <span className="text-ink-2">*</span>
           </label>
           <input
             type="text"
@@ -649,35 +649,35 @@ function CreateScheduleForm({ roomCode, onCreated, onCancel }: CreateScheduleFor
             onChange={(e) => setStartTime(e.target.value)}
             placeholder="09:00"
             required
-            className="w-full rounded-xl border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-slate-900/10"
+            className="input-boxed font-mono"
           />
         </div>
         <div>
-          <label className="block text-[11px] font-semibold text-slate-700 mb-1">เวลาสิ้นสุด</label>
+          <label className="label">เวลาสิ้นสุด</label>
           <input
             type="text"
             value={endTime}
             onChange={(e) => setEndTime(e.target.value)}
             placeholder="12:00"
-            className="w-full rounded-xl border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-slate-900/10"
+            className="input-boxed font-mono"
           />
         </div>
         <div className="col-span-2">
-          <label className="block text-[11px] font-semibold text-slate-700 mb-1">ชื่อวิชา</label>
+          <label className="label">ชื่อวิชา</label>
           <input
             type="text"
             value={eventName}
             onChange={(e) => setEventName(e.target.value)}
             placeholder="Computer Networks"
-            className="w-full rounded-xl border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900/10"
+            className="input-boxed"
           />
         </div>
         <div className="col-span-2">
-          <label className="block text-[11px] font-semibold text-slate-700 mb-1">ประเภท</label>
+          <label className="label">ประเภท</label>
           <select
             value={eventType}
             onChange={(e) => setEventType(e.target.value)}
-            className="w-full rounded-xl border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900/10"
+            className="input-boxed"
           >
             <option value="lecture">บรรยาย (Lecture)</option>
             <option value="lab">ปฏิบัติการ (Lab)</option>
@@ -693,14 +693,14 @@ function CreateScheduleForm({ roomCode, onCreated, onCancel }: CreateScheduleFor
           type="button"
           onClick={onCancel}
           disabled={saving}
-          className="rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-600 border border-slate-200 bg-white hover:bg-slate-50 cursor-pointer disabled:opacity-50"
+          className="btn btn-secondary"
         >
           ยกเลิก
         </button>
         <button
           type="submit"
           disabled={saving}
-          className="rounded-xl bg-slate-900 px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-slate-800 cursor-pointer disabled:opacity-50"
+          className="btn btn-primary"
         >
           {saving ? 'กำลังเพิ่ม...' : '+ บันทึกตารางสอน'}
         </button>
@@ -834,18 +834,18 @@ function RoomEditPanel({
   return (
     <div className="space-y-4">
       {/* Room Hero Header with Persistent Back Button */}
-      <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-xs space-y-3">
+      <div className="card p-4 space-y-3">
         {/* Back Button & Floor */}
         <div className="flex items-center justify-between">
           <button
             type="button"
             onClick={onBack}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200/90 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 hover:text-slate-900 transition-all cursor-pointer"
+            className="btn btn-secondary btn-sm"
           >
             <CaretLeft size={14} weight="bold" />
             <span>กลับไปรายการห้อง</span>
           </button>
-          <span className="rounded-md bg-slate-100 border border-slate-200/60 px-2.5 py-0.5 text-[11px] font-medium text-slate-500">
+          <span className="chip">
             อาคาร LC3 · ชั้น {room.floor}
           </span>
         </div>
@@ -853,11 +853,11 @@ function RoomEditPanel({
         {/* Room Title */}
         <div>
           <div className="flex items-baseline gap-2">
-            <h2 className="text-xl font-bold text-slate-900 tracking-tight">{roomDisplayName}</h2>
-            <span className="font-mono text-xs text-slate-400 font-semibold">({room.code})</span>
+            <h2 className="font-display text-h3 font-bold text-ink">{roomDisplayName}</h2>
+            <span className="font-mono text-xs text-ink-3 font-medium">({room.code})</span>
           </div>
           {room.nameThai && room.nameThai !== roomDisplayName && (
-            <p className="mt-0.5 text-xs font-medium text-slate-500">{room.nameThai}</p>
+            <p className="mt-0.5 text-button text-ink-2">{room.nameThai}</p>
           )}
         </div>
 
@@ -865,7 +865,7 @@ function RoomEditPanel({
         <div className="flex flex-wrap items-center gap-2">
           <RoomCategoryBadge category={room.category} nameThai={room.nameThai} />
           {room.capacity !== undefined && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 border border-slate-200/60 px-2.5 py-0.5 text-[11px] font-semibold text-slate-600">
+            <span className="chip">
               <Users size={12} weight="regular" />
               ความจุ {room.capacity} ที่นั่ง
             </span>
@@ -873,37 +873,37 @@ function RoomEditPanel({
         </div>
 
         {landmarkText && (
-          <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-2.5 flex items-start gap-2 text-xs text-slate-600">
-            <MapPin size={15} weight="fill" className="text-rose-500 shrink-0 mt-0.5" />
+          <div className="surface p-3 flex items-start gap-2 text-button text-ink-2">
+            <MapPin size={15} weight="fill" className="text-ink shrink-0 mt-0.5" />
             <span className="leading-snug">{landmarkText}</span>
           </div>
         )}
       </div>
 
       {/* Section 1: Room Details Form */}
-      <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-xs space-y-3">
+      <div className="card p-4 space-y-3">
         <div className="flex items-center justify-between">
-          <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wide">
+          <h3 className="font-display text-h3-sm font-bold text-ink">
             แก้ไขข้อมูลห้อง
           </h3>
-          <span className="text-[11px] text-slate-400">ID: {room.id}</span>
+          <span className="text-xs text-ink-3">ID: {room.id}</span>
         </div>
 
         <form onSubmit={handleSave} className="space-y-3">
           {saveErr && (
-            <div className="rounded-xl bg-rose-50 border border-rose-200 p-2.5 text-xs text-rose-700">
+            <div className="card border-ink p-3 text-button text-ink">
               {saveErr}
             </div>
           )}
           {saveOk && (
-            <div className="flex items-center gap-1.5 rounded-xl bg-emerald-50 border border-emerald-200 p-2.5 text-xs font-semibold text-emerald-700">
+            <div className="card flex items-center gap-1.5 p-3 text-button font-medium text-ink">
               <Check size={15} weight="bold" />
               <span>บันทึกข้อมูลห้องสำเร็จเรียบร้อย</span>
             </div>
           )}
 
           <div>
-            <label htmlFor="admin-room-name" className="block text-xs font-semibold text-slate-700 mb-1">
+            <label htmlFor="admin-room-name" className="label">
               ชื่อห้องภาษาไทย (name_th)
             </label>
             <input
@@ -915,17 +915,17 @@ function RoomEditPanel({
                 setSaveOk(false)
               }}
               placeholder="เช่น ห้องบรรยายเรียนรวม"
-              className="w-full rounded-xl border border-slate-200/90 bg-white px-3 py-2 text-xs text-slate-900 placeholder-slate-400 focus:border-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900/10 shadow-2xs transition-all"
+              className="input-boxed"
               disabled={saving}
             />
           </div>
 
           <div>
-            <label htmlFor="admin-room-capacity" className="block text-xs font-semibold text-slate-700 mb-1">
+            <label htmlFor="admin-room-capacity" className="label">
               ความจุที่นั่ง (คน)
             </label>
             <div className="relative flex items-center">
-              <div className="pointer-events-none absolute left-3 flex items-center text-slate-400">
+              <div className="pointer-events-none absolute left-3 flex items-center text-ink-3">
                 <Users size={15} />
               </div>
               <input
@@ -938,7 +938,7 @@ function RoomEditPanel({
                   setSaveOk(false)
                 }}
                 placeholder="ไม่ระบุความจุ"
-                className="w-full rounded-xl border border-slate-200/90 bg-white py-2 pl-9 pr-3 text-xs text-slate-900 placeholder-slate-400 focus:border-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900/10 shadow-2xs transition-all"
+                className="input-boxed pl-9"
                 disabled={saving}
               />
             </div>
@@ -947,7 +947,7 @@ function RoomEditPanel({
           <button
             type="submit"
             disabled={saving}
-            className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-slate-900 py-2.5 text-xs font-semibold text-white shadow-xs hover:bg-slate-800 active:scale-[0.98] transition-all cursor-pointer disabled:opacity-50"
+            className="btn btn-primary w-full"
           >
             <FloppyDisk size={15} weight="bold" />
             <span>{saving ? 'กำลังบันทึกข้อมูล...' : 'บันทึกข้อมูลห้อง'}</span>
@@ -956,20 +956,20 @@ function RoomEditPanel({
       </div>
 
       {/* Section 2: Room Schedule Management */}
-      <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-xs space-y-3">
+      <div className="card p-4 space-y-3">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wide">
+            <h3 className="font-display text-h3-sm font-bold text-ink">
               ตารางการใช้ห้อง
             </h3>
-            <p className="text-[11px] text-slate-500">มีทั้งหมด {roomSchedules.length} คาบ</p>
+            <p className="text-xs text-ink-3">มีทั้งหมด {roomSchedules.length} คาบ</p>
           </div>
 
           {!isAddingSchedule && (
             <button
               type="button"
               onClick={() => setIsAddingSchedule(true)}
-              className="inline-flex items-center gap-1 rounded-xl bg-slate-100 border border-slate-200/80 px-2.5 py-1.5 text-xs font-semibold text-slate-800 hover:bg-slate-200 transition-colors cursor-pointer"
+              className="btn btn-tertiary btn-sm"
             >
               <Plus size={14} weight="bold" />
               <span>เพิ่มตาราง</span>
@@ -1002,10 +1002,10 @@ function RoomEditPanel({
             <button
               type="button"
               onClick={() => setSelectedDayFilter('all')}
-              className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition-all cursor-pointer shrink-0 ${
+              className={`btn btn-sm shrink-0 ${
                 selectedDayFilter === 'all'
-                  ? 'bg-slate-900 text-white shadow-2xs'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  ? 'btn-primary'
+                  : 'btn-tertiary'
               }`}
             >
               ทั้งหมด ({roomSchedules.length})
@@ -1019,10 +1019,10 @@ function RoomEditPanel({
                   key={d}
                   type="button"
                   onClick={() => setSelectedDayFilter(d)}
-                  className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold transition-all cursor-pointer shrink-0 ${
+                  className={`btn btn-sm shrink-0 ${
                     isActive
-                      ? 'bg-slate-900 text-white shadow-2xs'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      ? 'btn-primary'
+                      : 'btn-tertiary'
                   }`}
                 >
                   <span className={`h-1.5 w-1.5 rounded-full ${info.dotColor}`} />
@@ -1037,13 +1037,13 @@ function RoomEditPanel({
 
         {/* Schedules list */}
         {displayedSchedules.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-slate-200 p-6 text-center">
-            <p className="text-xs text-slate-400">ยังไม่มีตารางสอนสำหรับห้องนี้</p>
+          <div className="card border-dashed p-6 text-center">
+            <p className="text-button text-ink-3">ยังไม่มีตารางสอนสำหรับห้องนี้</p>
             {!isAddingSchedule && (
               <button
                 type="button"
                 onClick={() => setIsAddingSchedule(true)}
-                className="mt-2 text-xs font-semibold text-slate-700 hover:underline cursor-pointer"
+                className="btn btn-ghost btn-sm mt-2"
               >
                 + เพิ่มตารางสอนแรก
               </button>
@@ -1066,12 +1066,12 @@ function RoomEditPanel({
 
       {/* Section 3: Danger Zone (Admin Only) */}
       {isAdmin && (
-        <div className="rounded-2xl border border-rose-200/80 bg-rose-50/40 p-4 shadow-xs space-y-3">
-          <div className="flex items-center gap-2 text-rose-800">
+        <div className="card p-4 space-y-3">
+          <div className="flex items-center gap-2 text-ink">
             <Warning size={16} weight="bold" />
-            <h3 className="text-xs font-bold uppercase tracking-wide">Danger Zone</h3>
+            <h3 className="font-display text-h3-sm font-bold">Danger Zone</h3>
           </div>
-          <p className="text-xs text-slate-600">
+          <p className="text-button text-ink-2">
             การลบห้องจะลบข้อมูลออกจากระบบผังอาคารและฐานข้อมูลอย่างถาวร
           </p>
 
@@ -1079,22 +1079,22 @@ function RoomEditPanel({
             <button
               type="button"
               onClick={() => setConfirmDelete(true)}
-              className="rounded-xl border border-rose-300 bg-white px-3.5 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-50 shadow-2xs cursor-pointer transition-colors"
+              className="btn btn-secondary"
             >
               ลบห้องนี้…
             </button>
           ) : (
-            <div className="rounded-xl border border-rose-200 bg-white p-3 space-y-2 shadow-xs">
-              <p className="text-xs font-bold text-rose-800">
+            <div className="card p-3 space-y-2">
+              <p className="text-button font-bold text-ink">
                 ยืนยันการลบห้อง <span className="font-mono">{room.code}</span>?
               </p>
-              <p className="text-[11px] text-rose-600">ข้อมูลที่ถูกลบไม่สามารถกู้คืนได้</p>
+              <p className="text-xs text-ink-3">ข้อมูลที่ถูกลบไม่สามารถกู้คืนได้</p>
               <div className="flex gap-2 justify-end pt-1">
                 <button
                   type="button"
                   onClick={() => setConfirmDelete(false)}
                   disabled={deleting}
-                  className="rounded-xl px-3 py-1 text-xs font-medium text-slate-600 border border-slate-200 hover:bg-slate-50 cursor-pointer disabled:opacity-50"
+                  className="btn btn-ghost"
                 >
                   ยกเลิก
                 </button>
@@ -1102,7 +1102,7 @@ function RoomEditPanel({
                   type="button"
                   onClick={handleDelete}
                   disabled={deleting}
-                  className="rounded-xl bg-rose-600 px-3 py-1 text-xs font-semibold text-white hover:bg-rose-700 cursor-pointer disabled:opacity-50"
+                  className="btn btn-secondary"
                 >
                   {deleting ? 'กำลังลบ...' : 'ยืนยันลบ'}
                 </button>
@@ -1151,7 +1151,7 @@ function AllSchedulesView({
   return (
     <div className="space-y-3">
       <div>
-        <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+        <h2 className="font-display text-h3-sm font-bold text-ink">
           สำรวจตารางเวลาทั้งหมด ({filtered.length} / {schedules.length})
         </h2>
       </div>
@@ -1174,10 +1174,10 @@ function AllSchedulesView({
         <button
           type="button"
           onClick={() => setDayFilter('all')}
-          className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition-all cursor-pointer shrink-0 ${
+          className={`btn btn-sm shrink-0 ${
             dayFilter === 'all'
-              ? 'bg-slate-900 text-white shadow-2xs'
-              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              ? 'btn-primary'
+              : 'btn-tertiary'
           }`}
         >
           ทั้งหมด
@@ -1192,10 +1192,10 @@ function AllSchedulesView({
               key={d}
               type="button"
               onClick={() => setDayFilter(d)}
-              className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold transition-all cursor-pointer shrink-0 ${
+              className={`btn btn-sm shrink-0 ${
                 isActive
-                  ? 'bg-slate-900 text-white shadow-2xs'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  ? 'btn-primary'
+                  : 'btn-tertiary'
               }`}
             >
               <span className={`h-1.5 w-1.5 rounded-full ${info.dotColor}`} />
@@ -1215,34 +1215,34 @@ function AllSchedulesView({
           return (
             <div
               key={`${s.roomCode}-${s.dayOfWeek}-${s.startTime}-${s.eventCode}-${idx}`}
-              className="group rounded-2xl border border-slate-200/90 bg-white p-3 shadow-2xs hover:border-slate-300 transition-all flex items-center justify-between gap-3"
+              className="group card card-hover p-3 flex items-center justify-between gap-3"
             >
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <span
-                    className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold ${dayInfo.bgLight} ${dayInfo.color}`}
+                    className={`chip ${dayInfo.bgLight} ${dayInfo.color}`}
                   >
                     <span className={`h-1.5 w-1.5 rounded-full ${dayInfo.dotColor}`} />
                     {dayInfo.shortTh}
                   </span>
-                  <span className="inline-flex items-center gap-1 text-[11px] font-mono font-medium text-slate-500">
+                  <span className="inline-flex items-center gap-1 text-xs font-mono font-medium text-ink-3">
                     <Clock size={12} />
                     {s.startTime}–{s.endTime}
                   </span>
                   <EventTypeBadge type={s.eventType} />
                 </div>
                 <div className="mt-1">
-                  <span className="font-mono text-xs font-bold text-slate-900">{s.eventCode}</span>
+                  <span className="font-mono text-button font-bold text-ink">{s.eventCode}</span>
                   {s.eventName && (
-                    <span className="text-xs text-slate-600 ml-1.5 truncate">
+                    <span className="text-button text-ink-2 ml-1.5 truncate">
                       · {s.eventName}
                     </span>
                   )}
                 </div>
-                <div className="mt-1 text-[11px] text-slate-500 flex items-center gap-1">
+                <div className="mt-1 text-xs text-ink-3 flex items-center gap-1">
                   <Door size={12} />
                   <span>
-                    ห้อง <strong className="text-slate-700">{s.roomCode}</strong>
+                    ห้อง <strong className="text-ink">{s.roomCode}</strong>
                     {room?.floor && ` · ชั้น ${room.floor}`}
                     {room?.nameThai && ` (${room.nameThai})`}
                   </span>
@@ -1254,7 +1254,7 @@ function AllSchedulesView({
                   type="button"
                   onClick={() => room && onSelectRoom(room.id)}
                   disabled={!room}
-                  className="inline-flex items-center gap-1 rounded-xl bg-slate-100 hover:bg-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-800 transition-colors cursor-pointer disabled:opacity-40"
+                  className="btn btn-tertiary btn-sm"
                   title="เปิดหน้าแก้ไขห้องนี้"
                 >
                   <span>จัดการ</span>
@@ -1266,8 +1266,8 @@ function AllSchedulesView({
         })}
 
         {filtered.length === 0 && (
-          <div className="rounded-xl border border-dashed border-slate-200 p-8 text-center">
-            <p className="text-xs text-slate-400">ไม่พบตารางที่ตรงกับเงื่อนไขการค้นหา</p>
+          <div className="card border-dashed p-8 text-center">
+            <p className="text-button text-ink-3">ไม่พบตารางที่ตรงกับเงื่อนไขการค้นหา</p>
           </div>
         )}
       </div>
@@ -1386,7 +1386,7 @@ export default function AdminPage() {
   if (roomsLoading || !floorPlansReady) return <LoadingScreen />
 
   return (
-    <main className="relative h-[100dvh] w-screen overflow-hidden bg-slate-100 font-sans select-none">
+    <main className="relative h-[100dvh] w-screen overflow-hidden bg-surface-2 select-none">
       {/* Shared Figma-Style Spatial TopBar */}
       <TopBar
         sidebarWidth={460}
@@ -1398,261 +1398,304 @@ export default function AdminPage() {
         onToggleMapView={() => setMapView((prev) => (prev === '3d' ? '2d' : '3d'))}
       />
 
-      {/* ------------------------------------------------------------------ */}
-      {/* Background Interactive Floor Plan Workspace                        */}
-      {/* ------------------------------------------------------------------ */}
-      <MapContainer
-        rooms={rooms}
-        currentFloor={currentFloor}
-        onFloorChange={setCurrentFloor}
-        selectedRoomId={selectedRoomId}
-        onSelectRoom={handleAdminSelectRoom}
-        onClearSelection={() => {
-          // Keep selection stable in admin mode unless back button is explicitly clicked
-        }}
-        mode="admin"
-        sidebarWidth={isSidebarCollapsed ? 0 : 460}
-        viewMode={mapView}
-        onViewModeChange={setMapView}
-        hideBottomControls
-      />
+      {/* Map area below the fixed 64px TopBar: map, sidebar and floating panels */}
+      <div className="absolute inset-x-0 top-16 bottom-0 overflow-hidden">
+        {/* ------------------------------------------------------------------ */}
+        {/* Background Interactive Floor Plan Workspace                        */}
+        {/* ------------------------------------------------------------------ */}
+        <MapContainer
+          rooms={rooms}
+          currentFloor={currentFloor}
+          onFloorChange={setCurrentFloor}
+          selectedRoomId={selectedRoomId}
+          onSelectRoom={handleAdminSelectRoom}
+          onClearSelection={() => {
+            // Keep selection stable in admin mode unless back button is explicitly clicked
+          }}
+          mode="admin"
+          sidebarWidth={isSidebarCollapsed ? 0 : 460}
+          viewMode={mapView}
+          onViewModeChange={setMapView}
+          hideBottomControls
+        />
 
-      {/* ------------------------------------------------------------------ */}
-      {/* Docked Full-Height Left Sidebar (with TopBar Zone 1 at top-0)      */}
-      {/* ------------------------------------------------------------------ */}
-      <aside
-        className={`pointer-events-none absolute top-14 left-0 bottom-0 z-30 w-full sm:w-[440px] md:w-[460px] transition-transform duration-300 ease-in-out ${
-          isSidebarCollapsed ? '-translate-x-full' : 'translate-x-0'
-        }`}
-      >
-        <div className="relative pointer-events-auto flex flex-col h-full bg-white shadow-xl border-r border-slate-200/90">
-          {/* View Tab Switcher: ห้องและพื้นที่ vs ตารางเวลาทั้งหมด */}
-          <div className="shrink-0 p-3 border-b border-slate-200/80 bg-slate-50/60">
-            <div className="flex gap-1 rounded-xl bg-slate-200/60 p-1">
-              <button
-                type="button"
-                onClick={() => {
-                  setLeftTab('rooms')
-                  setPanelMode('list')
-                  setSelectedRoomId(null)
-                }}
-                className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-semibold transition-all cursor-pointer ${
-                  leftTab === 'rooms'
-                    ? 'bg-white text-slate-900 shadow-xs'
-                    : 'text-slate-500 hover:text-slate-800'
-                }`}
-              >
-                <Door size={14} weight="duotone" />
-                <span>ห้องและพื้นที่</span>
-                <span className="ml-0.5 rounded-full bg-slate-100 px-1.5 py-0.2 text-[10px] text-slate-600">
-                  {rooms.length}
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setLeftTab('schedules')}
-                className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-semibold transition-all cursor-pointer ${
-                  leftTab === 'schedules'
-                    ? 'bg-white text-slate-900 shadow-xs'
-                    : 'text-slate-500 hover:text-slate-800'
-                }`}
-              >
-                <Calendar size={14} weight="duotone" />
-                <span>ตารางเวลาทั้งหมด</span>
-                <span className="ml-0.5 rounded-full bg-slate-100 px-1.5 py-0.2 text-[10px] text-slate-600">
-                  {schedules.length}
-                </span>
-              </button>
-            </div>
-          </div>
-
-          {/* Sticky Search & Filter Header (Only in Room List mode — never scrolls away or clips!) */}
-          {leftTab === 'rooms' && !(panelMode === 'room' && selectedRoom) && (
-            <div className="shrink-0 px-4 pt-3 pb-2.5 border-b border-slate-200/80 bg-white space-y-2.5">
-              {/* Search Bar */}
-              <AdminSearchBox
-                value={searchQuery}
-                onChange={setSearchQuery}
-                placeholder="ค้นหาด้วยเลขห้อง, ชื่อ หรือรหัส เช่น 110, ELEC..."
-              />
-
-              {/* Floor Filter Quick Pills (syncs with map floor) */}
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => setFloorFilter('all')}
-                  className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition-all cursor-pointer ${
-                    floorFilter === 'all'
-                      ? 'bg-slate-900 text-white shadow-2xs'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
-                >
-                  ทั้งหมด ({rooms.length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFloorFilter('1')
-                    if (currentFloor !== 1) setCurrentFloor(1)
-                  }}
-                  className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition-all cursor-pointer ${
-                    floorFilter === '1'
-                      ? 'bg-slate-900 text-white shadow-2xs'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
-                >
-                  ชั้น 1 ({floor1Count})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFloorFilter('2')
-                    if (currentFloor !== 2) setCurrentFloor(2)
-                  }}
-                  className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition-all cursor-pointer ${
-                    floorFilter === '2'
-                      ? 'bg-slate-900 text-white shadow-2xs'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
-                >
-                  ชั้น 2 ({floor2Count})
-                </button>
-              </div>
-
-              {/* Category Filters Pills Horizontal Strip (with visible thin-scrollbar and mouse-wheel horizontal scrolling) */}
-              <div
-                className="flex items-center gap-1.5 overflow-x-auto thin-scrollbar pb-1.5 pt-0.5"
-                onWheel={(e) => {
-                  if (e.deltaY !== 0) {
-                    e.currentTarget.scrollLeft += e.deltaY
-                  }
-                }}
-              >
-                {CATEGORY_FILTERS.map((cat) => {
-                  const isActive = categoryFilterKey === cat.key
+        {/* ------------------------------------------------------------------ */}
+        {/* Docked Full-Height Left Sidebar                                     */}
+        {/* ------------------------------------------------------------------ */}
+        <aside
+          className={`pointer-events-none absolute top-0 left-0 bottom-0 z-2 w-full sm:w-[440px] md:w-[460px] transition-transform duration-300 ease-in-out ${
+            isSidebarCollapsed ? '-translate-x-full' : 'translate-x-0'
+          }`}
+        >
+          <div className="relative pointer-events-auto flex flex-col h-full bg-white border-r border-line-soft">
+            {/* View Tab Switcher: ห้องและพื้นที่ vs ตารางเวลาทั้งหมด */}
+            <div className="shrink-0 p-3 border-b border-line-soft bg-white">
+              <div className="gooey-switch-group flex w-full rounded-full bg-surface-2 p-1">
+                {(() => {
+                  const activeTabIdx = leftTab === 'schedules' ? 1 : 0
+                  const blobTransform = `translateX(${activeTabIdx * 100}%)`
                   return (
-                    <button
-                      key={cat.key}
-                      type="button"
-                      onClick={() => setCategoryFilterKey(cat.key)}
-                      className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold transition-all cursor-pointer shrink-0 border ${
-                        isActive
-                          ? 'bg-slate-900 text-white border-slate-900 shadow-2xs'
-                          : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
-                      }`}
-                    >
-                      {cat.label}
-                    </button>
+                    <div aria-hidden="true" className="gooey-switch-blobs inset-1">
+                      <span
+                        className="gooey-pill-lead"
+                        style={{ width: '50%', transform: blobTransform }}
+                      />
+                      <span
+                        className="gooey-pill-drop"
+                        style={{ width: '50%', transform: blobTransform }}
+                      />
+                      <span
+                        className="gooey-pill-trail"
+                        style={{ width: '50%', transform: blobTransform }}
+                      />
+                    </div>
                   )
-                })}
-              </div>
+                })()}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLeftTab('rooms')
+                    setPanelMode('list')
+                    setSelectedRoomId(null)
+                  }}
+                  className={`btn btn-sm gooey-switch-btn flex-1 ${
+                    leftTab === 'rooms'
+                      ? 'text-white'
+                      : 'text-ink-2 hover:text-ink'
+                  }`}
+                >
+                  <Door size={14} weight="duotone" />
+                  <span>ห้องและพื้นที่</span>
+                  <span className="ml-0.5 rounded-full bg-white px-1.5 py-0.5 text-xs font-medium text-ink">
+                    {rooms.length}
+                  </span>
+                </button>
 
-              {/* Count indicator */}
-              <div className="flex items-center justify-between text-[11px] text-slate-400 font-medium px-0.5">
-                <span>แสดง {filteredRooms.length} ห้อง</span>
-                {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setLeftTab('schedules')}
+                  className={`btn btn-sm gooey-switch-btn flex-1 ${
+                    leftTab === 'schedules'
+                      ? 'text-white'
+                      : 'text-ink-2 hover:text-ink'
+                  }`}
+                >
+                  <Calendar size={14} weight="duotone" />
+                  <span>ตารางเวลาทั้งหมด</span>
+                  <span className="ml-0.5 rounded-full bg-white px-1.5 py-0.5 text-xs font-medium text-ink">
+                    {schedules.length}
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            {/* Sticky Search & Filter Header (Only in Room List mode — never scrolls away or clips!) */}
+            {leftTab === 'rooms' && !(panelMode === 'room' && selectedRoom) && (
+              <div className="shrink-0 px-4 pt-3 pb-2.5 border-b border-line-soft bg-white space-y-2.5">
+                {/* Search Bar */}
+                <AdminSearchBox
+                  value={searchQuery}
+                  onChange={setSearchQuery}
+                  placeholder="ค้นหาด้วยเลขห้อง, ชื่อ หรือรหัส เช่น 110, ELEC..."
+                />
+
+                {/* Floor Filter Quick Pills (syncs with map floor) */}
+                <div className="gooey-switch-group-3 rounded-full bg-tertiary p-0.5">
+                  {(() => {
+                    const activeFloorIdx = floorFilter === '1' ? 1 : floorFilter === '2' ? 2 : 0
+                    const blobTransform = `translateX(${activeFloorIdx * 100}%)`
+                    return (
+                      <div aria-hidden="true" className="gooey-switch-blobs inset-0.5">
+                        <span
+                          className="gooey-pill-lead"
+                          style={{ width: '33.3333%', transform: blobTransform }}
+                        />
+                        <span
+                          className="gooey-pill-drop"
+                          style={{ width: '33.3333%', transform: blobTransform }}
+                        />
+                        <span
+                          className="gooey-pill-trail"
+                          style={{ width: '33.3333%', transform: blobTransform }}
+                        />
+                      </div>
+                    )
+                  })()}
                   <button
                     type="button"
-                    onClick={() => setSearchQuery('')}
-                    className="text-slate-700 font-semibold hover:underline cursor-pointer"
+                    onClick={() => setFloorFilter('all')}
+                    className={`btn btn-sm gooey-switch-btn ${
+                      floorFilter === 'all'
+                        ? 'text-white'
+                        : 'text-ink-2 hover:text-ink'
+                    }`}
                   >
-                    ล้างคำค้น
+                    ทั้งหมด ({rooms.length})
                   </button>
-                )}
-              </div>
-            </div>
-          )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFloorFilter('1')
+                      if (currentFloor !== 1) setCurrentFloor(1)
+                    }}
+                    className={`btn btn-sm gooey-switch-btn ${
+                      floorFilter === '1'
+                        ? 'text-white'
+                        : 'text-ink-2 hover:text-ink'
+                    }`}
+                  >
+                    ชั้น 1 ({floor1Count})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFloorFilter('2')
+                      if (currentFloor !== 2) setCurrentFloor(2)
+                    }}
+                    className={`btn btn-sm gooey-switch-btn ${
+                      floorFilter === '2'
+                        ? 'text-white'
+                        : 'text-ink-2 hover:text-ink'
+                    }`}
+                  >
+                    ชั้น 2 ({floor2Count})
+                  </button>
+                </div>
 
-          {/* Main Sidebar Scrollable Content */}
-          <div ref={sidebarScrollRef} className="flex-1 overflow-y-auto thin-scrollbar p-4 space-y-4">
-            {leftTab === 'schedules' ? (
-              schedulesLoading ? (
-                <div className="flex flex-col items-center justify-center py-12 text-center text-slate-400">
-                  <div className="h-6 w-6 border-2 border-slate-900 border-t-transparent rounded-full animate-spin mb-2" />
-                  <p className="text-xs">กำลังโหลดตารางสอน...</p>
-                </div>
-              ) : schedulesError ? (
-                <div className="rounded-xl bg-rose-50 border border-rose-200 p-3 text-xs text-rose-700">
-                  โหลดตารางไม่สำเร็จ: {schedulesError.message}
-                </div>
-              ) : (
-                <AllSchedulesView
-                  schedules={schedules}
-                  rooms={rooms}
-                  onSelectRoom={(roomId) => {
-                    handleAdminSelectRoom(roomId)
-                    setLeftTab('rooms')
+                {/* Category Filters Pills Horizontal Strip (with visible thin-scrollbar and mouse-wheel horizontal scrolling) */}
+                <div
+                  className="flex items-center gap-1.5 overflow-x-auto thin-scrollbar pb-1.5 pt-0.5"
+                  onWheel={(e) => {
+                    if (e.deltaY !== 0) {
+                      e.currentTarget.scrollLeft += e.deltaY
+                    }
                   }}
-                />
-              )
-            ) : panelMode === 'room' && selectedRoom ? (
-              <RoomEditPanel
-                key={selectedRoom.id}
-                room={selectedRoom}
-                schedules={schedules}
-                onBack={handleBack}
-                onRoomDeleted={handleRoomDeleted}
-                onRoomMutated={() => reloadRooms(true)}
-                onSchedulesMutated={() => reloadSchedules(true)}
-                isAdmin={isUserAdmin}
-              />
-            ) : (
-              /* ROOM LIST MODE */
-              <div className="space-y-2.5">
-                {/* Rooms List */}
-                <div className="space-y-2">
-                  {filteredRooms.map((room) => (
-                    <RoomListItem
-                      key={room.id}
-                      room={room}
-                      scheduleCount={scheduleCountByRoom.get(room.code) ?? 0}
-                      isSelected={room.id === selectedRoomId}
-                      onSelect={handleAdminSelectRoom}
-                    />
-                  ))}
+                >
+                  {CATEGORY_FILTERS.map((cat) => {
+                    const isActive = categoryFilterKey === cat.key
+                    return (
+                      <button
+                        key={cat.key}
+                        type="button"
+                        onClick={() => setCategoryFilterKey(cat.key)}
+                        className={`btn btn-sm shrink-0 ${
+                          isActive
+                            ? 'btn-primary'
+                            : 'btn-tertiary'
+                        }`}
+                      >
+                        {cat.label}
+                      </button>
+                    )
+                  })}
+                </div>
 
-                  {filteredRooms.length === 0 && (
-                    <div className="flex flex-col items-center justify-center py-10 text-center">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-400 mb-2">
-                        <Sparkle size={20} />
-                      </div>
-                      <p className="text-xs font-semibold text-slate-700">ไม่พบห้องที่ตรงกับการค้นหา</p>
-                      <p className="text-[11px] text-slate-400 mt-0.5">
-                        ลองเปลี่ยนคำค้นหา หรือรีเซ็ตตัวกรองชั้นและหมวดหมู่
-                      </p>
-                    </div>
+                {/* Count indicator */}
+                <div className="flex items-center justify-between text-xs text-ink-3 font-medium px-0.5">
+                  <span>แสดง {filteredRooms.length} ห้อง</span>
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery('')}
+                      className="btn btn-ghost btn-sm"
+                    >
+                      ล้างคำค้น
+                    </button>
                   )}
                 </div>
               </div>
             )}
-          </div>
-        </div>
-      </aside>
 
-      {/* Floating Pinned Room Pill when sidebar is collapsed (positioned at bottom-left) */}
-      {isSidebarCollapsed && selectedRoom && (
-        <div className="absolute bottom-6 left-6 z-20 flex items-center gap-3 rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-md px-3.5 py-2.5 shadow-xl animate-in fade-in slide-in-from-bottom-2 duration-200">
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-900 text-white shadow-xs">
-            <Door size={16} weight="duotone" />
+            {/* Main Sidebar Scrollable Content */}
+            <div ref={sidebarScrollRef} className="flex-1 overflow-y-auto thin-scrollbar p-4 space-y-4">
+              {leftTab === 'schedules' ? (
+                schedulesLoading ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-center text-ink-3">
+                    <div className="h-6 w-6 border-2 border-ink border-t-transparent rounded-full animate-spin mb-2" />
+                    <p className="text-xs">กำลังโหลดตารางสอน...</p>
+                  </div>
+                ) : schedulesError ? (
+                  <div className="card border-ink p-3 text-button text-ink">
+                    โหลดตารางไม่สำเร็จ: {schedulesError.message}
+                  </div>
+                ) : (
+                  <AllSchedulesView
+                    schedules={schedules}
+                    rooms={rooms}
+                    onSelectRoom={(roomId) => {
+                      handleAdminSelectRoom(roomId)
+                      setLeftTab('rooms')
+                    }}
+                  />
+                )
+              ) : panelMode === 'room' && selectedRoom ? (
+                <RoomEditPanel
+                  key={selectedRoom.id}
+                  room={selectedRoom}
+                  schedules={schedules}
+                  onBack={handleBack}
+                  onRoomDeleted={handleRoomDeleted}
+                  onRoomMutated={() => reloadRooms(true)}
+                  onSchedulesMutated={() => reloadSchedules(true)}
+                  isAdmin={isUserAdmin}
+                />
+              ) : (
+                /* ROOM LIST MODE */
+                <div className="space-y-2.5">
+                  {/* Rooms List */}
+                  <div className="space-y-2">
+                    {filteredRooms.map((room) => (
+                      <RoomListItem
+                        key={room.id}
+                        room={room}
+                        scheduleCount={scheduleCountByRoom.get(room.code) ?? 0}
+                        isSelected={room.id === selectedRoomId}
+                        onSelect={handleAdminSelectRoom}
+                      />
+                    ))}
+
+                    {filteredRooms.length === 0 && (
+                      <div className="flex flex-col items-center justify-center py-10 text-center">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-tertiary text-ink-3 mb-2">
+                          <Sparkle size={20} />
+                        </div>
+                        <p className="text-button font-medium text-ink">ไม่พบห้องที่ตรงกับการค้นหา</p>
+                        <p className="text-xs text-ink-3 mt-0.5">
+                          ลองเปลี่ยนคำค้นหา หรือรีเซ็ตตัวกรองชั้นและหมวดหมู่
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
-          <div className="min-w-0 pr-2">
-            <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              กำลังเลือก · ชั้น {selectedRoom.floor}
-            </span>
-            <span className="block truncate text-xs font-bold text-slate-900">
-              {selectedRoom.roomNumber ? `ห้อง ${selectedRoom.roomNumber}` : selectedRoom.nameThai || selectedRoom.code}
-            </span>
+        </aside>
+
+        {/* Floating Pinned Room Pill when sidebar is collapsed (positioned at bottom-left) */}
+        {isSidebarCollapsed && selectedRoom && (
+          <div className="card absolute bottom-6 left-6 z-2 flex items-center gap-3 px-3.5 py-2.5 shadow-floating animate-fade-in">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-ink text-white">
+              <Door size={16} weight="duotone" />
+            </div>
+            <div className="min-w-0 pr-2">
+              <span className="block text-xs font-medium text-ink-3">
+                กำลังเลือก · ชั้น {selectedRoom.floor}
+              </span>
+              <span className="block truncate text-button font-bold text-ink">
+                {selectedRoom.roomNumber ? `ห้อง ${selectedRoom.roomNumber}` : selectedRoom.nameThai || selectedRoom.code}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsSidebarCollapsed(false)}
+              className="btn btn-primary btn-sm"
+            >
+              เปิดแผงแก้ไข
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={() => setIsSidebarCollapsed(false)}
-            className="rounded-xl bg-slate-900 px-3 py-1.5 text-xs font-bold text-white hover:bg-slate-800 transition-colors cursor-pointer shadow-xs active:scale-95"
-          >
-            เปิดแผงแก้ไข
-          </button>
-        </div>
-      )}
+        )}
+      </div>
     </main>
   )
 }

@@ -74,19 +74,42 @@ export default function MapContainer(props: MapContainerProps) {
         </MapErrorBoundary>
       )}
 
-      {/* Merged Floor & View Switcher (1st Floor | 2nd Floor | แผนที่ 2D/3D) just like /map */}
+      {/* Merged Floor & View Switcher (1st Floor | 2nd Floor | แผนที่ 2D/3D) on phones and the landing preview */}
       {!props.hideBottomControls && (
         <div
           role="group"
           aria-label="Floor and view switcher"
-          className={`pointer-events-auto absolute z-20 flex h-10 items-center gap-1 rounded-full border border-slate-200/90 bg-white/95 p-1 text-xs font-semibold shadow-xl backdrop-blur-xl transition-all ${
+          className={`pointer-events-auto absolute z-2 flex h-12 items-center gap-1 rounded-full border border-line-soft bg-white p-1.5 shadow-floating transition-all sm:h-11 sm:p-1 ${
             props.selectedRoomId && props.isDetailOpen
               ? 'bottom-[calc(55dvh+1rem)] right-4 sm:bottom-5 sm:right-5'
               : 'bottom-5 right-4 sm:bottom-5 sm:right-5'
           }`}
         >
           {/* Floor Switcher (1st Floor | 2nd Floor) */}
-          <div role="group" aria-label="Floor switcher" className="flex items-center gap-0.5">
+          <div role="group" aria-label="Floor switcher" className="gooey-switch-group">
+            {(() => {
+              const activeIdx = Math.max(
+                0,
+                FLOOR_CONFIGS.findIndex((f) => f.floor === props.currentFloor),
+              )
+              const blobTransform = `translateX(${activeIdx * 100}%)`
+              return (
+                <div aria-hidden="true" className="gooey-switch-blobs">
+                  <span
+                    className="gooey-pill-lead"
+                    style={{ width: `${100 / FLOOR_CONFIGS.length}%`, transform: blobTransform }}
+                  />
+                  <span
+                    className="gooey-pill-drop"
+                    style={{ width: `${100 / FLOOR_CONFIGS.length}%`, transform: blobTransform }}
+                  />
+                  <span
+                    className="gooey-pill-trail"
+                    style={{ width: `${100 / FLOOR_CONFIGS.length}%`, transform: blobTransform }}
+                  />
+                </div>
+              )
+            })()}
             {FLOOR_CONFIGS.map((floor) => {
               const isActive = floor.floor === props.currentFloor
               return (
@@ -95,10 +118,8 @@ export default function MapContainer(props: MapContainerProps) {
                   type="button"
                   aria-pressed={isActive}
                   onClick={() => props.onFloorChange(floor.floor)}
-                  className={`h-8 rounded-full px-2.5 sm:px-3 text-xs font-semibold transition-all cursor-pointer shrink-0 ${
-                    isActive
-                      ? 'bg-slate-900 text-white shadow-2xs'
-                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                  className={`btn btn-sm gooey-switch-btn ${
+                    isActive ? 'text-white' : 'text-ink-2 hover:text-ink'
                   }`}
                 >
                   {floor.label}
@@ -108,7 +129,7 @@ export default function MapContainer(props: MapContainerProps) {
           </div>
 
           {/* 1px Vertical Divider */}
-          <div className="mx-0.5 h-4 w-px bg-slate-200 shrink-0" />
+          <span aria-hidden="true" className="mx-0.5 h-5 w-px shrink-0 bg-line-soft" />
 
           {/* 2D / 3D View Toggle */}
           <button
@@ -118,7 +139,7 @@ export default function MapContainer(props: MapContainerProps) {
               setView(showing3d ? '2d' : '3d')
               setFailed(false)
             }}
-            className="h-8 rounded-full bg-slate-100/90 px-2.5 sm:px-3 text-xs font-semibold text-slate-700 hover:bg-slate-200/80 hover:text-slate-900 transition-colors cursor-pointer shrink-0"
+            className="btn btn-sm btn-tertiary gooey-fluid-btn"
           >
             {showing3d ? 'แผนที่ 2D' : 'แผนที่ 3D'}
           </button>

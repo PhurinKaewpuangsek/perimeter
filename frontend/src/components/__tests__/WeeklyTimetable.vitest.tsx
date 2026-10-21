@@ -135,6 +135,38 @@ describe('WeeklyTimetable', () => {
       await user.click(screen.getByRole('tab', { name: /วันอาทิตย์/ }))
       expect(screen.getByText('ไม่มีคาบในวันอาทิตย์')).toBeInTheDocument()
     })
+
+    it('renders unified day buttons with a sliding dynamic-gradient gooey indicator and popping white text glyph', async () => {
+      const user = userEvent.setup()
+      render(<WeeklyTimetable slots={SLOTS} layout="day" />)
+
+      const tablist = screen.getByRole('tablist', { name: 'เลือกวัน' })
+      const mondayTab = screen.getByRole('tab', { name: /วันจันทร์/ })
+      const wednesdayTab = screen.getByRole('tab', { name: /วันพุธ/ })
+
+      expect(tablist).toHaveAttribute('data-active-day', 'MON')
+      expect(tablist).toHaveStyle({ '--day-idx': '0' })
+      expect(tablist.querySelector('.day-gooey-indicator-layer')).toBeInTheDocument()
+      expect(tablist.querySelector('.day-indicator-lead')).toBeInTheDocument()
+      expect(tablist.querySelector('.day-indicator-trail')).toBeInTheDocument()
+
+      expect(mondayTab).toHaveAttribute('data-day', 'MON')
+      expect(mondayTab).toHaveClass('day-tab-btn', 'day-tab-active')
+      expect(mondayTab.querySelector('.day-glyph-text')).toHaveTextContent('จ.')
+
+      expect(wednesdayTab).toHaveAttribute('data-day', 'WED')
+      expect(wednesdayTab).toHaveClass('day-tab-btn', 'day-tab-inactive')
+      expect(wednesdayTab).not.toHaveClass('day-tab-active')
+      expect(wednesdayTab.querySelector('.day-glyph-text')).toHaveTextContent('พ.')
+
+      await user.click(wednesdayTab)
+
+      expect(tablist).toHaveAttribute('data-active-day', 'WED')
+      expect(tablist).toHaveStyle({ '--day-idx': '2' })
+      expect(wednesdayTab).toHaveClass('day-tab-active')
+      expect(mondayTab).toHaveClass('day-tab-inactive')
+      expect(mondayTab).not.toHaveClass('day-tab-active')
+    })
   })
 
   it('lists entries with malformed times instead of hiding them', () => {

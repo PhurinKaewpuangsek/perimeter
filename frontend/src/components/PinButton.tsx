@@ -72,27 +72,19 @@ export default function PinButton({ slot, className = '', showLabel = false }: P
         data-testid={testId}
         aria-label={title}
         title={title}
-        className={`inline-flex items-center justify-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold transition-all cursor-pointer ${
-          pinned
-            ? 'bg-amber-100 text-amber-900 border border-amber-300 hover:bg-amber-200 shadow-2xs'
-            : 'bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200 hover:text-slate-900'
-        } ${className}`}
+        className={`btn btn-sm ${pinned ? 'btn-primary' : 'btn-tertiary'} ${className}`}
       >
         {submitting ? (
-          <CircleNotch size={14} weight="bold" className="animate-spin text-slate-500" />
+          <CircleNotch size={14} weight="bold" className="animate-spin" />
         ) : (
-          <BookmarkSimple
-            size={14}
-            weight={pinned ? 'fill' : 'bold'}
-            className={pinned ? 'text-amber-600' : 'text-slate-400 group-hover:text-slate-600'}
-          />
+          <BookmarkSimple size={14} weight={pinned ? 'fill' : 'bold'} />
         )}
         {showLabel && <span>{pinned ? 'บันทึกแล้ว' : 'บันทึก'}</span>}
       </button>
       {error && (
         <span
           role="alert"
-          className="text-[10px] font-medium text-rose-600 animate-fadeIn"
+          className="text-xs font-medium text-ink"
         >
           {error}
         </span>

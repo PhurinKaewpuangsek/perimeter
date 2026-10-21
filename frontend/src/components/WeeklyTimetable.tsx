@@ -96,11 +96,11 @@ function entryLabel(item: PlacedSlot): string {
     .join(' · ')
 }
 
-/** Tailwind colours for an entry: rich contrast Google Calendar styles. */
+/** Tailwind colours for an entry: monochrome, exams carry a black edge and classes the accent edge. */
 function entryColors(slot: ScheduleSlot): string {
   return isExamSchedule(slot)
-    ? 'bg-rose-100/90 border-rose-300 text-rose-950 border-l-4 border-l-rose-500 shadow-2xs'
-    : 'bg-violet-100/90 border-violet-300 text-violet-950 border-l-4 border-l-violet-600 shadow-2xs'
+    ? 'bg-tertiary border-line text-ink border-l-4 border-l-ink'
+    : 'bg-surface-2 border-line-soft text-ink border-l-4 border-l-accent'
 }
 
 /** Absolute position of one entry inside a day column. */
@@ -123,7 +123,7 @@ function HourLines({ startMinute, endMinute, pxPerMinute }: { startMinute: numbe
         <div
           key={m}
           aria-hidden="true"
-          className="absolute inset-x-0 border-t border-slate-200/80"
+          className="absolute inset-x-0 border-t border-line-soft"
           style={{ top: (m - startMinute) * pxPerMinute }}
         />
       ))}
@@ -140,7 +140,7 @@ function TimeGutter({ startMinute, endMinute, pxPerMinute }: { startMinute: numb
       {hours.map((m) => (
         <span
           key={m}
-          className="absolute right-1.5 -translate-y-1/2 font-mono text-[10px] sm:text-[11px] font-bold text-slate-600"
+          className="absolute right-1.5 -translate-y-1/2 font-mono text-xs font-bold text-ink-2"
           style={{ top: (m - startMinute) * pxPerMinute }}
         >
           {formatMinutes(m)}
@@ -168,7 +168,7 @@ function GridView({ slots, renderActions }: Pick<WeeklyTimetableProps, 'slots' |
         <div className="w-9 shrink-0" />
         <div className="grid min-w-0 flex-1 grid-cols-7">
           {TIMETABLE_DAYS.map((day) => (
-            <div key={day} className="truncate text-center text-[10px] font-bold text-slate-600" title={DAY_LABELS[day].full}>
+            <div key={day} className="truncate text-center text-xs font-bold text-ink-2" title={DAY_LABELS[day].full}>
               {DAY_LABELS[day].short}
             </div>
           ))}
@@ -177,13 +177,13 @@ function GridView({ slots, renderActions }: Pick<WeeklyTimetableProps, 'slots' |
 
       <div className="flex min-w-0">
         <TimeGutter startMinute={startMinute} endMinute={endMinute} pxPerMinute={GRID_PX_PER_MINUTE} />
-        <div className="grid min-w-0 flex-1 grid-cols-7 rounded-lg border border-slate-200 bg-white">
+        <div className="grid min-w-0 flex-1 grid-cols-7 rounded-none border border-line-soft bg-white">
           {TIMETABLE_DAYS.map((day) => (
             <div
               key={day}
               role="group"
               aria-label={DAY_LABELS[day].full}
-              className="relative min-w-0 border-l border-slate-100 first:border-l-0"
+              className="relative min-w-0 border-l border-line-soft first:border-l-0"
               style={{ height }}
             >
               <HourLines startMinute={startMinute} endMinute={endMinute} pxPerMinute={GRID_PX_PER_MINUTE} />
@@ -197,13 +197,13 @@ function GridView({ slots, renderActions }: Pick<WeeklyTimetableProps, 'slots' |
                     aria-pressed={isSelected}
                     title={entryLabel(item)}
                     onClick={() => setSelectedKey(isSelected ? null : slotKey(item.slot))}
-                    className={`absolute overflow-hidden rounded-md border px-0.5 text-left leading-tight cursor-pointer transition-shadow ${entryColors(item.slot)} ${
-                      isSelected ? 'ring-2 ring-slate-900 z-10' : 'hover:ring-1 hover:ring-slate-400'
+                    className={`absolute overflow-hidden rounded-none border px-0.5 text-left leading-tight cursor-pointer transition-shadow ${entryColors(item.slot)} ${
+                      isSelected ? 'ring-2 ring-ink z-2' : 'hover:ring-1 hover:ring-line'
                     }`}
                     style={entryStyle(item, startMinute, endMinute, GRID_PX_PER_MINUTE)}
                   >
                     <span className="block truncate font-mono text-[9px] font-bold">{item.slot.eventCode}</span>
-                    <span className="block truncate font-mono text-[8px] opacity-70">{formatMinutes(item.startMinute)}</span>
+                    <span className="block truncate font-mono text-[8px] text-ink-2">{formatMinutes(item.startMinute)}</span>
                   </button>
                 )
               })}
@@ -215,7 +215,7 @@ function GridView({ slots, renderActions }: Pick<WeeklyTimetableProps, 'slots' |
       {selectedStillShown ? (
         <EntryCard item={selectedStillShown} renderActions={renderActions} />
       ) : (
-        <p className="text-center text-[11px] text-slate-500">แตะคาบในตารางเพื่อดูรายละเอียด</p>
+        <p className="text-center text-xs text-ink-3">แตะคาบในตารางเพื่อดูรายละเอียด</p>
       )}
     </div>
   )
@@ -225,17 +225,17 @@ function GridView({ slots, renderActions }: Pick<WeeklyTimetableProps, 'slots' |
 function EntryCard({ item, renderActions }: { item: PlacedSlot; renderActions?: WeeklyTimetableProps['renderActions'] }) {
   const exam = examText(item.slot)
   return (
-    <div data-testid="timetable-entry-card" className={`rounded-xl border p-3 ${entryColors(item.slot)}`}>
+    <div data-testid="timetable-entry-card" className={`rounded-none border p-3 ${entryColors(item.slot)}`}>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="font-mono text-xs font-bold">{item.slot.eventCode}</p>
           {item.slot.eventName && item.slot.eventName !== item.slot.eventCode && (
             <p className="truncate text-xs">{item.slot.eventName}</p>
           )}
-          <p className="mt-0.5 font-mono text-[11px] opacity-80">
+          <p className="mt-0.5 font-mono text-xs text-ink-2">
             {DAY_LABELS[item.day].full} {formatMinutes(item.startMinute)}–{formatMinutes(item.endMinute)}
           </p>
-          {exam && <p className="mt-0.5 text-[11px] font-semibold">{exam}</p>}
+          {exam && <p className="mt-0.5 text-xs font-bold">{exam}</p>}
         </div>
         {renderActions && <div className="flex shrink-0 items-center gap-1">{renderActions(item.slot)}</div>}
       </div>
@@ -249,12 +249,26 @@ function DayView({ slots, renderActions }: Pick<WeeklyTimetableProps, 'slots' | 
   const firstBusyDay = TIMETABLE_DAYS.find((day) => layout.days[day].length > 0) ?? 'MON'
   const [chosenDay, setChosenDay] = useState<TimetableDay | null>(null)
   const day = chosenDay ?? firstBusyDay
+  const activeDayIdx = Math.max(0, TIMETABLE_DAYS.indexOf(day))
   const items = layout.days[day]
   const { startMinute, endMinute } = layout
 
   return (
     <div data-testid="timetable-day" className="space-y-3">
-      <div role="tablist" aria-label="เลือกวัน" className="grid grid-cols-7 gap-1">
+      <div
+        role="tablist"
+        aria-label="เลือกวัน"
+        data-active-day={day}
+        style={{ '--day-idx': activeDayIdx } as React.CSSProperties}
+        className="day-tablist grid grid-cols-7 gap-1"
+      >
+        {/* Full-button dynamic liquid gradient sliding gooey indicator layer (background only) */}
+        <div aria-hidden="true" className="day-gooey-indicator-layer">
+          <span className="day-indicator-lead" />
+          <span className="day-indicator-drop" />
+          <span className="day-indicator-trail" />
+        </div>
+
         {TIMETABLE_DAYS.map((d) => {
           const count = layout.days[d].length
           const active = d === day
@@ -263,27 +277,32 @@ function DayView({ slots, renderActions }: Pick<WeeklyTimetableProps, 'slots' | 
               key={d}
               type="button"
               role="tab"
+              data-day={d}
               aria-selected={active}
               aria-label={`${DAY_LABELS[d].full} (${count} คาบ)`}
               onClick={() => setChosenDay(d)}
-              className={`rounded-lg py-1.5 text-[11px] font-bold cursor-pointer transition-colors ${
-                active ? 'bg-slate-900 text-white' : count > 0 ? 'bg-slate-100 text-slate-800' : 'bg-slate-50 text-slate-400'
+              className={`day-tab-btn py-1.5 text-xs font-bold cursor-pointer ${
+                active
+                  ? 'day-tab-active text-white'
+                  : count > 0
+                    ? 'day-tab-inactive bg-tertiary text-ink'
+                    : 'day-tab-inactive bg-surface-2 text-ink-3'
               }`}
             >
-              {DAY_LABELS[d].short}
+              <span className="day-glyph-text">{DAY_LABELS[d].short}</span>
             </button>
           )
         })}
       </div>
 
       {items.length === 0 ? (
-        <p className="py-6 text-center text-xs text-slate-500">ไม่มีคาบใน{DAY_LABELS[day].full}</p>
+        <p className="py-6 text-center text-xs text-ink-3">ไม่มีคาบใน{DAY_LABELS[day].full}</p>
       ) : (
         <div role="tabpanel" aria-label={DAY_LABELS[day].full} className="flex min-w-0">
           <TimeGutter startMinute={startMinute} endMinute={endMinute} pxPerMinute={DAY_PX_PER_MINUTE} />
           <div
             role="list"
-            className="relative min-w-0 flex-1 rounded-lg border border-slate-200 bg-white"
+            className="relative min-w-0 flex-1 rounded-none border border-line-soft bg-white"
             style={{ height: (endMinute - startMinute) * DAY_PX_PER_MINUTE }}
           >
             <HourLines startMinute={startMinute} endMinute={endMinute} pxPerMinute={DAY_PX_PER_MINUTE} />
@@ -294,18 +313,18 @@ function DayView({ slots, renderActions }: Pick<WeeklyTimetableProps, 'slots' | 
                   key={`${item.slot.eventCode}-${item.startMinute}-${item.lane}`}
                   role="listitem"
                   aria-label={entryLabel(item)}
-                  className={`absolute overflow-hidden rounded-lg border p-2 transition-all ${entryColors(item.slot)}`}
+                  className={`absolute overflow-hidden rounded-none border p-2 transition-all ${entryColors(item.slot)}`}
                   style={entryStyle(item, startMinute, endMinute, DAY_PX_PER_MINUTE)}
                 >
                   <div className="flex items-start justify-between gap-1.5">
                     <div className="min-w-0">
-                      <p className="truncate font-mono text-xs font-extrabold text-slate-900 tracking-tight">
+                      <p className="truncate font-mono text-xs font-bold text-ink">
                         {item.slot.eventCode}
                       </p>
-                      <p className="truncate font-mono text-[11px] font-semibold text-slate-700 mt-0.5">
+                      <p className="truncate font-mono text-xs font-medium text-ink-2 mt-0.5">
                         {formatMinutes(item.startMinute)}–{formatMinutes(item.endMinute)}
                       </p>
-                      {exam && <p className="truncate text-[10px] font-bold text-rose-700 mt-0.5">{exam}</p>}
+                      {exam && <p className="truncate text-xs font-bold text-ink mt-0.5">{exam}</p>}
                     </div>
                     {renderActions && <div className="flex shrink-0 items-center">{renderActions(item.slot)}</div>}
                   </div>
@@ -324,8 +343,8 @@ function SkippedList({ slots, renderActions }: Pick<WeeklyTimetableProps, 'slots
   const skipped = useMemo(() => buildTimetableLayout(slots).skipped, [slots])
   if (skipped.length === 0) return null
   return (
-    <div data-testid="timetable-skipped" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-[11px] text-amber-900">
-      <p className="font-semibold">คาบที่แสดงในตารางไม่ได้ (เวลาหรือวันไม่ถูกต้อง)</p>
+    <div data-testid="timetable-skipped" className="card p-3 text-xs text-ink">
+      <p className="font-bold">คาบที่แสดงในตารางไม่ได้ (เวลาหรือวันไม่ถูกต้อง)</p>
       <ul className="mt-1 space-y-1">
         {skipped.map((slot, i) => (
           <li key={`${slot.eventCode}-${i}`} className="flex items-center justify-between gap-2">
@@ -347,7 +366,7 @@ export default function WeeklyTimetable({ slots, renderActions, layout = 'auto' 
   if (slots.length === 0) {
     return (
       <div ref={ref}>
-        <p data-testid="timetable-empty" className="py-6 text-center text-xs text-slate-500">
+        <p data-testid="timetable-empty" className="py-6 text-center text-xs text-ink-3">
           ห้องนี้ยังไม่มีตารางการใช้ห้อง
         </p>
       </div>

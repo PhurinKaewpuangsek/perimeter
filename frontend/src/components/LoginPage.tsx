@@ -10,6 +10,9 @@ import {
 } from '../services/authService'
 import { resolvePostLoginRedirect } from '../services/authRouting'
 
+const PASSWORD_TOGGLE_CLASS =
+  'absolute top-1/2 right-0 flex h-8 w-8 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full text-ink-3 transition-colors hover:bg-tertiary hover:text-ink'
+
 export default function LoginPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -103,18 +106,18 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col justify-center items-center p-4 text-slate-800">
-      <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-xl border border-slate-200/80">
-        <div className="text-center mb-6">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-white p-5 text-ink">
+      <div className="card w-full max-w-md p-6 sm:p-8">
+        <div className="mb-6 text-center">
           <img
             src={perimeterLogoNoBg}
             alt="Perimeter"
-            className="h-12 mx-auto mb-3 object-contain"
+            className="mx-auto mb-4 h-12 object-contain"
           />
-          <h1 className="text-xl font-bold text-slate-900">
+          <h1 className="font-display text-h3 font-bold text-ink">
             {isNewPasswordRequired ? 'ตั้งรหัสผ่านใหม่' : 'เข้าสู่ระบบ'}
           </h1>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="mt-1 text-button text-ink-2">
             {isNewPasswordRequired
               ? `บัญชี ${challengeEmail} เข้าสู่ระบบเป็นครั้งแรก กรุณาตั้งรหัสผ่านใหม่เพื่อเปิดใช้งาน`
               : 'กรุณากรอกอีเมลและรหัสผ่านเพื่อเข้าใช้งาน'}
@@ -122,33 +125,27 @@ export default function LoginPage() {
         </div>
 
         {isExpired && !isNewPasswordRequired && (
-          <div
-            role="status"
-            className="mb-4 rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800 flex items-start gap-2"
-          >
-            <Clock size={16} className="shrink-0 mt-0.5 text-amber-600" weight="bold" />
+          <div role="status" className="card mb-4 flex items-start gap-2 p-3 text-button text-ink-2">
+            <Clock size={16} className="mt-0.5 shrink-0 text-ink" weight="bold" />
             <span>เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่อีกครั้ง</span>
           </div>
         )}
 
         {error && (
-          <div
-            role="alert"
-            className="mb-4 rounded-xl bg-rose-50 border border-rose-200 p-3 text-xs text-rose-700 flex items-start gap-2"
-          >
-            <Warning size={16} className="shrink-0 mt-0.5" weight="bold" />
+          <div role="alert" className="card mb-4 flex items-start gap-2 border-ink p-3 text-button text-ink">
+            <Warning size={16} className="mt-0.5 shrink-0" weight="bold" />
             <span>{error}</span>
           </div>
         )}
 
         {isNewPasswordRequired ? (
-          <form onSubmit={handleNewPasswordSubmit} className="space-y-4">
-            <div className="rounded-xl bg-slate-50 border border-slate-200 p-3 text-[11px] text-slate-600 space-y-1">
-              <div className="font-semibold text-slate-700 flex items-center gap-1">
+          <form onSubmit={handleNewPasswordSubmit} className="space-y-5">
+            <div className="surface space-y-1 p-3 text-xs text-ink-2">
+              <div className="flex items-center gap-1 font-medium text-ink">
                 <LockKey size={14} weight="bold" />
                 <span>ข้อกำหนดความปลอดภัยของรหัสผ่าน:</span>
               </div>
-              <ul className="list-disc list-inside space-y-0.5 text-slate-500 pl-1">
+              <ul className="list-inside list-disc space-y-0.5 pl-1">
                 <li>อย่างน้อย 8 ตัวอักษร</li>
                 <li>ตัวพิมพ์ใหญ่ (A-Z) อย่างน้อย 1 ตัว</li>
                 <li>ตัวพิมพ์เล็ก (a-z) อย่างน้อย 1 ตัว</li>
@@ -158,7 +155,7 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1" htmlFor="new-password">
+              <label className="label" htmlFor="new-password">
                 รหัสผ่านใหม่
               </label>
               <div className="relative">
@@ -169,13 +166,13 @@ export default function LoginPage() {
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="อย่างน้อย 8 ตัวอักษร"
-                  className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 pr-10 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-800 transition-all font-mono"
+                  className="input pr-10 font-mono"
                 />
                 <button
                   type="button"
                   onClick={() => setShowNewPassword(!showNewPassword)}
                   aria-label={showNewPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  className={PASSWORD_TOGGLE_CLASS}
                 >
                   {showNewPassword ? <EyeSlash size={16} /> : <Eye size={16} />}
                 </button>
@@ -183,7 +180,7 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1" htmlFor="confirm-password">
+              <label className="label" htmlFor="confirm-password">
                 ยืนยันรหัสผ่านใหม่
               </label>
               <div className="relative">
@@ -194,13 +191,13 @@ export default function LoginPage() {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="พิมพ์รหัสผ่านใหม่อีกครั้ง"
-                  className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 pr-10 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-800 transition-all font-mono"
+                  className="input pr-10 font-mono"
                 />
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   aria-label={showConfirmPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  className={PASSWORD_TOGGLE_CLASS}
                 >
                   {showConfirmPassword ? <EyeSlash size={16} /> : <Eye size={16} />}
                 </button>
@@ -212,23 +209,19 @@ export default function LoginPage() {
                 type="button"
                 onClick={handleBackToSignIn}
                 disabled={loading}
-                className="w-1/3 rounded-xl border border-slate-300 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-all cursor-pointer disabled:opacity-50"
+                className="btn btn-secondary w-1/3"
               >
                 ย้อนกลับ
               </button>
-              <button
-                type="submit"
-                disabled={loading}
-                className="flex-1 rounded-xl bg-slate-900 py-2.5 text-xs font-bold text-white shadow-md hover:bg-slate-800 active:scale-[0.99] cursor-pointer transition-all disabled:opacity-50"
-              >
+              <button type="submit" disabled={loading} className="btn btn-primary flex-1">
                 {loading ? 'กำลังบันทึก...' : 'บันทึกและเข้าใช้งาน'}
               </button>
             </div>
           </form>
         ) : (
-          <form onSubmit={handleLoginSubmit} className="space-y-4">
+          <form onSubmit={handleLoginSubmit} className="space-y-5">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1" htmlFor="email">
+              <label className="label" htmlFor="email">
                 อีเมล / ชื่อผู้ใช้
               </label>
               <input
@@ -239,12 +232,12 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="name@torch.dev"
-                className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-800 transition-all"
+                className="input"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1" htmlFor="password">
+              <label className="label" htmlFor="password">
                 รหัสผ่าน
               </label>
               <div className="relative">
@@ -256,31 +249,27 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 pr-10 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-800 transition-all font-mono"
+                  className="input pr-10 font-mono"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   aria-label={showPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  className={PASSWORD_TOGGLE_CLASS}
                 >
                   {showPassword ? <EyeSlash size={16} /> : <Eye size={16} />}
                 </button>
               </div>
             </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full rounded-xl bg-slate-900 py-2.5 text-xs font-bold text-white shadow-md hover:bg-slate-800 active:scale-[0.99] cursor-pointer transition-all disabled:opacity-50"
-            >
+            <button type="submit" disabled={loading} className="btn btn-primary btn-lg w-full">
               {loading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}
             </button>
           </form>
         )}
 
-        <div className="mt-6 pt-4 border-t border-slate-200 text-center">
-          <Link to="/" className="text-xs text-slate-500 hover:text-slate-800 transition-colors">
+        <div className="mt-6 border-t border-line-soft pt-4 text-center">
+          <Link to="/" className="link text-button">
             ← กลับสู่หน้าหลัก
           </Link>
         </div>

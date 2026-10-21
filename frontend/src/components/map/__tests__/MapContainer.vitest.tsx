@@ -203,9 +203,9 @@ describe('MapContainer2D fallback', () => {
 
     expect(floorSwitcher.className).toContain('bottom-5')
     expect(floorSwitcher.className).not.toContain('bottom-[calc(55dvh+1rem)]')
-    expect(zoomControls.closest('.map2d > div')?.className).toContain('bottom-18')
-    expect(zoomControls.closest('.map2d > div')?.className).not.toContain('bottom-[calc(55dvh+4.5rem)]')
-    expect(recenterBtn.closest('.map2d > div')?.className).toContain('bottom-18')
+    expect(zoomControls.closest('.map2d > div')?.className).toContain('bottom-20')
+    expect(zoomControls.closest('.map2d > div')?.className).not.toContain('bottom-[calc(55dvh+5rem)]')
+    expect(recenterBtn.closest('.map2d > div')?.className).toContain('bottom-20')
   })
 
   it('offsets floating controls upwards when room is pinned and detail sheet is open', () => {
@@ -225,8 +225,8 @@ describe('MapContainer2D fallback', () => {
     const recenterBtn = screen.getByRole('button', { name: /จัดกึ่งกลางแผนที่/i })
 
     expect(floorSwitcher.className).toContain('bottom-[calc(55dvh+1rem)]')
-    expect(zoomControls.closest('.map2d > div')?.className).toContain('bottom-[calc(55dvh+4.5rem)]')
-    expect(recenterBtn.closest('.map2d > div')?.className).toContain('bottom-[calc(55dvh+4.5rem)]')
+    expect(zoomControls.closest('.map2d > div')?.className).toContain('bottom-[calc(55dvh+5rem)]')
+    expect(recenterBtn.closest('.map2d > div')?.className).toContain('bottom-[calc(55dvh+5rem)]')
   })
 })
 

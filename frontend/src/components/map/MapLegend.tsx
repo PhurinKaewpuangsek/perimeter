@@ -22,14 +22,14 @@ function MapLegend({ entries }: MapLegendProps) {
   const [isOpen, setIsOpen] = useState<boolean>(prefersOpenLegend)
 
   return (
-    <div className="absolute bottom-6 left-4 z-10 sm:bottom-6 sm:left-6">
-      <div className="rounded-2xl bg-white shadow-lg border border-slate-200/80">
+    <div className="absolute bottom-6 left-4 z-1 sm:bottom-6 sm:left-6">
+      <div className="card shadow-raised">
         <button
           type="button"
           aria-expanded={isOpen}
           aria-controls="map-legend-items"
           onClick={() => setIsOpen((open) => !open)}
-          className="flex w-full items-center gap-2 rounded-2xl px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-all duration-150 cursor-pointer"
+          className="btn btn-ghost btn-sm w-full justify-start gap-2 rounded-none"
         >
           <Palette size={18} weight="bold" aria-hidden="true" />
           <span>ประเภทพื้นที่</span>
@@ -47,11 +47,11 @@ function MapLegend({ entries }: MapLegendProps) {
 
         <ul id="map-legend-items" hidden={!isOpen} className="px-3 pb-2.5 pt-0.5 space-y-1.5">
           {entries.map((entry) => (
-            <li key={`${entry.fill}-${entry.label}`} className="flex items-center gap-2 text-xs text-slate-600">
+            <li key={`${entry.fill}-${entry.label}`} className="flex items-center gap-2 text-xs text-ink-2">
               <span
                 data-testid={`legend-swatch-${entry.fill}`}
                 aria-hidden="true"
-                className="h-3 w-3 shrink-0 rounded-full border border-slate-300"
+                className="h-3 w-3 shrink-0 rounded-full border border-line"
                 style={{ backgroundColor: entry.fill }}
               />
               <span>{entry.label}</span>

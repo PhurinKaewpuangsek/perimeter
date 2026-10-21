@@ -48,24 +48,24 @@ export default function RouteGuard({ allowedRoles, children }: RouteGuardProps) 
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col justify-center items-center p-4 text-slate-800">
-      <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-xl border border-slate-200 text-center">
-        <div className="mx-auto w-14 h-14 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600 mb-4">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-white p-5 text-ink">
+      <div className="card w-full max-w-md p-8 text-center">
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-tertiary text-ink">
           <Shield size={32} weight="duotone" />
         </div>
-        <h1 className="text-xl font-bold text-slate-900 mb-2">{title}</h1>
-        <p className="text-xs text-slate-500 mb-6">
+        <h1 className="font-display text-h3 font-bold text-ink mb-2">{title}</h1>
+        <p className="text-button text-ink-2 mb-6">
           หน้านี้ต้องการสิทธิ์ระดับ{' '}
-          <span className="font-semibold text-rose-600">{allowedRoles.join(' หรือ ')}</span>{' '}
+          <span className="font-medium text-ink">{allowedRoles.join(' หรือ ')}</span>{' '}
           แต่บัญชีปัจจุบันของคุณคือ{' '}
-          <span className="font-semibold text-slate-700">{userRole}</span>
+          <span className="font-medium text-ink">{userRole}</span>
         </p>
 
         <div className="flex flex-col gap-2.5">
           <button
             type="button"
             onClick={() => navigate(ownHome)}
-            className="w-full flex items-center justify-center gap-2 rounded-xl bg-slate-900 py-2.5 text-xs font-bold text-white shadow-md hover:bg-slate-800 active:scale-[0.99] transition-all cursor-pointer"
+            className="btn btn-primary w-full"
           >
             <House size={16} weight="bold" />
             <span>{homeLabel}</span>
@@ -74,7 +74,7 @@ export default function RouteGuard({ allowedRoles, children }: RouteGuardProps) 
           <button
             type="button"
             onClick={handleSignOut}
-            className="w-full flex items-center justify-center gap-2 rounded-xl border border-slate-300 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-all cursor-pointer"
+            className="btn btn-secondary w-full"
           >
             <SignOut size={16} weight="bold" />
             <span>ออกจากระบบ (Sign out)</span>

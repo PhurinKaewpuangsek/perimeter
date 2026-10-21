@@ -1,13 +1,209 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
-@theme {
-  --font-sans: 'Plus Jakarta Sans', 'Prompt', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+/* ============================================================================
+   Perimeter design tokens — derived from "Design System Inspired by Uber"
+   (DesignMD). Spec and project mapping: docs/design/uber-designmd.md
+   Light theme only: no dark variant exists and none may be added
+   (guarded by src/test/lightTheme.vitest.ts).
+   ============================================================================ */
+@theme static {
+  /* Typography. UberMove (display, headings >= 20px) and UberMoveText (body, UI)
+     are proprietary and have no Thai glyphs, so Plus Jakarta Sans + Prompt carry
+     both roles with the same 400 / 500 / 700 weights. */
+  --font-display: 'Plus Jakarta Sans', 'Prompt', ui-sans-serif, system-ui, sans-serif;
+  --font-text: 'Plus Jakarta Sans', 'Prompt', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Plus Jakarta Sans', 'Prompt', ui-sans-serif, system-ui, sans-serif;
+
+  --text-display: 52px;
+  --text-display--line-height: 64px;
+  --text-h2: 36px;
+  --text-h2--line-height: 44px;
+  --text-h3: 24px;
+  --text-h3--line-height: 32px;
+  --text-h3-sm: 20px;
+  --text-h3-sm--line-height: 28px;
+  --text-label: 18px;
+  --text-label--line-height: 24px;
+  --text-body: 16px;
+  --text-body--line-height: 24px;
+  /* DesignMD lists 14/16; Thai vowel marks clip below 20px of line height. */
+  --text-button: 14px;
+  --text-button--line-height: 20px;
+
+  /* Colour palette (only these hex values may appear in UI chrome). */
+  --color-ink: #000000; /* primary text, primary button, top nav */
+  --color-ink-2: #333333; /* secondary text, primary button hover */
+  --color-ink-3: #757575; /* tertiary text, placeholder, disabled text */
+  --color-ink-4: #5e5e5e; /* quaternary text */
+  --color-line: #767676; /* input underline, strong dividers */
+  --color-line-soft: #d8d8d8; /* card, dropdown and boxed-input borders */
+  --color-surface: #ffffff;
+  --color-surface-2: #f3f3f3; /* secondary surface, sections */
+  --color-surface-3: #4a4a4a; /* footer / dark content blocks */
+  --color-search: #f6f6f6; /* search input background */
+  --color-tertiary: #eeeeee; /* tertiary button, disabled background */
+  --color-tertiary-hover: #e0e0e0;
+  --color-tertiary-active: #d8d8d8;
+  --color-secondary-active: #e8e8e8;
+  --color-accent: #0000ee; /* primary CTA, links, focus, selected pin */
+  --color-accent-hover: #0000bb;
+  --color-accent-active: #0000aa;
+
+  /* Elevation: at most one shadow per element. */
+  --shadow-raised: 0 2px 8px 0 rgb(0 0 0 / 0.08);
+  --shadow-floating: 0 2px 8px 0 rgb(0 0 0 / 0.16);
+  --shadow-modal: 0 8px 24px 0 rgb(0 0 0 / 0.24);
 }
 
-body {
-  font-family: var(--font-sans);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  html {
+    background-color: var(--color-surface);
+  }
+
+  body {
+    font-family: var(--font-text);
+    background-color: var(--color-surface);
+    color: var(--color-ink);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: 0;
+  }
+
+  ::placeholder {
+    color: var(--color-ink-3);
+  }
+
+  /* Keyboard focus: 2px accent outline, 2px offset, on every interactive element. */
+  :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  /* ---- Buttons: pill, 14/500, 10px 12px, at least 36px tall ---- */
+  .btn {
+    @apply inline-flex min-h-9 cursor-pointer items-center justify-center gap-2 rounded-full border border-transparent px-3 py-2.5 font-text text-button font-medium whitespace-nowrap select-none disabled:cursor-not-allowed;
+    transition:
+      background-color 220ms cubic-bezier(0.22, 1, 0.36, 1),
+      color 200ms cubic-bezier(0.22, 1, 0.36, 1),
+      border-color 200ms ease,
+      box-shadow 260ms cubic-bezier(0.22, 1, 0.36, 1),
+      transform 380ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .btn:not(:disabled):active {
+    transform: scale(0.94, 0.96);
+  }
+  .btn-primary {
+    @apply bg-ink text-white hover:bg-ink-2 active:bg-ink active:shadow-floating disabled:bg-tertiary disabled:text-ink-3 disabled:shadow-none;
+  }
+  .btn-secondary {
+    @apply border-ink bg-white text-ink hover:bg-surface-2 active:bg-secondary-active active:shadow-raised disabled:border-line-soft disabled:bg-white disabled:text-ink-3 disabled:shadow-none;
+  }
+  .btn-tertiary {
+    @apply bg-tertiary text-ink hover:bg-tertiary-hover active:bg-tertiary-active disabled:text-ink-3;
+  }
+  .btn-ghost {
+    @apply bg-transparent text-ink-2 hover:bg-tertiary hover:text-ink active:bg-tertiary-hover disabled:text-ink-3;
+  }
+  /* Navigation link on the black top bar */
+  .btn-nav {
+    @apply bg-transparent text-white hover:bg-ink-2 hover:text-secondary-active active:text-tertiary;
+  }
+  /* Secondary (white) button on the black top bar */
+  .btn-on-dark {
+    @apply bg-white text-ink hover:bg-surface-2 active:bg-secondary-active;
+  }
+  .btn-icon {
+    @apply h-10 w-10 shrink-0 p-0;
+  }
+  .btn-icon-sm {
+    @apply h-8 w-8 shrink-0 p-0;
+  }
+  .btn-lg {
+    @apply min-h-11 px-4 py-3 text-body;
+  }
+  .btn-sm {
+    @apply min-h-8 px-2.5 py-1.5;
+  }
+
+  /* ---- Inputs: at least 44px tall ---- */
+  .input {
+    @apply min-h-11 w-full rounded-none border-0 border-b border-line bg-transparent px-0 py-2.5 font-text text-body text-ink placeholder:text-ink-3 focus:border-accent focus:outline-none disabled:bg-tertiary disabled:text-ink-3;
+  }
+  /* 2px focus indicator drawn with a shadow so the field never shifts. */
+  .input:focus {
+    box-shadow: 0 1px 0 0 var(--color-accent);
+  }
+  .input-search {
+    @apply min-h-10 w-full rounded-none border border-transparent bg-search px-3 py-2.5 font-text text-body text-ink placeholder:text-ink-3 focus:border-accent focus:bg-white focus:outline-none disabled:bg-tertiary disabled:text-ink-3;
+  }
+  .input-boxed {
+    @apply min-h-11 w-full rounded-none border border-line-soft bg-white px-3.5 py-2.5 font-text text-body text-ink placeholder:text-ink-3 focus:border-accent focus:ring-2 focus:ring-accent/10 focus:outline-none disabled:bg-tertiary disabled:text-ink-3;
+  }
+  .label {
+    @apply mb-1 block font-text text-button font-medium text-ink;
+  }
+
+  /* ---- Surfaces ---- */
+  .card {
+    @apply rounded-none border border-line-soft bg-white;
+  }
+  .card-hover {
+    @apply transition-shadow duration-150 hover:shadow-raised;
+  }
+  .surface {
+    @apply rounded-none bg-surface-2;
+  }
+  .dropdown {
+    @apply z-101 min-w-50 rounded-none border border-line-soft bg-white shadow-floating;
+  }
+  .modal-overlay {
+    @apply fixed inset-0 z-2001 bg-black/50;
+  }
+  .modal {
+    @apply z-2002 rounded-none bg-white shadow-modal;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-line-soft bg-white px-2.5 py-1 text-xs font-medium text-ink-2;
+  }
+  .link {
+    @apply text-accent underline underline-offset-2 hover:text-accent-hover active:text-accent-active;
+  }
+}
+
+/* Touch targets on phones: 44px buttons with 12px 16px padding. Dense chrome
+   (`btn-sm` inside floating pills, `btn-icon-sm` inline controls) stays smaller. */
+@media (max-width: 639px) {
+  .btn {
+    min-height: 2.75rem;
+    padding: 0.75rem 1rem;
+  }
+  .btn-sm {
+    min-height: 2.25rem;
+    padding: 0.375rem 0.75rem;
+  }
+  .btn-icon {
+    height: 2.75rem;
+    width: 2.75rem;
+    padding: 0;
+  }
+  .btn-icon-sm {
+    height: 2.5rem;
+    width: 2.5rem;
+    padding: 0;
+  }
 }
 
 @keyframes pinDrop {
@@ -46,6 +242,15 @@ body {
   }
 }
 
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 .animate-pin-drop {
   animation: pinDrop 260ms cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
 }
@@ -54,13 +259,580 @@ body {
   animation: slideUpMobile 250ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+.animate-fade-in {
+  animation: fadeIn 150ms ease-out;
+}
+
 @media (min-width: 640px) {
   .sm\:animate-modal-desktop {
     animation: slideInDesktop 240ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
   }
 }
 
-@keyframes borderBeam {
+/* ============================================================================
+   Gooey / "Dripping" Fluid Animation System
+   ============================================================================ */
+
+/* 1. Pill Switchers (Floor Selector, Class/Exam Schedule Switch, Sidebar Tabs)
+   Applies #perimeter-gooey-pill (feGaussianBlur stdDeviation="6" + feColorMatrix
+   18 -7) ONLY to the background sliding indicator layer (z-index: 0) while keeping
+   button text & icons in a higher layer (z-index: 10) so text never blurs. */
+.gooey-switch-group {
+  position: relative;
+  display: inline-grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: center;
+  border-radius: 9999px;
+  isolation: isolate;
+}
+
+.gooey-switch-group-3 {
+  position: relative;
+  display: inline-grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: center;
+  border-radius: 9999px;
+  isolation: isolate;
+}
+
+.gooey-switch-blobs {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  filter: url(#perimeter-gooey-pill);
+  will-change: transform;
+}
+
+/* Default width & position for 2-column .gooey-switch-group when using data-active-index */
+.gooey-switch-group .gooey-pill-lead,
+.gooey-switch-group .gooey-pill-drop,
+.gooey-switch-group .gooey-pill-trail {
+  width: 50%;
+  background-color: #000000;
+}
+
+.gooey-switch-group[data-active-index='0'] .gooey-pill-lead,
+.gooey-switch-group[data-active-index='0'] .gooey-pill-drop,
+.gooey-switch-group[data-active-index='0'] .gooey-pill-trail {
+  transform: translateX(0%);
+}
+
+.gooey-switch-group[data-active-index='1'] .gooey-pill-lead,
+.gooey-switch-group[data-active-index='1'] .gooey-pill-drop,
+.gooey-switch-group[data-active-index='1'] .gooey-pill-trail {
+  transform: translateX(100%);
+}
+
+/* Leading liquid pill: fast elastic spring */
+.gooey-pill-lead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  border-radius: 9999px;
+  background-color: #000000;
+  transition: transform 360ms cubic-bezier(0.22, 1.38, 0.36, 1);
+  will-change: transform;
+}
+
+/* Viscous trailing pill: lags behind during switch so the SVG filter stretches a
+   liquid bridge between old & new positions, then settles flush at full height. */
+.gooey-pill-trail {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  border-radius: 9999px;
+  background-color: #000000;
+  transition: transform 540ms cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform;
+}
+
+/* Mid-stream coalescing droplet */
+.gooey-pill-drop {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 0;
+  border-radius: 9999px;
+  background-color: #000000;
+  transition: transform 450ms cubic-bezier(0.28, 1.48, 0.42, 1);
+  will-change: transform;
+}
+
+/* Crisp foreground button inside a gooey switch (z-index: 2, never blurred) */
+.gooey-switch-btn {
+  position: relative;
+  z-index: 2;
+  background-color: transparent !important;
+  transition:
+    color 240ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 340ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.gooey-switch-btn:hover {
+  background-color: transparent !important;
+}
+
+.gooey-switch-btn:active {
+  transform: scale(0.94, 0.96);
+}
+
+/* 2. Fluid Tactile Button (My Schedule button, Workspace trigger, Account trigger, 2D/3D toggle) */
+.gooey-fluid-btn {
+  position: relative;
+  isolation: isolate;
+  transition:
+    background-color 240ms cubic-bezier(0.22, 1, 0.36, 1),
+    color 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 420ms cubic-bezier(0.34, 1.62, 0.64, 1);
+}
+
+.gooey-fluid-btn:not(:disabled):hover {
+  transform: translateY(-1px) scale(1.025, 0.985);
+}
+
+.gooey-fluid-btn:not(:disabled):active {
+  transform: translateY(1px) scale(0.93, 1.05);
+}
+
+@keyframes gooeyTriggerMorph {
+  0% {
+    transform: scale(1, 1);
+  }
+  30% {
+    transform: scale(1.06, 0.9);
+  }
+  65% {
+    transform: scale(0.97, 1.04);
+  }
+  100% {
+    transform: scale(1, 1);
+  }
+}
+
+.animate-gooey-trigger-open {
+  animation: gooeyTriggerMorph 440ms cubic-bezier(0.22, 1.4, 0.36, 1);
+}
+
+@keyframes gooeyBadgePop {
+  0% {
+    transform: scale(0.5);
+  }
+  55% {
+    transform: scale(1.22, 0.86);
+  }
+  80% {
+    transform: scale(0.92, 1.08);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.animate-gooey-badge-pop {
+  animation: gooeyBadgePop 480ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* 3. Popover Menus ("แผนที่ LC3" & "admin@torch.dev" Profile Dropdown)
+   - Parent wrapper uses filter: drop-shadow(...) so the shadow wraps seamlessly
+     around both the 16px-rounded menu and the concave SVG cubic-Bezier neck
+     without creating any seam line.
+   - The concave SVG bridge stretches during the open transition and retracts
+     cleanly (scaleY(0)) once opened so it never overlaps the dark trigger button. */
+.gooey-popover-wrapper {
+  filter: drop-shadow(0 8px 20px rgb(0 0 0 / 0.14)) drop-shadow(0 2px 6px rgb(0 0 0 / 0.08));
+}
+
+.gooey-popover-surface {
+  position: relative;
+  z-index: 10;
+  border-radius: 16px;
+  background-color: var(--color-surface);
+  overflow: hidden;
+}
+
+/* Concave cubic-Bezier liquid bridge for downward dropdown (AccountMenu) */
+.gooey-neck-down {
+  pointer-events: none;
+  position: absolute;
+  bottom: calc(100% - 1px);
+  right: 22px;
+  width: 68px;
+  height: 16px;
+  z-index: 10;
+  transform-origin: bottom center;
+  animation: gooeyNeckRetractDown 460ms cubic-bezier(0.22, 1.35, 0.36, 1) forwards;
+}
+
+@keyframes gooeyNeckRetractDown {
+  0% {
+    transform: scaleY(1.35) scaleX(0.6);
+  }
+  40% {
+    transform: scaleY(0.9) scaleX(1.05);
+  }
+  75% {
+    transform: scaleY(0.18) scaleX(1.15);
+  }
+  100% {
+    transform: scaleY(0) scaleX(1);
+  }
+}
+
+@keyframes gooeyMenuExpandDown {
+  0% {
+    opacity: 0;
+    transform: translateY(-12px) scaleX(0.82) scaleY(0.42);
+  }
+  48% {
+    opacity: 1;
+    transform: translateY(3px) scaleX(0.98) scaleY(1.03);
+  }
+  78% {
+    opacity: 1;
+    transform: translateY(-1px) scaleX(1.005) scaleY(0.995);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scaleX(1) scaleY(1);
+  }
+}
+
+.animate-gooey-menu-down {
+  transform-origin: top right;
+  animation: gooeyMenuExpandDown 440ms cubic-bezier(0.22, 1.38, 0.36, 1) forwards;
+}
+
+/* Concave cubic-Bezier liquid bridge for upward popover (Workspace Switcher) */
+.gooey-neck-up {
+  pointer-events: none;
+  position: absolute;
+  top: calc(100% - 1px);
+  left: 50%;
+  width: 72px;
+  height: 16px;
+  z-index: 10;
+  transform-origin: top center;
+  animation: gooeyNeckRetractUp 460ms cubic-bezier(0.22, 1.35, 0.36, 1) forwards;
+}
+
+@keyframes gooeyNeckRetractUp {
+  0% {
+    transform: translateX(-50%) scaleY(1.35) scaleX(0.6);
+  }
+  40% {
+    transform: translateX(-50%) scaleY(0.9) scaleX(1.05);
+  }
+  75% {
+    transform: translateX(-50%) scaleY(0.18) scaleX(1.15);
+  }
+  100% {
+    transform: translateX(-50%) scaleY(0) scaleX(1);
+  }
+}
+
+@keyframes gooeyMenuExpandUp {
+  0% {
+    opacity: 0;
+    transform: translateY(14px) scaleX(0.8) scaleY(0.38);
+  }
+  48% {
+    opacity: 1;
+    transform: translateY(-3px) scaleX(0.98) scaleY(1.03);
+  }
+  78% {
+    opacity: 1;
+    transform: translateY(1px) scaleX(1.005) scaleY(0.995);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scaleX(1) scaleY(1);
+  }
+}
+
+.animate-gooey-menu-up {
+  transform-origin: bottom center;
+  animation: gooeyMenuExpandUp 450ms cubic-bezier(0.22, 1.38, 0.36, 1) forwards;
+}
+
+/* Staggered fluid item cascade inside dripping menus & panes */
+@keyframes gooeyItemReveal {
+  0% {
+    opacity: 0;
+    transform: translateY(8px) scale(0.96);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(-1px) scale(1.005);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-gooey-item-1 {
+  animation: gooeyItemReveal 340ms cubic-bezier(0.22, 1.35, 0.36, 1) 25ms both;
+}
+
+.animate-gooey-item-2 {
+  animation: gooeyItemReveal 380ms cubic-bezier(0.22, 1.35, 0.36, 1) 75ms both;
+}
+
+.animate-gooey-item-3 {
+  animation: gooeyItemReveal 420ms cubic-bezier(0.22, 1.35, 0.36, 1) 125ms both;
+}
+
+/* 4. "My Schedule" Slide-over Drawer — Single Dynamic Quadratic Bezier Curtain
+   As the drawer slides in from the right, the single quadratic Bezier SVG path
+   (M 56 0 Q 2 280 56 1000 Z) pulls left to simulate surface tension, then
+   spring-settles into a completely flat vertical edge (0px curve, scaleX(0))
+   once the drawer is fully open. */
+.gooey-drawer-sheet {
+  filter: drop-shadow(-8px 0 24px rgb(0 0 0 / 0.18));
+}
+
+.gooey-drawer-curtain {
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -55px;
+  width: 56px;
+  height: 100%;
+  z-index: 0;
+  transform-origin: right center;
+  animation: gooeyDrawerCurtainMorph 520ms cubic-bezier(0.22, 1.35, 0.36, 1) forwards;
+}
+
+@keyframes gooeyDrawerCurtainMorph {
+  0% {
+    transform: scaleX(0.85);
+  }
+  35% {
+    transform: scaleX(1.12);
+  }
+  72% {
+    transform: scaleX(0.22);
+  }
+  90% {
+    transform: scaleX(0.04);
+  }
+  100% {
+    transform: scaleX(0);
+  }
+}
+
+@keyframes gooeyPaneSlideIn {
+  0% {
+    opacity: 0.85;
+    transform: translateX(100%);
+  }
+  58% {
+    opacity: 1;
+    transform: translateX(-4px);
+  }
+  82% {
+    transform: translateX(1px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-gooey-pane-in {
+  transform-origin: right center;
+  animation: gooeyPaneSlideIn 460ms cubic-bezier(0.22, 1.3, 0.36, 1) forwards;
+}
+
+/* Fluid content swap when switching Class / Exam schedule tabs */
+@keyframes gooeyContentSwap {
+  0% {
+    opacity: 0;
+    transform: translateY(6px) scale(0.985);
+  }
+  65% {
+    opacity: 1;
+    transform: translateY(-1px) scale(1.003);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-gooey-content-swap {
+  animation: gooeyContentSwap 320ms cubic-bezier(0.22, 1.3, 0.36, 1) forwards;
+}
+
+/* ============================================================================
+   5. Days of the Week Selector ("จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส.", "อา.")
+   - All 7 buttons share a uniform 12px rounded capsule/pill geometry.
+   - Full-button dynamic flowing Thai-day liquid gradient on the sliding gooey
+     indicator + matching ambient outer glow on the active button.
+   - Crisp pure white (#FFFFFF) bold text with subtle text-shadow and spring bounce.
+   ============================================================================ */
+
+.day-tablist {
+  position: relative;
+  isolation: isolate;
+}
+
+/* Day-specific Thai color gradients & ambient outer glow */
+.day-tablist[data-active-day='MON'],
+.day-tab-btn[data-day='MON'] {
+  --day-grad: linear-gradient(135deg, #f59e0b, #fbbf24, #d97706);
+  --day-glow: rgba(245, 158, 11, 0.45);
+}
+
+.day-tablist[data-active-day='TUE'],
+.day-tab-btn[data-day='TUE'] {
+  --day-grad: linear-gradient(135deg, #ec4899, #f472b6, #db2777);
+  --day-glow: rgba(236, 72, 153, 0.45);
+}
+
+.day-tablist[data-active-day='WED'],
+.day-tab-btn[data-day='WED'] {
+  --day-grad: linear-gradient(135deg, #10b981, #34d399, #059669);
+  --day-glow: rgba(16, 185, 129, 0.45);
+}
+
+.day-tablist[data-active-day='THU'],
+.day-tab-btn[data-day='THU'] {
+  --day-grad: linear-gradient(135deg, #f97316, #fb923c, #ea580c);
+  --day-glow: rgba(249, 115, 22, 0.45);
+}
+
+.day-tablist[data-active-day='FRI'],
+.day-tab-btn[data-day='FRI'] {
+  --day-grad: linear-gradient(135deg, #0ea5e9, #38bdf8, #0284c7);
+  --day-glow: rgba(14, 165, 233, 0.45);
+}
+
+.day-tablist[data-active-day='SAT'],
+.day-tab-btn[data-day='SAT'] {
+  --day-grad: linear-gradient(135deg, #8b5cf6, #a78bfa, #7c3aed);
+  --day-glow: rgba(139, 92, 246, 0.45);
+}
+
+.day-tablist[data-active-day='SUN'],
+.day-tab-btn[data-day='SUN'] {
+  --day-grad: linear-gradient(135deg, #ef4444, #f87171, #dc2626);
+  --day-glow: rgba(239, 68, 68, 0.45);
+}
+
+/* SVG-filtered sliding gooey indicator layer (background only) */
+.day-gooey-indicator-layer {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  filter: url(#perimeter-gooey-day);
+  will-change: transform;
+}
+
+.day-indicator-lead,
+.day-indicator-drop,
+.day-indicator-trail {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: calc((100% - 24px) / 7);
+  border-radius: 12px;
+  background-image: var(--day-grad);
+  background-size: 200% 200%;
+  transform: translateX(calc(var(--day-idx, 0) * (100% + 4px)));
+  will-change: transform, background-position;
+  animation: dayLiquidWave 3.2s ease-in-out infinite;
+}
+
+.day-indicator-lead {
+  transition:
+    transform 360ms cubic-bezier(0.22, 1.38, 0.36, 1),
+    background-image 280ms ease;
+}
+
+.day-indicator-drop {
+  top: 2px;
+  bottom: 2px;
+  transition:
+    transform 450ms cubic-bezier(0.28, 1.48, 0.42, 1),
+    background-image 280ms ease;
+}
+
+.day-indicator-trail {
+  transition:
+    transform 540ms cubic-bezier(0.16, 1, 0.3, 1),
+    background-image 280ms ease;
+}
+
+/* Uniform 12px rounded capsule shape for all 7 day buttons */
+.day-tab-btn {
+  position: relative;
+  border-radius: 12px;
+  user-select: none;
+  transition:
+    background-color 180ms ease,
+    color 180ms ease,
+    box-shadow 260ms ease,
+    transform 340ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Inactive buttons sit below the liquid indicator (z-index: 1); active button sits above it (z-index: 10) */
+.day-tab-inactive {
+  z-index: 1;
+}
+
+.day-tab-active {
+  z-index: 10;
+  background-color: transparent !important;
+  color: #ffffff;
+  box-shadow: 0 4px 14px -2px var(--day-glow);
+  animation: dayPillPop 380ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.day-glyph-text {
+  display: inline-block;
+}
+
+.day-tab-active .day-glyph-text {
+  color: #ffffff;
+  font-weight: 700;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  will-change: transform;
+  animation: dayGlyphPop 380ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes dayPillPop {
+  0% {
+    transform: scale(0.95);
+  }
+  55% {
+    transform: scale(1.08);
+  }
+  100% {
+    transform: scale(1.06);
+  }
+}
+
+@keyframes dayGlyphPop {
+  0% {
+    transform: scale(0.88) translateY(1px);
+  }
+  55% {
+    transform: scale(1.16) translateY(-1.5px);
+  }
+  100% {
+    transform: scale(1.06) translateY(-0.5px);
+  }
+}
+
+@keyframes dayLiquidWave {
   0% {
     background-position: 0% 50%;
   }
@@ -72,30 +844,529 @@ body {
   }
 }
 
-.animate-border-beam {
-  background-size: 200% 200%;
-  animation: borderBeam 4s ease infinite;
+/* ============================================================================
+   6. Admin Console (/admin) — Functional Status Badges, Gooey Usage Toggle,
+      Row Hierarchy & Role Indicator Polish (DESIGN.md Functional-colour exception)
+   ============================================================================ */
+
+/* 1. Functional Status Badges ("สถานะบัญชี") */
+.admin-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  border-radius: 9999px;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.75rem;
+  line-height: 1.125rem;
+  font-weight: 500;
+  white-space: nowrap;
 }
 
-@keyframes cloudAura {
+.admin-status-dot {
+  width: 0.4375rem;
+  height: 0.4375rem;
+  border-radius: 9999px;
+  flex-shrink: 0;
+}
+
+/* CONFIRMED — Crisp Emerald */
+.admin-status-confirmed {
+  background-color: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.admin-status-confirmed .admin-status-dot {
+  background-color: #10b981;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+  animation: adminDotPulse 2.4s ease-in-out infinite;
+}
+
+/* FORCE_CHANGE_PASSWORD / UNCONFIRMED / RESET_REQUIRED — Warm Amber */
+.admin-status-warning {
+  background-color: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.admin-status-warning .admin-status-dot {
+  background-color: #f59e0b;
+}
+
+/* COMPROMISED / ARCHIVED / UNKNOWN — High-contrast Red */
+.admin-status-danger {
+  background-color: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.admin-status-danger .admin-status-dot {
+  background-color: #ef4444;
+}
+
+@keyframes adminDotPulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.22);
+    opacity: 0.8;
+  }
+}
+
+/* 1b. Top Mode Switcher ("การจัดการผู้ใช้และสิทธิ์" / "จัดการข้อมูลอาคาร")
+   - Outer track container: background #F3F3F3, border-radius 9999px, padding 4px,
+     position relative, display inline-grid (2 equal columns)
+   - Gooey background layer: z-index 1, pointer-events none, inset 4px, SVG gooey filter
+     with explicit #000000 black pill indicator
+   - Tab buttons layer: z-index 2, position relative, background transparent,
+     #FFFFFF text on active tab, #000000 text on inactive tab */
+.admin-mode-switcher {
+  position: relative;
+  display: inline-grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: center;
+  background-color: #f3f3f3;
+  border-radius: 9999px;
+  padding: 4px;
+  isolation: isolate;
+}
+
+.admin-mode-blobs {
+  pointer-events: none;
+  position: absolute;
+  inset: 4px;
+  z-index: 1;
+  filter: url(#perimeter-gooey-pill);
+  will-change: transform;
+}
+
+.admin-mode-blobs .gooey-pill-lead,
+.admin-mode-blobs .gooey-pill-drop,
+.admin-mode-blobs .gooey-pill-trail {
+  width: 50%;
+  background-color: #000000 !important;
+}
+
+.admin-mode-tab {
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 9999px;
+  padding: 0.625rem 1.25rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 600;
+  background-color: transparent !important;
+  cursor: pointer;
+  user-select: none;
+  transition:
+    color 220ms ease,
+    transform 320ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.admin-mode-tab:active {
+  transform: scale(0.96);
+}
+
+.admin-mode-tab-active {
+  color: #ffffff !important;
+}
+
+.admin-mode-tab-inactive {
+  color: #000000 !important;
+}
+
+/* 2. Physical Gooey Toggle Switch ("การใช้งาน": Active vs. Suspended) */
+.admin-usage-switch-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 4px 10px 4px 4px;
+  border-radius: 9999px;
+  background-color: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  user-select: none;
+  text-align: left;
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease;
+}
+
+/* Ensure all inner elements never intercept pointer events so 1 click always triggers the button */
+.admin-usage-switch-btn * {
+  pointer-events: none;
+}
+
+.admin-usage-switch-btn:hover {
+  background-color: rgba(0, 0, 0, 0.035);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+/* Physical Switch Track (width: 52px, height: 28px, border-radius: 999px) */
+.admin-gooey-switch-track {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 52px;
+  height: 28px;
+  border-radius: 9999px;
+  padding: 3px;
+  flex-shrink: 0;
+  transition:
+    background-color 260ms ease,
+    box-shadow 260ms ease;
+}
+
+.admin-gooey-switch-track[data-enabled='true'] {
+  background-color: #10b981;
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.12),
+    0 2px 8px -1px rgba(16, 185, 129, 0.45);
+}
+
+.admin-gooey-switch-track[data-enabled='false'] {
+  background-color: #ef4444;
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.15),
+    0 2px 8px -1px rgba(239, 68, 68, 0.4);
+}
+
+.admin-gooey-switch-blobs {
+  position: relative;
+  width: 100%;
+  height: 22px;
+  filter: url(#perimeter-gooey-pill);
+}
+
+/* Raised pure-white circular thumb knob (22px x 22px) + liquid trailing droplet */
+.admin-gooey-switch-thumb,
+.admin-gooey-switch-trail {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 9999px;
+  background-color: #ffffff;
+  will-change: transform;
+}
+
+.admin-gooey-switch-thumb {
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.25);
+  transition: transform 320ms cubic-bezier(0.22, 1.38, 0.36, 1);
+}
+
+.admin-gooey-switch-trail {
+  transition: transform 460ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.admin-gooey-switch-track[data-enabled='true'] .admin-gooey-switch-thumb,
+.admin-gooey-switch-track[data-enabled='true'] .admin-gooey-switch-trail {
+  transform: translateX(24px);
+}
+
+.admin-gooey-switch-track[data-enabled='false'] .admin-gooey-switch-thumb,
+.admin-gooey-switch-track[data-enabled='false'] .admin-gooey-switch-trail {
+  transform: translateX(0px);
+}
+
+.admin-usage-label-active {
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+  font-weight: 700;
+  color: #065f46;
+}
+
+.admin-usage-label-suspended {
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+  font-weight: 700;
+  color: #991b1b;
+}
+
+/* Protected Row ("🔒 บัญชีของคุณ (เปิดใช้งาน)") — Plain non-interactive text/lock indicator */
+.admin-usage-protected-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+  font-weight: 600;
+  color: #065f46;
+  white-space: nowrap;
+  user-select: none;
+}
+
+/* 3. Row-Level Visual Hierarchy & Scannability */
+.admin-row-self {
+  border-left: 4px solid #000000;
+}
+
+.admin-row-suspended {
+  border-left: 4px solid #ef4444;
+  background-color: #fff5f5;
+}
+
+.admin-row-suspended:hover {
+  background-color: #fef2f2 !important;
+}
+
+.admin-self-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: 9999px;
+  background-color: #f3f3f3;
+  border: 1px solid #d4d4d4;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.6875rem;
+  line-height: 1rem;
+  font-weight: 600;
+  color: #000000;
+}
+
+/* 4. Delete Action Button (Trash Icon in "การจัดการ") */
+.admin-delete-btn {
+  transition:
+    background-color 200ms ease,
+    color 200ms ease,
+    transform 320ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.admin-delete-btn:not(:disabled):hover {
+  background-color: #fee2e2 !important;
+  color: #dc2626 !important;
+  transform: scale(1.1);
+}
+
+.admin-delete-btn:not(:disabled):active {
+  transform: scale(0.92);
+}
+
+/* 5. Custom Gooey Dropdown Component for "สิทธิ์ (ROLE)" */
+.admin-role-dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.admin-role-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.625rem;
+  height: 38px;
+  min-width: 128px;
+  padding: 0 14px;
+  border: 1px solid #d8d8d8;
+  border-radius: 10px;
+  background-color: #ffffff;
+  color: #000000;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 500;
+  cursor: pointer;
+  user-select: none;
+  transition:
+    border-color 180ms ease,
+    box-shadow 220ms ease,
+    transform 280ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.admin-role-trigger:not(:disabled):hover {
+  border-color: #000000;
+}
+
+.admin-role-trigger:not(:disabled):focus-visible {
+  outline: 2px solid #0000ee;
+  outline-offset: 2px;
+}
+
+.admin-role-trigger:disabled {
+  background-color: #f8f8f8;
+  color: #757575;
+  border-color: #e5e5e5;
+  cursor: not-allowed;
+}
+
+.admin-role-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+  flex-shrink: 0;
+}
+
+.admin-role-dot[data-role='admin'] {
+  background-color: #0000ee;
+}
+
+.admin-role-dot[data-role='staff'] {
+  background-color: #000000;
+}
+
+.admin-role-dot[data-role='user'] {
+  background-color: #757575;
+}
+
+.admin-role-chevron {
+  color: #4a4a4a;
+  flex-shrink: 0;
+  transition: transform 0.25s ease;
+}
+
+.admin-role-chevron-open {
+  transform: rotate(180deg);
+}
+
+/* Floating Popover Menu + Liquid Neck */
+.admin-role-menu-shell {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 101;
+  min-width: 164px;
+  filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.16));
+}
+
+.admin-role-menu-neck {
+  pointer-events: none;
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  width: 44px;
+  height: 12px;
+  z-index: 102;
+  transform: translateX(-50%);
+  transform-origin: bottom center;
+  animation: gooeyNeckRetractDown 420ms cubic-bezier(0.22, 1.35, 0.36, 1) forwards;
+}
+
+.admin-role-menu {
+  position: relative;
+  background-color: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e5e5e5;
+  padding: 4px;
+  transform-origin: top center;
+  animation: adminRoleMenuStretch 380ms cubic-bezier(0.22, 1.38, 0.36, 1) forwards;
+}
+
+@keyframes adminRoleMenuStretch {
   0% {
-    transform: translate(0px, 0px) scale(1);
+    opacity: 0;
+    transform: scaleY(0.4) scaleX(0.85);
   }
-  33% {
-    transform: translate(2px, -1px) scale(1.02);
-  }
-  66% {
-    transform: translate(-2px, 1px) scale(0.99);
+  55% {
+    opacity: 1;
+    transform: scaleY(1.03) scaleX(0.99);
   }
   100% {
-    transform: translate(0px, 0px) scale(1);
+    opacity: 1;
+    transform: scale(1);
   }
 }
 
-.animate-cloud-aura {
-  animation: cloudAura 8s ease-in-out infinite;
+/* Sliding Gooey Hover Pill inside the Role Dropdown Menu */
+.admin-role-hover-blobs {
+  pointer-events: none;
+  position: absolute;
+  inset: 4px;
+  z-index: 1;
+  filter: url(#perimeter-gooey-pill);
 }
 
+.admin-role-hover-lead,
+.admin-role-hover-trail {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: calc(100% / 3);
+  border-radius: 8px;
+  background-color: #f3f3f3;
+  transform: translateY(calc(var(--role-hover-idx, 0) * 100%));
+  will-change: transform;
+}
+
+.admin-role-hover-lead {
+  transition: transform 280ms cubic-bezier(0.22, 1.38, 0.36, 1);
+}
+
+.admin-role-hover-trail {
+  transition: transform 420ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.admin-role-option {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 500;
+  color: #000000;
+  background-color: transparent !important;
+  cursor: pointer;
+  user-select: none;
+  text-align: left;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gooey-pill-lead,
+  .gooey-pill-trail,
+  .gooey-pill-drop,
+  .gooey-switch-btn,
+  .gooey-fluid-btn,
+  .day-indicator-lead,
+  .day-indicator-drop,
+  .day-indicator-trail,
+  .admin-mode-tab,
+  .admin-usage-switch-btn,
+  .admin-gooey-switch-track,
+  .admin-gooey-switch-thumb,
+  .admin-gooey-switch-trail,
+  .admin-role-trigger,
+  .admin-role-chevron,
+  .admin-role-hover-lead,
+  .admin-role-hover-trail,
+  .admin-delete-btn {
+    transition-duration: 0ms !important;
+  }
+  .animate-gooey-trigger-open,
+  .animate-gooey-badge-pop,
+  .gooey-neck-down,
+  .gooey-neck-up,
+  .animate-gooey-menu-down,
+  .animate-gooey-menu-up,
+  .animate-gooey-item-1,
+  .animate-gooey-item-2,
+  .animate-gooey-item-3,
+  .animate-gooey-pane-in,
+  .gooey-drawer-curtain,
+  .animate-gooey-content-swap,
+  .day-indicator-lead,
+  .day-indicator-drop,
+  .day-indicator-trail,
+  .day-tab-active,
+  .day-tab-active .day-glyph-text,
+  .admin-status-confirmed .admin-status-dot,
+  .admin-role-menu,
+  .admin-role-menu-neck {
+    animation: none !important;
+  }
+}
 
 /* Hide scrollbar while preserving full scrollability */
 .no-scrollbar::-webkit-scrollbar {
@@ -106,7 +1377,7 @@ body {
   scrollbar-width: none;
 }
 
-/* Modern Minimalist Thin Scrollbar */
+/* Thin scrollbar in palette greys */
 .thin-scrollbar::-webkit-scrollbar {
   height: 4px;
   width: 4px;
@@ -117,17 +1388,17 @@ body {
   height: 0;
 }
 .thin-scrollbar::-webkit-scrollbar-track {
-  background: #f1f5f9;
+  background: var(--color-surface-2);
   border-radius: 9999px;
 }
 .thin-scrollbar::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: var(--color-line-soft);
   border-radius: 9999px;
 }
 .thin-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: var(--color-line);
 }
 .thin-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: #cbd5e1 #f1f5f9;
-}
+  scrollbar-color: var(--color-line-soft) var(--color-surface-2);
+}

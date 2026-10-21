@@ -60,6 +60,15 @@ describe('TopBar (Shared Component)', () => {
     expect(homeLink).toHaveAttribute('href', '/')
   })
 
+  it('renders enlarged Perimeter logo inside back-to-home link', () => {
+    renderTopBar()
+    const homeLink = screen.getByTestId('back-to-home')
+    const logoImg = screen.getByAltText('Perimeter')
+    expect(homeLink).toContainElement(logoImg)
+    expect(logoImg).toHaveAttribute('src', expect.stringContaining('perimeter_logo_negative_dark_nobg'))
+    expect(logoImg).toHaveClass('h-12')
+  })
+
   it('renders My Schedule placeholder slot with clear label and styling', () => {
     renderTopBar()
     const placeholder = screen.getByTestId('my-schedule-placeholder')
