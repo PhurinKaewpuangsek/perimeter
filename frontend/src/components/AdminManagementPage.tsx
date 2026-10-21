@@ -12,7 +12,7 @@
  * - Rejection page (403) for non-admin callers (staff, user, guest).
  */
 
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef, type CSSProperties } from 'react'
 import {
   Users,
   UserPlus,
@@ -23,6 +23,10 @@ import {
   Warning,
   Calendar,
   Door,
+  Clock,
+  Lock,
+  CaretDown,
+  ArrowClockwise,
 } from '@phosphor-icons/react'
 import {
   getSession,
@@ -40,6 +44,139 @@ import TopBar from './TopBar'
 import { useRooms } from '../hooks/useRooms'
 import { useSchedules } from '../hooks/useSchedules'
 import type { UserRole } from '../types/auth'
+
+const ROLE_OPTIONS: { value: UserRole; label: string }[] = [
+  { value: 'admin', label: 'Admin' },
+  { value: 'staff', label: 'Staff' },
+  { value: 'user', label: 'User' },
+]
+
+interface RoleGooeyDropdownProps {
+  value: UserRole
+  disabled: boolean
+  title: string
+  onChange: (nextRole: UserRole) => void
+}
+
+function RoleGooeyDropdown({ value, disabled, title, onChange }: RoleGooeyDropdownProps) {
+  const [isOpen, setIsOpen] = useState(false)
+  const selectedIdx = Math.max(0, ROLE_OPTIONS.findIndex((opt) => opt.value === value))
+  const [hoverIdx, setHoverIdx] = useState<number>(selectedIdx)
+  const wrapperRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!isOpen) return
+
+    function handleMouseDown(e: MouseEvent) {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setIsOpen(false)
+      }
+    }
+
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        setIsOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleMouseDown)
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', handleMouseDown)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [isOpen])
+
+  const currentLabel = ROLE_OPTIONS[selectedIdx]?.label ?? value
+
+  return (
+    <div ref={wrapperRef} className="admin-role-dropdown">
+      <button
+        type="button"
+        data-testid="role-dropdown-trigger"
+        disabled={disabled}
+        title={title}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        onClick={() => {
+          if (disabled) return
+          setHoverIdx(selectedIdx)
+          setIsOpen((prev) => !prev)
+        }}
+        className={`admin-role-trigger gooey-fluid-btn ${
+          isOpen ? 'animate-gooey-trigger-open' : ''
+        }`}
+      >
+        <span className="inline-flex items-center gap-2">
+          <span className="admin-role-dot" data-role={value} aria-hidden="true" />
+          <span>{currentLabel}</span>
+        </span>
+        <CaretDown
+          size={14}
+          weight="bold"
+          className={`admin-role-chevron ${isOpen ? 'admin-role-chevron-open' : ''}`}
+        />
+      </button>
+
+      {isOpen && !disabled && (
+        <div className="admin-role-menu-shell">
+          <svg
+            className="admin-role-menu-neck"
+            viewBox="0 0 44 12"
+            preserveAspectRatio="none"
+            aria-hidden="true"
+          >
+            <path
+              d="M 8 0 C 14 0, 16 12, 0 12 L 44 12 C 28 12, 30 0, 36 0 Z"
+              fill="#ffffff"
+            />
+          </svg>
+          <div
+            role="listbox"
+            aria-label="เลือกสิทธิ์"
+            onMouseLeave={() => setHoverIdx(selectedIdx)}
+            style={{ '--role-hover-idx': hoverIdx } as CSSProperties}
+            className="admin-role-menu"
+          >
+            <div className="admin-role-hover-blobs" aria-hidden="true">
+              <div className="admin-role-hover-trail" />
+              <div className="admin-role-hover-lead" />
+            </div>
+            {ROLE_OPTIONS.map((opt, idx) => {
+              const isSelected = opt.value === value
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  role="option"
+                  aria-selected={isSelected}
+                  onMouseEnter={() => setHoverIdx(idx)}
+                  onClick={() => {
+                    setIsOpen(false)
+                    if (opt.value !== value) {
+                      onChange(opt.value)
+                    }
+                  }}
+                  className="admin-role-option"
+                >
+                  <span className="inline-flex items-center gap-2.5">
+                    <span
+                      className="admin-role-dot"
+                      data-role={opt.value}
+                      aria-hidden="true"
+                    />
+                    <span>{opt.label}</span>
+                  </span>
+                  {isSelected && <Check size={14} weight="bold" className="text-ink shrink-0" />}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function AdminManagementPage() {
   const session = getSession()
@@ -96,8 +233,10 @@ export default function AdminManagementPage() {
     }
   }, [isUserAdmin, refreshTrigger])
 
-  const fetchUsersList = useCallback(async () => {
-    setUsersLoading(true)
+  const fetchUsersList = useCallback(async (silent = false) => {
+    if (!silent) {
+      setUsersLoading(true)
+    }
     setRefreshTrigger((n) => n + 1)
   }, [])
 
@@ -142,7 +281,7 @@ export default function AdminManagementPage() {
       setNewRole('staff')
       setActionSuccess(`สร้างผู้ใช้ ${newEmail.trim()} สำเร็จ`)
       setTimeout(() => setActionSuccess(null), 4000)
-      await fetchUsersList()
+      await fetchUsersList(true)
     } catch (err) {
       setAddError((err as Error).message || 'Failed to create user')
     } finally {
@@ -151,26 +290,48 @@ export default function AdminManagementPage() {
   }
 
   async function handleRoleChange(user: ManagedUser, nextRole: UserRole) {
+    const previousRole = user.role
+    setUsers((prev) =>
+      prev.map((item) =>
+        item.username === user.username ? { ...item, role: nextRole } : item,
+      ),
+    )
     try {
       await updateUser(user.username, { role: nextRole })
       setActionSuccess(`เปลี่ยนสิทธิ์ ${user.email} เป็น ${nextRole} สำเร็จ`)
       setTimeout(() => setActionSuccess(null), 4000)
-      await fetchUsersList()
+      await fetchUsersList(true)
     } catch (err) {
+      setUsers((prev) =>
+        prev.map((item) =>
+          item.username === user.username ? { ...item, role: previousRole } : item,
+        ),
+      )
       setUsersError((err as Error).message || 'Failed to change user role')
     }
   }
 
   async function handleToggleEnabled(user: ManagedUser) {
+    const previousEnabled = user.enabled
+    const nextState = !user.enabled
+    setUsers((prev) =>
+      prev.map((item) =>
+        item.username === user.username ? { ...item, enabled: nextState } : item,
+      ),
+    )
     try {
-      const nextState = !user.enabled
       await updateUser(user.username, { enabled: nextState })
       setActionSuccess(
         `${nextState ? 'เปิดใช้งาน' : 'ระงับการใช้งาน'} บัญชี ${user.email} สำเร็จ`,
       )
       setTimeout(() => setActionSuccess(null), 4000)
-      await fetchUsersList()
+      await fetchUsersList(true)
     } catch (err) {
+      setUsers((prev) =>
+        prev.map((item) =>
+          item.username === user.username ? { ...item, enabled: previousEnabled } : item,
+        ),
+      )
       setUsersError((err as Error).message || 'Failed to update user status')
     }
   }
@@ -180,10 +341,11 @@ export default function AdminManagementPage() {
     setDeleteLoading(true)
     try {
       await deleteUser(userToDelete.username)
+      setUsers((prev) => prev.filter((item) => item.username !== userToDelete.username))
       setActionSuccess(`ลบบัญชีผู้ใช้ ${userToDelete.email} สำเร็จ`)
       setTimeout(() => setActionSuccess(null), 4000)
       setUserToDelete(null)
-      await fetchUsersList()
+      await fetchUsersList(true)
     } catch (err) {
       setUsersError((err as Error).message || 'Failed to delete user')
     } finally {
@@ -243,22 +405,53 @@ export default function AdminManagementPage() {
 
       {/* Main Container */}
       <main className="mx-auto w-full max-w-7xl flex-1 px-5 pt-24 pb-12 sm:px-8 lg:px-10 space-y-8">
-        {/* Navigation Tabs */}
-        <div className="flex flex-wrap items-center gap-2 border-b border-line-soft pb-3">
-          <button
-            onClick={() => setActiveTab('users')}
-            className={`btn ${activeTab === 'users' ? 'btn-primary' : 'btn-ghost'}`}
+        {/* Navigation Tabs — Unified Gooey Fluid Segmented Pill Switcher */}
+        <div className="flex flex-wrap items-center border-b border-line-soft pb-4">
+          <div
+            className="admin-mode-switcher"
+            data-active-index={activeTab === 'users' ? 0 : 1}
           >
-            <Users size={18} />
-            <span>การจัดการผู้ใช้และสิทธิ์</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('building')}
-            className={`btn ${activeTab === 'building' ? 'btn-primary' : 'btn-ghost'}`}
-          >
-            <Trash size={18} />
-            <span>จัดการข้อมูลอาคาร</span>
-          </button>
+            {(() => {
+              const activeTabIdx = activeTab === 'building' ? 1 : 0
+              const blobTransform = `translateX(${activeTabIdx * 100}%)`
+              return (
+                <div className="admin-mode-blobs" aria-hidden="true">
+                  <span
+                    className="gooey-pill-trail"
+                    style={{ width: '50%', transform: blobTransform, backgroundColor: '#000000' }}
+                  />
+                  <span
+                    className="gooey-pill-drop"
+                    style={{ width: '50%', transform: blobTransform, backgroundColor: '#000000' }}
+                  />
+                  <span
+                    className="gooey-pill-lead"
+                    style={{ width: '50%', transform: blobTransform, backgroundColor: '#000000' }}
+                  />
+                </div>
+              )
+            })()}
+            <button
+              type="button"
+              onClick={() => setActiveTab('users')}
+              className={`admin-mode-tab ${
+                activeTab === 'users' ? 'admin-mode-tab-active' : 'admin-mode-tab-inactive'
+              }`}
+            >
+              <Users size={18} />
+              <span>การจัดการผู้ใช้และสิทธิ์</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('building')}
+              className={`admin-mode-tab ${
+                activeTab === 'building' ? 'admin-mode-tab-active' : 'admin-mode-tab-inactive'
+              }`}
+            >
+              <Trash size={18} />
+              <span>จัดการข้อมูลอาคาร</span>
+            </button>
+          </div>
         </div>
 
         {/* Global Feedback Banners */}
@@ -283,7 +476,7 @@ export default function AdminManagementPage() {
         {/* TAB 1: User & Role Management */}
         {/* =================================================================== */}
         {activeTab === 'users' && (
-          <div className="space-y-6">
+          <div className="animate-gooey-content-swap space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <h2 className="font-display text-h3 font-bold text-ink flex items-center gap-2">
@@ -295,19 +488,35 @@ export default function AdminManagementPage() {
                 </p>
               </div>
 
-              <button
-                type="button"
-                onClick={() => setIsAddUserOpen(true)}
-                className="btn btn-primary self-start sm:self-auto"
-              >
-                <UserPlus size={16} />
-                <span>เพิ่มผู้ใช้ใหม่</span>
-              </button>
+              <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+                <button
+                  type="button"
+                  data-testid="refresh-users-btn"
+                  disabled={usersLoading}
+                  onClick={() => fetchUsersList(false)}
+                  className="btn btn-secondary gooey-fluid-btn"
+                  title="รีเฟรชตารางผู้ใช้"
+                >
+                  <ArrowClockwise size={16} className={usersLoading ? 'animate-spin' : ''} />
+                  <span>รีเฟรช</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsAddUserOpen(true)}
+                  className={`btn btn-primary gooey-fluid-btn ${
+                    isAddUserOpen ? 'animate-gooey-trigger-open' : ''
+                  }`}
+                >
+                  <UserPlus size={16} />
+                  <span>เพิ่มผู้ใช้ใหม่</span>
+                </button>
+              </div>
             </div>
 
-            {/* Users Table Card */}
-            <div className="card overflow-hidden">
-              <div className="overflow-x-auto">
+            {/* Users Table Card (overflow-visible so custom Gooey Role Dropdown popovers are not clipped) */}
+            <div className="card overflow-visible">
+              <div className="overflow-x-auto sm:overflow-visible">
                 <table className="w-full text-button">
                   <thead>
                     <tr>
@@ -336,27 +545,58 @@ export default function AdminManagementPage() {
                         const self = isCaller(u)
                         const lastAdmin = isLastAdmin(u)
                         const protectedUser = self || lastAdmin
+                        const isWarningStatus =
+                          u.status === 'FORCE_CHANGE_PASSWORD' ||
+                          u.status === 'UNCONFIRMED' ||
+                          u.status === 'RESET_REQUIRED'
+                        const statusBadgeClass =
+                          u.status === 'CONFIRMED'
+                            ? 'admin-status-badge admin-status-confirmed'
+                            : isWarningStatus
+                              ? 'admin-status-badge admin-status-warning'
+                              : 'admin-status-badge admin-status-danger'
+                        const statusLabel =
+                          u.status === 'FORCE_CHANGE_PASSWORD'
+                            ? 'ต้องเปลี่ยนรหัสผ่าน'
+                            : u.status
+
+                        const rowClass = !u.enabled
+                          ? 'admin-row-suspended'
+                          : self
+                            ? 'admin-row-self hover:bg-surface-2'
+                            : 'hover:bg-surface-2'
 
                         return (
-                          <tr key={u.username} className="border-t border-line-soft transition-colors hover:bg-surface-2">
+                          <tr
+                            key={u.username}
+                            className={`border-t border-line-soft transition-colors ${rowClass}`}
+                          >
                             <td className="px-4 py-3 text-ink">
-                              <div className="font-medium text-ink">{u.email}</div>
-                              {self && (
-                                <span className="mt-0.5 inline-block text-xs font-medium text-ink-2">
-                                  (บัญชีของคุณ)
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span
+                                  className={`font-medium ${
+                                    !u.enabled ? 'text-ink-3' : 'text-ink'
+                                  }`}
+                                >
+                                  {u.email}
                                 </span>
-                              )}
-                              {lastAdmin && !self && (
-                                <span className="mt-0.5 inline-block text-xs font-medium text-ink-2">
-                                  (Admin คนสุดท้าย)
-                                </span>
-                              )}
+                                {self && (
+                                  <span className="admin-self-chip">
+                                    (บัญชีของคุณ)
+                                  </span>
+                                )}
+                                {lastAdmin && !self && (
+                                  <span className="admin-self-chip">
+                                    (Admin คนสุดท้าย)
+                                  </span>
+                                )}
+                              </div>
                             </td>
                             <td className="px-4 py-3 text-ink">
-                              <select
+                              <RoleGooeyDropdown
                                 value={u.role}
                                 disabled={protectedUser}
-                                onChange={(e) => handleRoleChange(u, e.target.value as UserRole)}
+                                onChange={(nextRole) => handleRoleChange(u, nextRole)}
                                 title={
                                   self
                                     ? 'ไม่สามารถเปลี่ยนสิทธิ์บัญชีของตนเองได้'
@@ -364,37 +604,73 @@ export default function AdminManagementPage() {
                                       ? 'ไม่สามารถลดสิทธิ์ Admin คนสุดท้ายได้'
                                       : 'เลือกสิทธิ์'
                                 }
-                                className="input-boxed w-auto cursor-pointer disabled:cursor-not-allowed"
-                              >
-                                <option value="admin">Admin</option>
-                                <option value="staff">Staff</option>
-                                <option value="user">User</option>
-                              </select>
+                              />
                             </td>
                             <td className="px-4 py-3 text-ink">
-                              <span className={u.status === 'CONFIRMED' ? 'chip' : 'chip bg-tertiary'}>
-                                {u.status === 'FORCE_CHANGE_PASSWORD' ? 'ต้องเปลี่ยนรหัสผ่าน' : u.status}
+                              <span
+                                data-testid="user-status-badge"
+                                className={statusBadgeClass}
+                              >
+                                <span className="admin-status-dot" aria-hidden="true" />
+                                {u.status === 'CONFIRMED' ? (
+                                  <Check size={12} weight="bold" className="shrink-0" />
+                                ) : isWarningStatus ? (
+                                  <Clock size={12} weight="bold" className="shrink-0" />
+                                ) : (
+                                  <Warning size={12} weight="bold" className="shrink-0" />
+                                )}
+                                <span>{statusLabel}</span>
                               </span>
                             </td>
                             <td className="px-4 py-3 text-ink">
-                              <button
-                                type="button"
-                                data-testid="toggle-enabled-btn"
-                                disabled={protectedUser}
-                                onClick={() => handleToggleEnabled(u)}
-                                title={
-                                  self
-                                    ? 'ไม่สามารถระงับบัญชีของตนเองได้'
-                                    : lastAdmin
-                                      ? 'ไม่สามารถระงับ Admin คนสุดท้ายได้'
-                                      : u.enabled
-                                        ? 'คลิกเพื่อระงับการใช้งาน'
-                                        : 'คลิกเพื่อเปิดใช้งาน'
-                                }
-                                className={`btn btn-sm ${u.enabled ? 'btn-secondary' : 'btn-tertiary'}`}
-                              >
-                                {u.enabled ? 'เปิดใช้งาน' : 'ถูกระงับ'}
-                              </button>
+                              {protectedUser ? (
+                                <span
+                                  data-testid="protected-usage-indicator"
+                                  className="admin-usage-protected-text"
+                                  title={
+                                    self
+                                      ? 'ไม่สามารถระงับบัญชีของตนเองได้'
+                                      : 'ไม่สามารถระงับ Admin คนสุดท้ายได้'
+                                  }
+                                >
+                                  <Lock size={15} weight="duotone" className="shrink-0" />
+                                  <span>
+                                    {self
+                                      ? 'บัญชีของคุณ (เปิดใช้งาน)'
+                                      : 'Admin คนสุดท้าย (เปิดใช้งาน)'}
+                                  </span>
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  role="switch"
+                                  aria-checked={Boolean(u.enabled)}
+                                  data-testid="toggle-enabled-btn"
+                                  onClick={() => handleToggleEnabled(u)}
+                                  title={
+                                    u.enabled
+                                      ? 'คลิกเพื่อระงับการใช้งาน'
+                                      : 'คลิกเพื่อเปิดใช้งาน'
+                                  }
+                                  className="admin-usage-switch-btn"
+                                >
+                                  <span
+                                    className="admin-gooey-switch-track"
+                                    data-enabled={String(Boolean(u.enabled))}
+                                    aria-hidden="true"
+                                  >
+                                    <span className="admin-gooey-switch-blobs">
+                                      <span className="admin-gooey-switch-trail" />
+                                      <span className="admin-gooey-switch-thumb" />
+                                    </span>
+                                  </span>
+                                  {u.enabled ? (
+                                    <span className="admin-usage-label-active">เปิดใช้งาน</span>
+                                  ) : (
+                                    <span className="admin-usage-label-suspended">ถูกระงับ</span>
+                                  )}
+                                </button>
+                              )}
                             </td>
                             <td className="px-4 py-3 text-right text-ink">
                               <button
@@ -409,7 +685,7 @@ export default function AdminManagementPage() {
                                       ? 'ไม่สามารถลบ Admin คนสุดท้ายได้'
                                       : 'ลบผู้ใช้'
                                 }
-                                className="btn btn-ghost btn-icon-sm"
+                                className="btn btn-ghost btn-icon-sm admin-delete-btn"
                               >
                                 <Trash size={15} />
                               </button>
@@ -429,7 +705,7 @@ export default function AdminManagementPage() {
         {/* TAB 2: Building Data Deletion */}
         {/* =================================================================== */}
         {activeTab === 'building' && (
-          <div className="space-y-6">
+          <div className="animate-gooey-content-swap space-y-6">
             <div>
               <h2 className="font-display text-h3 font-bold text-ink flex items-center gap-2">
                 <Trash size={22} className="text-ink" />
@@ -487,7 +763,7 @@ export default function AdminManagementPage() {
                         type="button"
                         disabled={roomActionLoading}
                         onClick={() => handleDeleteRoom(selectedRoom.id)}
-                        className="btn btn-secondary self-start sm:self-auto"
+                        className="btn btn-secondary gooey-fluid-btn self-start sm:self-auto"
                       >
                         <Trash size={15} />
                         <span>ลบห้องนี้ (Cascade Delete)</span>
@@ -528,7 +804,7 @@ export default function AdminManagementPage() {
                                   type="button"
                                   disabled={roomActionLoading}
                                   onClick={() => handleDeleteSchedule(selectedRoom.code, slotKey)}
-                                  className="btn btn-secondary btn-sm shrink-0"
+                                  className="btn btn-secondary btn-sm gooey-fluid-btn shrink-0"
                                 >
                                   <Trash size={14} />
                                   <span>ลบตาราง</span>
@@ -557,7 +833,7 @@ export default function AdminManagementPage() {
       {/* ===================================================================== */}
       {isAddUserOpen && (
         <div className="modal-overlay flex items-center justify-center p-4">
-          <div className="modal w-full max-w-[500px] p-6 sm:p-8 space-y-4">
+          <div className="modal animate-gooey-menu-up w-full max-w-[500px] p-6 sm:p-8 space-y-4">
             <div className="flex items-center justify-between border-b border-line-soft pb-3">
               <h3 className="text-h3-sm font-bold text-ink flex items-center gap-2">
                 <UserPlus size={18} className="text-ink" />
@@ -632,14 +908,14 @@ export default function AdminManagementPage() {
                 <button
                   type="button"
                   onClick={() => setIsAddUserOpen(false)}
-                  className="btn btn-secondary"
+                  className="btn btn-secondary gooey-fluid-btn"
                 >
                   ยกเลิก
                 </button>
                 <button
                   type="submit"
                   disabled={addLoading}
-                  className="btn btn-primary"
+                  className="btn btn-primary gooey-fluid-btn"
                 >
                   {addLoading ? 'กำลังสร้าง...' : 'สร้างผู้ใช้'}
                 </button>
@@ -654,7 +930,7 @@ export default function AdminManagementPage() {
       {/* ===================================================================== */}
       {userToDelete && (
         <div className="modal-overlay flex items-center justify-center p-4">
-          <div className="modal w-full max-w-[500px] p-6 sm:p-8 space-y-4 text-center">
+          <div className="modal animate-gooey-menu-up w-full max-w-[500px] p-6 sm:p-8 space-y-4 text-center">
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-tertiary text-ink">
               <Trash size={24} weight="duotone" />
             </div>
@@ -673,7 +949,7 @@ export default function AdminManagementPage() {
               <button
                 type="button"
                 onClick={() => setUserToDelete(null)}
-                className="btn btn-secondary"
+                className="btn btn-secondary gooey-fluid-btn"
               >
                 ยกเลิก
               </button>
@@ -681,7 +957,7 @@ export default function AdminManagementPage() {
                 type="button"
                 disabled={deleteLoading}
                 onClick={handleConfirmDeleteUser}
-                className="btn btn-primary"
+                className="btn btn-primary gooey-fluid-btn"
               >
                 {deleteLoading ? 'กำลังลบ...' : 'ยืนยันการลบ'}
               </button>
