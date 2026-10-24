@@ -42,6 +42,9 @@ if (!locationsTable) fail('The stack has no LocationsTableName output. Deploy fi
 const schedulesTable = outputs.SchedulesTableName
 if (!schedulesTable) fail('The stack has no SchedulesTableName output. Deploy first: npm run deploy')
 
+const graphTable = outputs.GraphTableName
+if (!graphTable) fail('The stack has no GraphTableName output. Deploy first: npm run deploy')
+
 // The seeder lives in tools/data-extraction and brings its own AWS SDK dependencies.
 const toolsDir = join(repoRoot, 'tools', 'data-extraction')
 if (!existsSync(join(toolsDir, 'node_modules'))) {
@@ -67,3 +70,5 @@ const runSeeder = (table, type) => {
 
 runSeeder(locationsTable, 'locations')
 runSeeder(schedulesTable, 'schedules')
+// Upserts structure only, so the closures staff set (#147) survive the re-seed on every merge.
+runSeeder(graphTable, 'graph')

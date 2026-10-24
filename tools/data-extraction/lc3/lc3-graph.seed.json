@@ -1,0 +1,5178 @@
+{
+  "generated_by": "tools/data-extraction/extract-lc3.mjs",
+  "source": "source/graph.source.json",
+  "graph_id": "LC3",
+  "distance_rule": {
+    "unit": "map_units",
+    "same_floor": "straight-line length between the transformed x,y of both ends, rounded to 0.01",
+    "per_floor_crossed": 150
+  },
+  "building_entrances": [
+    {
+      "node_id": "LC3_Junction_SM",
+      "floor": 1,
+      "verification": "derived_unverified",
+      "basis": "Floor-1 south corridor where it opens to the outside, under the floor-2 balcony (ระเบียง) and beside the QR1 anchor."
+    }
+  ],
+  "counts": {
+    "nodes": 288,
+    "edges": 302,
+    "items": 590,
+    "nodes_with_location_id": 131,
+    "unmatched_room_or_facility_nodes": 8
+  },
+  "unmatched_room_or_facility_nodes": [
+    "LC3_QR1",
+    "LC3_QR2",
+    "LC3_QR3",
+    "LC3_QR4",
+    "LC3_QR5",
+    "LC3_QR6",
+    "LC3_QR7",
+    "LC3_QR8"
+  ],
+  "nodes": [
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_101",
+      "node_id": "LC3_101",
+      "floor": 1,
+      "x": 543,
+      "y": 230,
+      "node_type": "room",
+      "location_id": "LC3-F1-R101"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_101/1",
+      "node_id": "LC3_101/1",
+      "floor": 1,
+      "x": 376,
+      "y": 152,
+      "node_type": "room",
+      "location_id": "LC3-F1-R101-1"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_101/2",
+      "node_id": "LC3_101/2",
+      "floor": 1,
+      "x": 421,
+      "y": 152,
+      "node_type": "room",
+      "location_id": "LC3-F1-R101-2"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_102/1",
+      "node_id": "LC3_102/1",
+      "floor": 1,
+      "x": 517,
+      "y": 84,
+      "node_type": "room",
+      "location_id": "LC3-F1-R102-1"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_102/2",
+      "node_id": "LC3_102/2",
+      "floor": 1,
+      "x": 485,
+      "y": 85,
+      "node_type": "room",
+      "location_id": "LC3-F1-R102-2"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_103",
+      "node_id": "LC3_103",
+      "floor": 1,
+      "x": 440,
+      "y": 85,
+      "node_type": "room",
+      "location_id": "LC3-F1-R103"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_104",
+      "node_id": "LC3_104",
+      "floor": 1,
+      "x": 376,
+      "y": 86,
+      "node_type": "room",
+      "location_id": "LC3-F1-R104"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_104/1",
+      "node_id": "LC3_104/1",
+      "floor": 1,
+      "x": 327,
+      "y": 86,
+      "node_type": "room",
+      "location_id": "LC3-F1-R104-1"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_105",
+      "node_id": "LC3_105",
+      "floor": 1,
+      "x": 327,
+      "y": 154,
+      "node_type": "room",
+      "location_id": "LC3-F1-R105"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_106",
+      "node_id": "LC3_106",
+      "floor": 1,
+      "x": 278,
+      "y": 87,
+      "node_type": "room",
+      "location_id": "LC3-F1-R106"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_107",
+      "node_id": "LC3_107",
+      "floor": 1,
+      "x": 251,
+      "y": 151,
+      "node_type": "room",
+      "location_id": "LC3-F1-R107"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_108",
+      "node_id": "LC3_108",
+      "floor": 1,
+      "x": 216,
+      "y": 87,
+      "node_type": "room",
+      "location_id": "LC3-F1-R108"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_108/1",
+      "node_id": "LC3_108/1",
+      "floor": 1,
+      "x": 172,
+      "y": 71,
+      "node_type": "room",
+      "location_id": "LC3-F1-R108-1"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_109",
+      "node_id": "LC3_109",
+      "floor": 1,
+      "x": 125,
+      "y": 90,
+      "node_type": "room",
+      "location_id": "LC3-F1-R109"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_110",
+      "node_id": "LC3_110",
+      "floor": 1,
+      "x": 122,
+      "y": 142,
+      "node_type": "room",
+      "location_id": "LC3-F1-R110"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_111",
+      "node_id": "LC3_111",
+      "floor": 1,
+      "x": 123,
+      "y": 209,
+      "node_type": "room",
+      "location_id": "LC3-F1-R111"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_115",
+      "node_id": "LC3_115",
+      "floor": 1,
+      "x": 124,
+      "y": 397,
+      "node_type": "room",
+      "location_id": "LC3-F1-R115"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_116",
+      "node_id": "LC3_116",
+      "floor": 1,
+      "x": 124,
+      "y": 463,
+      "node_type": "room",
+      "location_id": "LC3-F1-R116"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_117",
+      "node_id": "LC3_117",
+      "floor": 1,
+      "x": 128,
+      "y": 523,
+      "node_type": "room",
+      "location_id": "LC3-F1-R117"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_118",
+      "node_id": "LC3_118",
+      "floor": 1,
+      "x": 224,
+      "y": 530,
+      "node_type": "room",
+      "location_id": "LC3-F1-R118"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_118/1",
+      "node_id": "LC3_118/1",
+      "floor": 1,
+      "x": 267,
+      "y": 531,
+      "node_type": "room",
+      "location_id": "LC3-F1-R118-1"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_119",
+      "node_id": "LC3_119",
+      "floor": 1,
+      "x": 224,
+      "y": 460,
+      "node_type": "room",
+      "location_id": "LC3-F1-R119"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_119/1",
+      "node_id": "LC3_119/1",
+      "floor": 1,
+      "x": 245,
+      "y": 459,
+      "node_type": "room",
+      "location_id": "LC3-F1-R119-1"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_119/2",
+      "node_id": "LC3_119/2",
+      "floor": 1,
+      "x": 267,
+      "y": 459,
+      "node_type": "room",
+      "location_id": "LC3-F1-R119-2"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_119/3",
+      "node_id": "LC3_119/3",
+      "floor": 1,
+      "x": 290,
+      "y": 458,
+      "node_type": "room",
+      "location_id": "LC3-F1-R119-3"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_119/4",
+      "node_id": "LC3_119/4",
+      "floor": 1,
+      "x": 312,
+      "y": 460,
+      "node_type": "room",
+      "location_id": "LC3-F1-R119-4"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_119/5",
+      "node_id": "LC3_119/5",
+      "floor": 1,
+      "x": 333,
+      "y": 460,
+      "node_type": "room",
+      "location_id": "LC3-F1-R119-5"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_120",
+      "node_id": "LC3_120",
+      "floor": 1,
+      "x": 329,
+      "y": 528,
+      "node_type": "room",
+      "location_id": "LC3-F1-R120"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_121",
+      "node_id": "LC3_121",
+      "floor": 1,
+      "x": 408,
+      "y": 531,
+      "node_type": "room",
+      "location_id": "LC3-F1-R121"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_121/1",
+      "node_id": "LC3_121/1",
+      "floor": 1,
+      "x": 478,
+      "y": 536,
+      "node_type": "room",
+      "location_id": "LC3-F1-R121-1"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_121/2",
+      "node_id": "LC3_121/2",
+      "floor": 1,
+      "x": 504,
+      "y": 511,
+      "node_type": "room",
+      "location_id": "LC3-F1-R121-2"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_121/3",
+      "node_id": "LC3_121/3",
+      "floor": 1,
+      "x": 527,
+      "y": 536,
+      "node_type": "room",
+      "location_id": "LC3-F1-R121-3"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_121/4",
+      "node_id": "LC3_121/4",
+      "floor": 1,
+      "x": 758,
+      "y": 521,
+      "node_type": "room",
+      "location_id": "LC3-F1-R121-4"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_121/5",
+      "node_id": "LC3_121/5",
+      "floor": 1,
+      "x": 805,
+      "y": 519,
+      "node_type": "room",
+      "location_id": "LC3-F1-R121-5"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_122",
+      "node_id": "LC3_122",
+      "floor": 1,
+      "x": 408,
+      "y": 458,
+      "node_type": "room",
+      "location_id": "LC3-F1-R122"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_122/1",
+      "node_id": "LC3_122/1",
+      "floor": 1,
+      "x": 478,
+      "y": 441,
+      "node_type": "room",
+      "location_id": "LC3-F1-R122-1"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_122/2",
+      "node_id": "LC3_122/2",
+      "floor": 1,
+      "x": 503,
+      "y": 461,
+      "node_type": "room",
+      "location_id": "LC3-F1-R122-2"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_122/3",
+      "node_id": "LC3_122/3",
+      "floor": 1,
+      "x": 527,
+      "y": 442,
+      "node_type": "room",
+      "location_id": "LC3-F1-R122-3"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_122/4",
+      "node_id": "LC3_122/4",
+      "floor": 1,
+      "x": 544,
+      "y": 442,
+      "node_type": "room",
+      "location_id": "LC3-F1-R122-4"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_122/5",
+      "node_id": "LC3_122/5",
+      "floor": 1,
+      "x": 568,
+      "y": 462,
+      "node_type": "room",
+      "location_id": "LC3-F1-R122-5"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_122/6",
+      "node_id": "LC3_122/6",
+      "floor": 1,
+      "x": 594,
+      "y": 443,
+      "node_type": "room",
+      "location_id": "LC3-F1-R122-6"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_123",
+      "node_id": "LC3_123",
+      "floor": 1,
+      "x": 885,
+      "y": 484,
+      "node_type": "room",
+      "location_id": "LC3-F1-R123"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_123/1",
+      "node_id": "LC3_123/1",
+      "floor": 1,
+      "x": 887,
+      "y": 548,
+      "node_type": "room",
+      "location_id": "LC3-F1-R123-1"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_124/1",
+      "node_id": "LC3_124/1",
+      "floor": 1,
+      "x": 954,
+      "y": 533,
+      "node_type": "room",
+      "location_id": "LC3-F1-R124-1"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_124/2",
+      "node_id": "LC3_124/2",
+      "floor": 1,
+      "x": 954,
+      "y": 466,
+      "node_type": "room",
+      "location_id": "LC3-F1-R124-2"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_125",
+      "node_id": "LC3_125",
+      "floor": 1,
+      "x": 1037,
+      "y": 668,
+      "node_type": "room",
+      "location_id": "LC3-F1-R125"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_125/1",
+      "node_id": "LC3_125/1",
+      "floor": 1,
+      "x": 1038,
+      "y": 633,
+      "node_type": "room",
+      "location_id": "LC3-F1-R125-1"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_126",
+      "node_id": "LC3_126",
+      "floor": 1,
+      "x": 1127,
+      "y": 668,
+      "node_type": "room",
+      "location_id": "LC3-F1-R126"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_127",
+      "node_id": "LC3_127",
+      "floor": 1,
+      "x": 1051,
+      "y": 517,
+      "node_type": "room",
+      "location_id": "LC3-F1-R127"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_128",
+      "node_id": "LC3_128",
+      "floor": 1,
+      "x": 1092,
+      "y": 516,
+      "node_type": "room",
+      "location_id": "LC3-F1-R128"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_129",
+      "node_id": "LC3_129",
+      "floor": 1,
+      "x": 1136,
+      "y": 516,
+      "node_type": "room",
+      "location_id": "LC3-F1-R129"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_130",
+      "node_id": "LC3_130",
+      "floor": 1,
+      "x": 1083,
+      "y": 376,
+      "node_type": "room",
+      "location_id": "LC3-F1-R130"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_131",
+      "node_id": "LC3_131",
+      "floor": 1,
+      "x": 1103,
+      "y": 377,
+      "node_type": "room",
+      "location_id": "LC3-F1-R131"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_132",
+      "node_id": "LC3_132",
+      "floor": 1,
+      "x": 1138,
+      "y": 404,
+      "node_type": "room",
+      "location_id": "LC3-F1-R132"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_135",
+      "node_id": "LC3_135",
+      "floor": 1,
+      "x": 1129,
+      "y": 213,
+      "node_type": "room",
+      "location_id": "LC3-F1-R135"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_136",
+      "node_id": "LC3_136",
+      "floor": 1,
+      "x": 1060,
+      "y": 94,
+      "node_type": "room",
+      "location_id": "LC3-F1-R136"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_137/1",
+      "node_id": "LC3_137/1",
+      "floor": 1,
+      "x": 1016,
+      "y": 103,
+      "node_type": "room",
+      "location_id": "LC3-F1-R137-1"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_137/2",
+      "node_id": "LC3_137/2",
+      "floor": 1,
+      "x": 954,
+      "y": 103,
+      "node_type": "room",
+      "location_id": "LC3-F1-R137-2"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_137/3",
+      "node_id": "LC3_137/3",
+      "floor": 1,
+      "x": 886,
+      "y": 103,
+      "node_type": "room",
+      "location_id": "LC3-F1-R137-3"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_138",
+      "node_id": "LC3_138",
+      "floor": 1,
+      "x": 833,
+      "y": 102,
+      "node_type": "room",
+      "location_id": "LC3-F1-R138"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_139",
+      "node_id": "LC3_139",
+      "floor": 1,
+      "x": 802,
+      "y": 87,
+      "node_type": "room",
+      "location_id": "LC3-F1-R139"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_140",
+      "node_id": "LC3_140",
+      "floor": 1,
+      "x": 780,
+      "y": 134,
+      "node_type": "room",
+      "location_id": "LC3-F1-R140"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_141",
+      "node_id": "LC3_141",
+      "floor": 1,
+      "x": 721,
+      "y": 209,
+      "node_type": "room",
+      "location_id": "LC3-F1-R141"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_Junction_LStair",
+      "node_id": "LC3_Junction_LStair",
+      "floor": 1,
+      "x": 193,
+      "y": 340,
+      "node_type": "junction"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_Junction_MStair",
+      "node_id": "LC3_Junction_MStair",
+      "floor": 1,
+      "x": 622,
+      "y": 291,
+      "node_type": "junction"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_Junction_MidBridge",
+      "node_id": "LC3_Junction_MidBridge",
+      "floor": 1,
+      "x": 631,
+      "y": 291,
+      "node_type": "junction"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_Junction_NL1",
+      "node_id": "LC3_Junction_NL1",
+      "floor": 1,
+      "x": 172,
+      "y": 116,
+      "node_type": "junction"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_Junction_NL2",
+      "node_id": "LC3_Junction_NL2",
+      "floor": 1,
+      "x": 193,
+      "y": 116,
+      "node_type": "junction"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_Junction_NM",
+      "node_id": "LC3_Junction_NM",
+      "floor": 1,
+      "x": 621,
+      "y": 116,
+      "node_type": "junction"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_Junction_NM1",
+      "node_id": "LC3_Junction_NM1",
+      "floor": 1,
+      "x": 621,
+      "y": 166,
+      "node_type": "junction"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_Junction_NM2",
+      "node_id": "LC3_Junction_NM2",
+      "floor": 1,
+      "x": 621,
+      "y": 254,
+      "node_type": "junction"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_Junction_NM3",
+      "node_id": "LC3_Junction_NM3",
+      "floor": 1,
+      "x": 640,
+      "y": 254,
+      "node_type": "junction"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_Junction_NM4",
+      "node_id": "LC3_Junction_NM4",
+      "floor": 1,
+      "x": 640,
+      "y": 291,
+      "node_type": "junction"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_Junction_NM5",
+      "node_id": "LC3_Junction_NM5",
+      "floor": 1,
+      "x": 662,
+      "y": 254,
+      "node_type": "junction"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_Junction_NM6",
+      "node_id": "LC3_Junction_NM6",
+      "floor": 1,
+      "x": 662,
+      "y": 289,
+      "node_type": "junction"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_Junction_NM7",
+      "node_id": "LC3_Junction_NM7",
+      "floor": 1,
+      "x": 790,
+      "y": 290,
+      "node_type": "junction"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_Junction_NR1",
+      "node_id": "LC3_Junction_NR1",
+      "floor": 1,
+      "x": 802,
+      "y": 161,
+      "node_type": "junction"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_Junction_QR1-1",
+      "node_id": "LC3_Junction_QR1-1",
+      "floor": 1,
+      "x": 632,
+      "y": 434,
+      "node_type": "junction"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_Junction_QR4-1",
+      "node_id": "LC3_Junction_QR4-1",
+      "floor": 1,
+      "x": 1060,
+      "y": 412,
+      "node_type": "junction"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_Junction_RRoundabout",
+      "node_id": "LC3_Junction_RRoundabout",
+      "floor": 1,
+      "x": 956,
+      "y": 334,
+      "node_type": "junction"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_Junction_RRoundabout1",
+      "node_id": "LC3_Junction_RRoundabout1",
+      "floor": 1,
+      "x": 870,
+      "y": 334,
+      "node_type": "junction"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_Junction_RRoundabout2",
+      "node_id": "LC3_Junction_RRoundabout2",
+      "floor": 1,
+      "x": 870,
+      "y": 290,
+      "node_type": "junction"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_Junction_RRoundabout3",
+      "node_id": "LC3_Junction_RRoundabout3",
+      "floor": 1,
+      "x": 1060,
+      "y": 334,
+      "node_type": "junction"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_Junction_RStair",
+      "node_id": "LC3_Junction_RStair",
+      "floor": 1,
+      "x": 1060,
+      "y": 323,
+      "node_type": "junction"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_Junction_SL1",
+      "node_id": "LC3_Junction_SL1",
+      "floor": 1,
+      "x": 171,
+      "y": 484,
+      "node_type": "junction"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_Junction_SL2",
+      "node_id": "LC3_Junction_SL2",
+      "floor": 1,
+      "x": 193,
+      "y": 484,
+      "node_type": "junction"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_Junction_SM",
+      "node_id": "LC3_Junction_SM",
+      "floor": 1,
+      "x": 632,
+      "y": 484,
+      "node_type": "junction"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_Junction_SM1",
+      "node_id": "LC3_Junction_SM1",
+      "floor": 1,
+      "x": 478,
+      "y": 484,
+      "node_type": "junction"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_Junction_SM2",
+      "node_id": "LC3_Junction_SM2",
+      "floor": 1,
+      "x": 532,
+      "y": 484,
+      "node_type": "junction"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_Junction_SM3",
+      "node_id": "LC3_Junction_SM3",
+      "floor": 1,
+      "x": 594,
+      "y": 484,
+      "node_type": "junction"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_Junction_SM4",
+      "node_id": "LC3_Junction_SM4",
+      "floor": 1,
+      "x": 838,
+      "y": 440,
+      "node_type": "junction"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_Junction_SR1",
+      "node_id": "LC3_Junction_SR1",
+      "floor": 1,
+      "x": 1060,
+      "y": 440,
+      "node_type": "junction"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_Junction_SR2",
+      "node_id": "LC3_Junction_SR2",
+      "floor": 1,
+      "x": 1006,
+      "y": 440,
+      "node_type": "junction"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_Junction_SR3",
+      "node_id": "LC3_Junction_SR3",
+      "floor": 1,
+      "x": 955,
+      "y": 440,
+      "node_type": "junction"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_Junction_SR4",
+      "node_id": "LC3_Junction_SR4",
+      "floor": 1,
+      "x": 1007,
+      "y": 549,
+      "node_type": "junction"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_Junction_SR5",
+      "node_id": "LC3_Junction_SR5",
+      "floor": 1,
+      "x": 1073,
+      "y": 549,
+      "node_type": "junction"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_Junction_TLRF",
+      "node_id": "LC3_Junction_TLRF",
+      "floor": 1,
+      "x": 1060,
+      "y": 308,
+      "node_type": "junction"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_Junction_TLRM",
+      "node_id": "LC3_Junction_TLRM",
+      "floor": 1,
+      "x": 1060,
+      "y": 358,
+      "node_type": "junction"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_LFToilet",
+      "node_id": "LC3_LFToilet",
+      "floor": 1,
+      "x": 127,
+      "y": 356,
+      "node_type": "facility",
+      "location_id": "LC3-F1-PLFTOILET"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_LMToilet",
+      "node_id": "LC3_LMToilet",
+      "floor": 1,
+      "x": 128,
+      "y": 307,
+      "node_type": "facility",
+      "location_id": "LC3-F1-PLMTOILET"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_QR1",
+      "node_id": "LC3_QR1",
+      "floor": 1,
+      "x": 649,
+      "y": 434,
+      "node_type": "room"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_QR2",
+      "node_id": "LC3_QR2",
+      "floor": 1,
+      "x": 209,
+      "y": 369,
+      "node_type": "room"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_QR3",
+      "node_id": "LC3_QR3",
+      "floor": 1,
+      "x": 581,
+      "y": 166,
+      "node_type": "room"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_QR4",
+      "node_id": "LC3_QR4",
+      "floor": 1,
+      "x": 1079,
+      "y": 412,
+      "node_type": "room"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_RFToilet",
+      "node_id": "LC3_RFToilet",
+      "floor": 1,
+      "x": 1142,
+      "y": 308,
+      "node_type": "facility",
+      "location_id": "LC3-F1-PRFTOILET"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_RMToilet",
+      "node_id": "LC3_RMToilet",
+      "floor": 1,
+      "x": 1145,
+      "y": 358,
+      "node_type": "facility",
+      "location_id": "LC3-F1-PRMTOILET"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_entry_101",
+      "node_id": "LC3_entry_101",
+      "floor": 1,
+      "x": 621,
+      "y": 230,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_entry_101/1,104",
+      "node_id": "LC3_entry_101/1,104",
+      "floor": 1,
+      "x": 376,
+      "y": 116,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_entry_101/2",
+      "node_id": "LC3_entry_101/2",
+      "floor": 1,
+      "x": 421,
+      "y": 116,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_entry_102/1",
+      "node_id": "LC3_entry_102/1",
+      "floor": 1,
+      "x": 517,
+      "y": 116,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_entry_102/2",
+      "node_id": "LC3_entry_102/2",
+      "floor": 1,
+      "x": 485,
+      "y": 116,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_entry_103",
+      "node_id": "LC3_entry_103",
+      "floor": 1,
+      "x": 440,
+      "y": 116,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_entry_104/1,105",
+      "node_id": "LC3_entry_104/1,105",
+      "floor": 1,
+      "x": 327,
+      "y": 116,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_entry_105",
+      "node_id": "LC3_entry_105",
+      "floor": 1,
+      "x": 193,
+      "y": 397,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_entry_106",
+      "node_id": "LC3_entry_106",
+      "floor": 1,
+      "x": 278,
+      "y": 116,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_entry_107",
+      "node_id": "LC3_entry_107",
+      "floor": 1,
+      "x": 251,
+      "y": 116,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_entry_108",
+      "node_id": "LC3_entry_108",
+      "floor": 1,
+      "x": 216,
+      "y": 116,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_entry_108/1,109",
+      "node_id": "LC3_entry_108/1,109",
+      "floor": 1,
+      "x": 172,
+      "y": 90,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_entry_110",
+      "node_id": "LC3_entry_110",
+      "floor": 1,
+      "x": 193,
+      "y": 142,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_entry_111",
+      "node_id": "LC3_entry_111",
+      "floor": 1,
+      "x": 193,
+      "y": 210,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_entry_116",
+      "node_id": "LC3_entry_116",
+      "floor": 1,
+      "x": 193,
+      "y": 463,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_entry_117",
+      "node_id": "LC3_entry_117",
+      "floor": 1,
+      "x": 171,
+      "y": 523,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_entry_118,119",
+      "node_id": "LC3_entry_118,119",
+      "floor": 1,
+      "x": 224,
+      "y": 484,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_entry_118/1,119/2",
+      "node_id": "LC3_entry_118/1,119/2",
+      "floor": 1,
+      "x": 267,
+      "y": 484,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_entry_119/1",
+      "node_id": "LC3_entry_119/1",
+      "floor": 1,
+      "x": 246,
+      "y": 484,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_entry_119/3",
+      "node_id": "LC3_entry_119/3",
+      "floor": 1,
+      "x": 291,
+      "y": 484,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_entry_119/4",
+      "node_id": "LC3_entry_119/4",
+      "floor": 1,
+      "x": 312,
+      "y": 484,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_entry_119/5,120",
+      "node_id": "LC3_entry_119/5,120",
+      "floor": 1,
+      "x": 332,
+      "y": 484,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_entry_121,122",
+      "node_id": "LC3_entry_121,122",
+      "floor": 1,
+      "x": 408,
+      "y": 484,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_entry_121/1,121/2",
+      "node_id": "LC3_entry_121/1,121/2",
+      "floor": 1,
+      "x": 478,
+      "y": 511,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_entry_121/3",
+      "node_id": "LC3_entry_121/3",
+      "floor": 1,
+      "x": 527,
+      "y": 510,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_entry_121/4",
+      "node_id": "LC3_entry_121/4",
+      "floor": 1,
+      "x": 758,
+      "y": 484,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_entry_121/5",
+      "node_id": "LC3_entry_121/5",
+      "floor": 1,
+      "x": 805,
+      "y": 484,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_entry_122/1,122/2",
+      "node_id": "LC3_entry_122/1,122/2",
+      "floor": 1,
+      "x": 478,
+      "y": 461,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_entry_122/2-5",
+      "node_id": "LC3_entry_122/2-5",
+      "floor": 1,
+      "x": 536,
+      "y": 462,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_entry_122/6",
+      "node_id": "LC3_entry_122/6",
+      "floor": 1,
+      "x": 594,
+      "y": 463,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_entry_123",
+      "node_id": "LC3_entry_123",
+      "floor": 1,
+      "x": 838,
+      "y": 484,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_entry_123/1",
+      "node_id": "LC3_entry_123/1",
+      "floor": 1,
+      "x": 838,
+      "y": 548,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_entry_124/2",
+      "node_id": "LC3_entry_124/2",
+      "floor": 1,
+      "x": 1006,
+      "y": 466,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_entry_125,126",
+      "node_id": "LC3_entry_125,126",
+      "floor": 1,
+      "x": 1073,
+      "y": 668,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_entry_127",
+      "node_id": "LC3_entry_127",
+      "floor": 1,
+      "x": 1051,
+      "y": 549,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_entry_128",
+      "node_id": "LC3_entry_128",
+      "floor": 1,
+      "x": 1092,
+      "y": 549,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_entry_129",
+      "node_id": "LC3_entry_129",
+      "floor": 1,
+      "x": 1136,
+      "y": 549,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_entry_130",
+      "node_id": "LC3_entry_130",
+      "floor": 1,
+      "x": 1083,
+      "y": 358,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_entry_131",
+      "node_id": "LC3_entry_131",
+      "floor": 1,
+      "x": 1103,
+      "y": 358,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_entry_132",
+      "node_id": "LC3_entry_132",
+      "floor": 1,
+      "x": 1138,
+      "y": 440,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_entry_135",
+      "node_id": "LC3_entry_135",
+      "floor": 1,
+      "x": 1060,
+      "y": 213,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_entry_136",
+      "node_id": "LC3_entry_136",
+      "floor": 1,
+      "x": 1060,
+      "y": 161,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_entry_137/1",
+      "node_id": "LC3_entry_137/1",
+      "floor": 1,
+      "x": 1016,
+      "y": 161,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_entry_137/2",
+      "node_id": "LC3_entry_137/2",
+      "floor": 1,
+      "x": 954,
+      "y": 161,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_entry_137/3",
+      "node_id": "LC3_entry_137/3",
+      "floor": 1,
+      "x": 886,
+      "y": 161,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_entry_138",
+      "node_id": "LC3_entry_138",
+      "floor": 1,
+      "x": 833,
+      "y": 161,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_entry_139,140",
+      "node_id": "LC3_entry_139,140",
+      "floor": 1,
+      "x": 802,
+      "y": 134,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_entry_141",
+      "node_id": "LC3_entry_141",
+      "floor": 1,
+      "x": 790,
+      "y": 209,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_entry_TLLF",
+      "node_id": "LC3_entry_TLLF",
+      "floor": 1,
+      "x": 193,
+      "y": 356,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_entry_TLLM",
+      "node_id": "LC3_entry_TLLM",
+      "floor": 1,
+      "x": 193,
+      "y": 307,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_stair-1",
+      "node_id": "LC3_stair-1",
+      "floor": 1,
+      "x": 160,
+      "y": 340,
+      "node_type": "stairs",
+      "location_id": "LC3-F1-PSTAIR-1"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_stair-2",
+      "node_id": "LC3_stair-2",
+      "floor": 1,
+      "x": 622,
+      "y": 270,
+      "node_type": "stairs",
+      "location_id": "LC3-F1-PSTAIR-2"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_stair-3",
+      "node_id": "LC3_stair-3",
+      "floor": 1,
+      "x": 1102,
+      "y": 323,
+      "node_type": "stairs",
+      "location_id": "LC3-F1-PSTAIR-3"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_201",
+      "node_id": "LC3_F2_201",
+      "floor": 2,
+      "x": 452,
+      "y": 245,
+      "node_type": "room",
+      "location_id": "LC3-F2-R201"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_203",
+      "node_id": "LC3_F2_203",
+      "floor": 2,
+      "x": 419,
+      "y": 168,
+      "node_type": "room",
+      "location_id": "LC3-F2-R203"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_204",
+      "node_id": "LC3_F2_204",
+      "floor": 2,
+      "x": 419,
+      "y": 29,
+      "node_type": "room",
+      "location_id": "LC3-F2-R204"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_205",
+      "node_id": "LC3_F2_205",
+      "floor": 2,
+      "x": 332,
+      "y": 114,
+      "node_type": "room",
+      "location_id": "LC3-F2-R205"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_206",
+      "node_id": "LC3_F2_206",
+      "floor": 2,
+      "x": 300,
+      "y": 106,
+      "node_type": "room",
+      "location_id": "LC3-F2-R206"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_207",
+      "node_id": "LC3_F2_207",
+      "floor": 2,
+      "x": 202,
+      "y": 106,
+      "node_type": "room",
+      "location_id": "LC3-F2-R207"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_208",
+      "node_id": "LC3_F2_208",
+      "floor": 2,
+      "x": 175,
+      "y": 106,
+      "node_type": "room",
+      "location_id": "LC3-F2-R208"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_209",
+      "node_id": "LC3_F2_209",
+      "floor": 2,
+      "x": 86,
+      "y": 107,
+      "node_type": "room",
+      "location_id": "LC3-F2-R209"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_210/1",
+      "node_id": "LC3_F2_210/1",
+      "floor": 2,
+      "x": 52,
+      "y": 136,
+      "node_type": "room",
+      "location_id": "LC3-F2-R210-1"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_211/1",
+      "node_id": "LC3_F2_211/1",
+      "floor": 2,
+      "x": 16,
+      "y": 136,
+      "node_type": "room",
+      "location_id": "LC3-F2-R211-1"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_211/2",
+      "node_id": "LC3_F2_211/2",
+      "floor": 2,
+      "x": 23,
+      "y": 154,
+      "node_type": "room",
+      "location_id": "LC3-F2-R211-2"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_212",
+      "node_id": "LC3_F2_212",
+      "floor": 2,
+      "x": 86,
+      "y": 161,
+      "node_type": "room",
+      "location_id": "LC3-F2-R212"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_213",
+      "node_id": "LC3_F2_213",
+      "floor": 2,
+      "x": 52,
+      "y": 185,
+      "node_type": "room",
+      "location_id": "LC3-F2-R213"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_217",
+      "node_id": "LC3_F2_217",
+      "floor": 2,
+      "x": 69,
+      "y": 414,
+      "node_type": "room",
+      "location_id": "LC3-F2-R217"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_220",
+      "node_id": "LC3_F2_220",
+      "floor": 2,
+      "x": 342,
+      "y": 430,
+      "node_type": "room",
+      "location_id": "LC3-F2-R220"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_221",
+      "node_id": "LC3_F2_221",
+      "floor": 2,
+      "x": 450,
+      "y": 431,
+      "node_type": "room",
+      "location_id": "LC3-F2-R221"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_222",
+      "node_id": "LC3_F2_222",
+      "floor": 2,
+      "x": 611,
+      "y": 436,
+      "node_type": "room",
+      "location_id": "LC3-F2-R222"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_223/1",
+      "node_id": "LC3_F2_223/1",
+      "floor": 2,
+      "x": 649,
+      "y": 439,
+      "node_type": "room",
+      "location_id": "LC3-F2-R223-1"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_223/10",
+      "node_id": "LC3_F2_223/10",
+      "floor": 2,
+      "x": 765,
+      "y": 465,
+      "node_type": "room",
+      "location_id": "LC3-F2-R223-10"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_223/11",
+      "node_id": "LC3_F2_223/11",
+      "floor": 2,
+      "x": 766,
+      "y": 490,
+      "node_type": "room",
+      "location_id": "LC3-F2-R223-11"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_223/12",
+      "node_id": "LC3_F2_223/12",
+      "floor": 2,
+      "x": 767,
+      "y": 519,
+      "node_type": "room",
+      "location_id": "LC3-F2-R223-12"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_223/2",
+      "node_id": "LC3_F2_223/2",
+      "floor": 2,
+      "x": 649,
+      "y": 465,
+      "node_type": "room",
+      "location_id": "LC3-F2-R223-2"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_223/3",
+      "node_id": "LC3_F2_223/3",
+      "floor": 2,
+      "x": 648,
+      "y": 490,
+      "node_type": "room",
+      "location_id": "LC3-F2-R223-3"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_223/4",
+      "node_id": "LC3_F2_223/4",
+      "floor": 2,
+      "x": 648,
+      "y": 518,
+      "node_type": "room",
+      "location_id": "LC3-F2-R223-4"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_223/5",
+      "node_id": "LC3_F2_223/5",
+      "floor": 2,
+      "x": 682,
+      "y": 490,
+      "node_type": "room",
+      "location_id": "LC3-F2-R223-5"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_223/6",
+      "node_id": "LC3_F2_223/6",
+      "floor": 2,
+      "x": 681,
+      "y": 518,
+      "node_type": "room",
+      "location_id": "LC3-F2-R223-6"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_223/7",
+      "node_id": "LC3_F2_223/7",
+      "floor": 2,
+      "x": 733,
+      "y": 490,
+      "node_type": "room",
+      "location_id": "LC3-F2-R223-7"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_223/8",
+      "node_id": "LC3_F2_223/8",
+      "floor": 2,
+      "x": 730,
+      "y": 519,
+      "node_type": "room",
+      "location_id": "LC3-F2-R223-8"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_223/9",
+      "node_id": "LC3_F2_223/9",
+      "floor": 2,
+      "x": 764,
+      "y": 438,
+      "node_type": "room",
+      "location_id": "LC3-F2-R223-9"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_224",
+      "node_id": "LC3_F2_224",
+      "floor": 2,
+      "x": 686,
+      "y": 465,
+      "node_type": "room",
+      "location_id": "LC3-F2-R224"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_225",
+      "node_id": "LC3_F2_225",
+      "floor": 2,
+      "x": 805,
+      "y": 434,
+      "node_type": "room",
+      "location_id": "LC3-F2-R225"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_226/1",
+      "node_id": "LC3_F2_226/1",
+      "floor": 2,
+      "x": 866,
+      "y": 458,
+      "node_type": "room",
+      "location_id": "LC3-F2-R226-1"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_226/2",
+      "node_id": "LC3_F2_226/2",
+      "floor": 2,
+      "x": 879,
+      "y": 434,
+      "node_type": "room",
+      "location_id": "LC3-F2-R226-2"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_227",
+      "node_id": "LC3_F2_227",
+      "floor": 2,
+      "x": 943,
+      "y": 433,
+      "node_type": "room",
+      "location_id": "LC3-F2-R227"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_227/1",
+      "node_id": "LC3_F2_227/1",
+      "floor": 2,
+      "x": 1031,
+      "y": 432,
+      "node_type": "room",
+      "location_id": "LC3-F2-R227-1"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_228",
+      "node_id": "LC3_F2_228",
+      "floor": 2,
+      "x": 964,
+      "y": 352,
+      "node_type": "room",
+      "location_id": "LC3-F2-R228"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_229",
+      "node_id": "LC3_F2_229",
+      "floor": 2,
+      "x": 980,
+      "y": 353,
+      "node_type": "room",
+      "location_id": "LC3-F2-R229"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_230",
+      "node_id": "LC3_F2_230",
+      "floor": 2,
+      "x": 1003,
+      "y": 400,
+      "node_type": "room",
+      "location_id": "LC3-F2-R230"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_233",
+      "node_id": "LC3_F2_233",
+      "floor": 2,
+      "x": 965,
+      "y": 188,
+      "node_type": "room",
+      "location_id": "LC3-F2-R233"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_234",
+      "node_id": "LC3_F2_234",
+      "floor": 2,
+      "x": 1045,
+      "y": 131,
+      "node_type": "room",
+      "location_id": "LC3-F2-R234"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_234/1",
+      "node_id": "LC3_F2_234/1",
+      "floor": 2,
+      "x": 964,
+      "y": 150,
+      "node_type": "room",
+      "location_id": "LC3-F2-R234-1"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_235/1",
+      "node_id": "LC3_F2_235/1",
+      "floor": 2,
+      "x": 1017,
+      "y": 121,
+      "node_type": "room",
+      "location_id": "LC3-F2-R235-1"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_235/2",
+      "node_id": "LC3_F2_235/2",
+      "floor": 2,
+      "x": 967,
+      "y": 121,
+      "node_type": "room",
+      "location_id": "LC3-F2-R235-2"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_235/3",
+      "node_id": "LC3_F2_235/3",
+      "floor": 2,
+      "x": 967,
+      "y": 110,
+      "node_type": "room",
+      "location_id": "LC3-F2-R235-3"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_236/1",
+      "node_id": "LC3_F2_236/1",
+      "floor": 2,
+      "x": 871,
+      "y": 110,
+      "node_type": "room",
+      "location_id": "LC3-F2-R236-1"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_236/2",
+      "node_id": "LC3_F2_236/2",
+      "floor": 2,
+      "x": 871,
+      "y": 76,
+      "node_type": "room",
+      "location_id": "LC3-F2-R236-2"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_236/3",
+      "node_id": "LC3_F2_236/3",
+      "floor": 2,
+      "x": 942,
+      "y": 117,
+      "node_type": "room",
+      "location_id": "LC3-F2-R236-3"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_237",
+      "node_id": "LC3_F2_237",
+      "floor": 2,
+      "x": 854,
+      "y": 27,
+      "node_type": "room",
+      "location_id": "LC3-F2-R237"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_238",
+      "node_id": "LC3_F2_238",
+      "floor": 2,
+      "x": 763,
+      "y": 114,
+      "node_type": "room",
+      "location_id": "LC3-F2-R238"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_239",
+      "node_id": "LC3_F2_239",
+      "floor": 2,
+      "x": 668,
+      "y": 28,
+      "node_type": "room",
+      "location_id": "LC3-F2-R239"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_240",
+      "node_id": "LC3_F2_240",
+      "floor": 2,
+      "x": 640,
+      "y": 77,
+      "node_type": "room",
+      "location_id": "LC3-F2-R240"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_241",
+      "node_id": "LC3_F2_241",
+      "floor": 2,
+      "x": 640,
+      "y": 177,
+      "node_type": "room",
+      "location_id": "LC3-F2-R241"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_243/1",
+      "node_id": "LC3_F2_243/1",
+      "floor": 2,
+      "x": 602,
+      "y": 246,
+      "node_type": "room",
+      "location_id": "LC3-F2-R243-1"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_243/2",
+      "node_id": "LC3_F2_243/2",
+      "floor": 2,
+      "x": 603,
+      "y": 371,
+      "node_type": "room",
+      "location_id": "LC3-F2-R243-2"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_entry-1",
+      "node_id": "LC3_F2_entry-1",
+      "floor": 2,
+      "x": 175,
+      "y": 136,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_entry-10",
+      "node_id": "LC3_F2_entry-10",
+      "floor": 2,
+      "x": 871,
+      "y": 136,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_entry-11",
+      "node_id": "LC3_F2_entry-11",
+      "floor": 2,
+      "x": 967,
+      "y": 130,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_entry-12",
+      "node_id": "LC3_F2_entry-12",
+      "floor": 2,
+      "x": 942,
+      "y": 150,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_entry-13",
+      "node_id": "LC3_F2_entry-13",
+      "floor": 2,
+      "x": 942,
+      "y": 188,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_entry-14",
+      "node_id": "LC3_F2_entry-14",
+      "floor": 2,
+      "x": 943,
+      "y": 335,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_entry-15",
+      "node_id": "LC3_F2_entry-15",
+      "floor": 2,
+      "x": 964,
+      "y": 335,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_entry-16",
+      "node_id": "LC3_F2_entry-16",
+      "floor": 2,
+      "x": 980,
+      "y": 335,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_entry-17",
+      "node_id": "LC3_F2_entry-17",
+      "floor": 2,
+      "x": 1031,
+      "y": 413,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_entry-18",
+      "node_id": "LC3_F2_entry-18",
+      "floor": 2,
+      "x": 879,
+      "y": 413,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_entry-19",
+      "node_id": "LC3_F2_entry-19",
+      "floor": 2,
+      "x": 805,
+      "y": 413,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_entry-2",
+      "node_id": "LC3_F2_entry-2",
+      "floor": 2,
+      "x": 300,
+      "y": 136,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_entry-20",
+      "node_id": "LC3_F2_entry-20",
+      "floor": 2,
+      "x": 686,
+      "y": 413,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_entry-21",
+      "node_id": "LC3_F2_entry-21",
+      "floor": 2,
+      "x": 748,
+      "y": 465,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_entry-22",
+      "node_id": "LC3_F2_entry-22",
+      "floor": 2,
+      "x": 748,
+      "y": 438,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_entry-23",
+      "node_id": "LC3_F2_entry-23",
+      "floor": 2,
+      "x": 748,
+      "y": 490,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_entry-24",
+      "node_id": "LC3_F2_entry-24",
+      "floor": 2,
+      "x": 748,
+      "y": 519,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_entry-25",
+      "node_id": "LC3_F2_entry-25",
+      "floor": 2,
+      "x": 664,
+      "y": 465,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_entry-26",
+      "node_id": "LC3_F2_entry-26",
+      "floor": 2,
+      "x": 664,
+      "y": 439,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_entry-27",
+      "node_id": "LC3_F2_entry-27",
+      "floor": 2,
+      "x": 664,
+      "y": 490,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_entry-28",
+      "node_id": "LC3_F2_entry-28",
+      "floor": 2,
+      "x": 664,
+      "y": 518,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_entry-29",
+      "node_id": "LC3_F2_entry-29",
+      "floor": 2,
+      "x": 342,
+      "y": 413,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_entry-3",
+      "node_id": "LC3_F2_entry-3",
+      "floor": 2,
+      "x": 332,
+      "y": 136,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_entry-30",
+      "node_id": "LC3_F2_entry-30",
+      "floor": 2,
+      "x": 112,
+      "y": 185,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_entry-31",
+      "node_id": "LC3_F2_entry-31",
+      "floor": 2,
+      "x": 112,
+      "y": 161,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_entry-32",
+      "node_id": "LC3_F2_entry-32",
+      "floor": 2,
+      "x": 86,
+      "y": 136,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_entry-4",
+      "node_id": "LC3_F2_entry-4",
+      "floor": 2,
+      "x": 419,
+      "y": 198,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_entry-5",
+      "node_id": "LC3_F2_entry-5",
+      "floor": 2,
+      "x": 487,
+      "y": 245,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_entry-6",
+      "node_id": "LC3_F2_entry-6",
+      "floor": 2,
+      "x": 571,
+      "y": 246,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_entry-7",
+      "node_id": "LC3_F2_entry-7",
+      "floor": 2,
+      "x": 572,
+      "y": 371,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_entry-8",
+      "node_id": "LC3_F2_entry-8",
+      "floor": 2,
+      "x": 640,
+      "y": 198,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_entry-9",
+      "node_id": "LC3_F2_entry-9",
+      "floor": 2,
+      "x": 763,
+      "y": 136,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_hallway-1",
+      "node_id": "LC3_F2_hallway-1",
+      "floor": 2,
+      "x": 112,
+      "y": 136,
+      "node_type": "junction"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_hallway-11",
+      "node_id": "LC3_F2_hallway-11",
+      "floor": 2,
+      "x": 965,
+      "y": 316,
+      "node_type": "junction"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_hallway-13",
+      "node_id": "LC3_F2_hallway-13",
+      "floor": 2,
+      "x": 572,
+      "y": 413,
+      "node_type": "junction"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_hallway-14",
+      "node_id": "LC3_F2_hallway-14",
+      "floor": 2,
+      "x": 487,
+      "y": 413,
+      "node_type": "junction"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_hallway-15",
+      "node_id": "LC3_F2_hallway-15",
+      "floor": 2,
+      "x": 113,
+      "y": 414,
+      "node_type": "junction"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_hallway-2",
+      "node_id": "LC3_F2_hallway-2",
+      "floor": 2,
+      "x": 390,
+      "y": 136,
+      "node_type": "junction"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_hallway-3",
+      "node_id": "LC3_F2_hallway-3",
+      "floor": 2,
+      "x": 390,
+      "y": 198,
+      "node_type": "junction"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_hallway-5",
+      "node_id": "LC3_F2_hallway-5",
+      "floor": 2,
+      "x": 529,
+      "y": 198,
+      "node_type": "junction"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_hallway-6",
+      "node_id": "LC3_F2_hallway-6",
+      "floor": 2,
+      "x": 571,
+      "y": 198,
+      "node_type": "junction"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_hallway-7",
+      "node_id": "LC3_F2_hallway-7",
+      "floor": 2,
+      "x": 668,
+      "y": 198,
+      "node_type": "junction"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_hallway-8",
+      "node_id": "LC3_F2_hallway-8",
+      "floor": 2,
+      "x": 668,
+      "y": 136,
+      "node_type": "junction"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_hallway-9",
+      "node_id": "LC3_F2_hallway-9",
+      "floor": 2,
+      "x": 942,
+      "y": 136,
+      "node_type": "junction"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_stair-1",
+      "node_id": "LC3_F2_stair-1",
+      "floor": 2,
+      "x": 89,
+      "y": 303,
+      "node_type": "stairs",
+      "location_id": "LC3-F2-PSTAIR-1"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_stair-2",
+      "node_id": "LC3_F2_stair-2",
+      "floor": 2,
+      "x": 529,
+      "y": 228,
+      "node_type": "stairs",
+      "location_id": "LC3-F2-PSTAIR-2"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_F2_stair-3",
+      "node_id": "LC3_F2_stair-3",
+      "floor": 2,
+      "x": 984,
+      "y": 316,
+      "node_type": "stairs",
+      "location_id": "LC3-F2-PSTAIR-3"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_LFTL",
+      "node_id": "LC3_LFTL",
+      "floor": 2,
+      "x": 31,
+      "y": 337,
+      "node_type": "facility",
+      "location_id": "LC3-F2-PLFTL"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_LMTL",
+      "node_id": "LC3_LMTL",
+      "floor": 2,
+      "x": 31,
+      "y": 281,
+      "node_type": "facility",
+      "location_id": "LC3-F2-PLMTL"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_QR5",
+      "node_id": "LC3_QR5",
+      "floor": 2,
+      "x": 514,
+      "y": 180,
+      "node_type": "room"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_QR6",
+      "node_id": "LC3_QR6",
+      "floor": 2,
+      "x": 120,
+      "y": 303,
+      "node_type": "room"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_QR7",
+      "node_id": "LC3_QR7",
+      "floor": 2,
+      "x": 937,
+      "y": 283,
+      "node_type": "room"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_QR8",
+      "node_id": "LC3_QR8",
+      "floor": 2,
+      "x": 976,
+      "y": 407,
+      "node_type": "room"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_RFTL",
+      "node_id": "LC3_RFTL",
+      "floor": 2,
+      "x": 1021,
+      "y": 283,
+      "node_type": "facility",
+      "location_id": "LC3-F2-PRFTL"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_RMTL",
+      "node_id": "LC3_RMTL",
+      "floor": 2,
+      "x": 1022,
+      "y": 335,
+      "node_type": "facility",
+      "location_id": "LC3-F2-PRMTL"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_entey-33",
+      "node_id": "LC3_entey-33",
+      "floor": 2,
+      "x": 52,
+      "y": 154,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_entry-34",
+      "node_id": "LC3_entry-34",
+      "floor": 2,
+      "x": 333,
+      "y": 29,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_entry-35",
+      "node_id": "LC3_entry-35",
+      "floor": 2,
+      "x": 450,
+      "y": 413,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_entry-36",
+      "node_id": "LC3_entry-36",
+      "floor": 2,
+      "x": 611,
+      "y": 413,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_entry-37",
+      "node_id": "LC3_entry-37",
+      "floor": 2,
+      "x": 866,
+      "y": 434,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_entry-38",
+      "node_id": "LC3_entry-38",
+      "floor": 2,
+      "x": 1003,
+      "y": 413,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_entry-39",
+      "node_id": "LC3_entry-39",
+      "floor": 2,
+      "x": 942,
+      "y": 130,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_entry-40",
+      "node_id": "LC3_entry-40",
+      "floor": 2,
+      "x": 1045,
+      "y": 121,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_entry-41",
+      "node_id": "LC3_entry-41",
+      "floor": 2,
+      "x": 871,
+      "y": 27,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_entry-42",
+      "node_id": "LC3_entry-42",
+      "floor": 2,
+      "x": 763,
+      "y": 27,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_entry-43",
+      "node_id": "LC3_entry-43",
+      "floor": 2,
+      "x": 640,
+      "y": 28,
+      "node_type": "entrance"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_hallway-10",
+      "node_id": "LC3_hallway-10",
+      "floor": 2,
+      "x": 943,
+      "y": 316,
+      "node_type": "junction"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_hallway-12",
+      "node_id": "LC3_hallway-12",
+      "floor": 2,
+      "x": 943,
+      "y": 413,
+      "node_type": "junction"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_hallway-16",
+      "node_id": "LC3_hallway-16",
+      "floor": 2,
+      "x": 112,
+      "y": 303,
+      "node_type": "junction"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_hallway-4",
+      "node_id": "LC3_hallway-4",
+      "floor": 2,
+      "x": 487,
+      "y": 198,
+      "node_type": "junction"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_hallway-QR5",
+      "node_id": "LC3_hallway-QR5",
+      "floor": 2,
+      "x": 514,
+      "y": 198,
+      "node_type": "junction"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_hallway-QR8",
+      "node_id": "LC3_hallway-QR8",
+      "floor": 2,
+      "x": 976,
+      "y": 413,
+      "node_type": "junction"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_hallway_TLLF",
+      "node_id": "LC3_hallway_TLLF",
+      "floor": 2,
+      "x": 112,
+      "y": 337,
+      "node_type": "junction"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_hallway_TLLM",
+      "node_id": "LC3_hallway_TLLM",
+      "floor": 2,
+      "x": 112,
+      "y": 281,
+      "node_type": "junction"
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "NODE#LC3_hallway_TLRF",
+      "node_id": "LC3_hallway_TLRF",
+      "floor": 2,
+      "x": 943,
+      "y": 283,
+      "node_type": "junction"
+    }
+  ],
+  "edges": [
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_124/2|LC3_124/1",
+      "from": "LC3_124/2",
+      "to": "LC3_124/1",
+      "edge_type": "walk",
+      "distance": 67
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_125|LC3_125/1",
+      "from": "LC3_125",
+      "to": "LC3_125/1",
+      "edge_type": "walk",
+      "distance": 35.01
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_201|LC3_F2_entry-5",
+      "from": "LC3_F2_201",
+      "to": "LC3_F2_entry-5",
+      "edge_type": "walk",
+      "distance": 35
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_203|LC3_F2_204",
+      "from": "LC3_F2_203",
+      "to": "LC3_F2_204",
+      "edge_type": "walk",
+      "distance": 139
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_203|LC3_F2_entry-4",
+      "from": "LC3_F2_203",
+      "to": "LC3_F2_entry-4",
+      "edge_type": "walk",
+      "distance": 30
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_205|LC3_entry-34",
+      "from": "LC3_F2_205",
+      "to": "LC3_entry-34",
+      "edge_type": "walk",
+      "distance": 85.01
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_206|LC3_F2_entry-2",
+      "from": "LC3_F2_206",
+      "to": "LC3_F2_entry-2",
+      "edge_type": "walk",
+      "distance": 30
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_207|LC3_F2_206",
+      "from": "LC3_F2_207",
+      "to": "LC3_F2_206",
+      "edge_type": "walk",
+      "distance": 98
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_208|LC3_F2_207",
+      "from": "LC3_F2_208",
+      "to": "LC3_F2_207",
+      "edge_type": "walk",
+      "distance": 27
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_210/1|LC3_F2_211/1",
+      "from": "LC3_F2_210/1",
+      "to": "LC3_F2_211/1",
+      "edge_type": "walk",
+      "distance": 36
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_210/1|LC3_entey-33",
+      "from": "LC3_F2_210/1",
+      "to": "LC3_entey-33",
+      "edge_type": "walk",
+      "distance": 18
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_224|LC3_F2_entry-21",
+      "from": "LC3_F2_224",
+      "to": "LC3_F2_entry-21",
+      "edge_type": "walk",
+      "distance": 62
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_224|LC3_F2_entry-25",
+      "from": "LC3_F2_224",
+      "to": "LC3_F2_entry-25",
+      "edge_type": "walk",
+      "distance": 22
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_226/2|LC3_entry-37",
+      "from": "LC3_F2_226/2",
+      "to": "LC3_entry-37",
+      "edge_type": "walk",
+      "distance": 13
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_235/1|LC3_entry-40",
+      "from": "LC3_F2_235/1",
+      "to": "LC3_entry-40",
+      "edge_type": "walk",
+      "distance": 28
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_235/2|LC3_F2_235/1",
+      "from": "LC3_F2_235/2",
+      "to": "LC3_F2_235/1",
+      "edge_type": "walk",
+      "distance": 50
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_235/2|LC3_F2_235/3",
+      "from": "LC3_F2_235/2",
+      "to": "LC3_F2_235/3",
+      "edge_type": "walk",
+      "distance": 11
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_236/1|LC3_F2_236/2",
+      "from": "LC3_F2_236/1",
+      "to": "LC3_F2_236/2",
+      "edge_type": "walk",
+      "distance": 34
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_236/2|LC3_entry-41",
+      "from": "LC3_F2_236/2",
+      "to": "LC3_entry-41",
+      "edge_type": "walk",
+      "distance": 49
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_236/3|LC3_entry-39",
+      "from": "LC3_F2_236/3",
+      "to": "LC3_entry-39",
+      "edge_type": "walk",
+      "distance": 13
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_237|LC3_entry-42",
+      "from": "LC3_F2_237",
+      "to": "LC3_entry-42",
+      "edge_type": "walk",
+      "distance": 91
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_240|LC3_F2_241",
+      "from": "LC3_F2_240",
+      "to": "LC3_F2_241",
+      "edge_type": "walk",
+      "distance": 100
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_entry-10|LC3_F2_236/1",
+      "from": "LC3_F2_entry-10",
+      "to": "LC3_F2_236/1",
+      "edge_type": "walk",
+      "distance": 26
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_entry-10|LC3_F2_hallway-9",
+      "from": "LC3_F2_entry-10",
+      "to": "LC3_F2_hallway-9",
+      "edge_type": "walk",
+      "distance": 71
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_entry-11|LC3_F2_235/2",
+      "from": "LC3_F2_entry-11",
+      "to": "LC3_F2_235/2",
+      "edge_type": "walk",
+      "distance": 9
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_entry-12|LC3_F2_234/1",
+      "from": "LC3_F2_entry-12",
+      "to": "LC3_F2_234/1",
+      "edge_type": "walk",
+      "distance": 22
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_entry-12|LC3_F2_entry-13",
+      "from": "LC3_F2_entry-12",
+      "to": "LC3_F2_entry-13",
+      "edge_type": "walk",
+      "distance": 38
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_entry-13|LC3_F2_233",
+      "from": "LC3_F2_entry-13",
+      "to": "LC3_F2_233",
+      "edge_type": "walk",
+      "distance": 23
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_entry-14|LC3_F2_entry-15",
+      "from": "LC3_F2_entry-14",
+      "to": "LC3_F2_entry-15",
+      "edge_type": "walk",
+      "distance": 21
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_entry-14|LC3_hallway-10",
+      "from": "LC3_F2_entry-14",
+      "to": "LC3_hallway-10",
+      "edge_type": "walk",
+      "distance": 19
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_entry-15|LC3_F2_228",
+      "from": "LC3_F2_entry-15",
+      "to": "LC3_F2_228",
+      "edge_type": "walk",
+      "distance": 17
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_entry-15|LC3_F2_entry-16",
+      "from": "LC3_F2_entry-15",
+      "to": "LC3_F2_entry-16",
+      "edge_type": "walk",
+      "distance": 16
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_entry-16|LC3_F2_229",
+      "from": "LC3_F2_entry-16",
+      "to": "LC3_F2_229",
+      "edge_type": "walk",
+      "distance": 18
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_entry-16|LC3_RMTL",
+      "from": "LC3_F2_entry-16",
+      "to": "LC3_RMTL",
+      "edge_type": "walk",
+      "distance": 42
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_entry-17|LC3_F2_227/1",
+      "from": "LC3_F2_entry-17",
+      "to": "LC3_F2_227/1",
+      "edge_type": "walk",
+      "distance": 19
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_entry-18|LC3_F2_226/2",
+      "from": "LC3_F2_entry-18",
+      "to": "LC3_F2_226/2",
+      "edge_type": "walk",
+      "distance": 21
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_entry-18|LC3_F2_entry-19",
+      "from": "LC3_F2_entry-18",
+      "to": "LC3_F2_entry-19",
+      "edge_type": "walk",
+      "distance": 74
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_entry-18|LC3_hallway-12",
+      "from": "LC3_F2_entry-18",
+      "to": "LC3_hallway-12",
+      "edge_type": "walk",
+      "distance": 64
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_entry-19|LC3_F2_225",
+      "from": "LC3_F2_entry-19",
+      "to": "LC3_F2_225",
+      "edge_type": "walk",
+      "distance": 21
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_entry-19|LC3_F2_entry-20",
+      "from": "LC3_F2_entry-19",
+      "to": "LC3_F2_entry-20",
+      "edge_type": "walk",
+      "distance": 119
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_entry-1|LC3_F2_208",
+      "from": "LC3_F2_entry-1",
+      "to": "LC3_F2_208",
+      "edge_type": "walk",
+      "distance": 30
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_entry-1|LC3_F2_entry-2",
+      "from": "LC3_F2_entry-1",
+      "to": "LC3_F2_entry-2",
+      "edge_type": "walk",
+      "distance": 125
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_entry-20|LC3_F2_224",
+      "from": "LC3_F2_entry-20",
+      "to": "LC3_F2_224",
+      "edge_type": "walk",
+      "distance": 52
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_entry-21|LC3_F2_223/10",
+      "from": "LC3_F2_entry-21",
+      "to": "LC3_F2_223/10",
+      "edge_type": "walk",
+      "distance": 17
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_entry-21|LC3_F2_entry-22",
+      "from": "LC3_F2_entry-21",
+      "to": "LC3_F2_entry-22",
+      "edge_type": "walk",
+      "distance": 27
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_entry-21|LC3_F2_entry-23",
+      "from": "LC3_F2_entry-21",
+      "to": "LC3_F2_entry-23",
+      "edge_type": "walk",
+      "distance": 25
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_entry-22|LC3_F2_223/9",
+      "from": "LC3_F2_entry-22",
+      "to": "LC3_F2_223/9",
+      "edge_type": "walk",
+      "distance": 16
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_entry-23|LC3_F2_223/11",
+      "from": "LC3_F2_entry-23",
+      "to": "LC3_F2_223/11",
+      "edge_type": "walk",
+      "distance": 18
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_entry-23|LC3_F2_223/7",
+      "from": "LC3_F2_entry-23",
+      "to": "LC3_F2_223/7",
+      "edge_type": "walk",
+      "distance": 15
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_entry-23|LC3_F2_entry-24",
+      "from": "LC3_F2_entry-23",
+      "to": "LC3_F2_entry-24",
+      "edge_type": "walk",
+      "distance": 29
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_entry-24|LC3_F2_223/12",
+      "from": "LC3_F2_entry-24",
+      "to": "LC3_F2_223/12",
+      "edge_type": "walk",
+      "distance": 19
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_entry-24|LC3_F2_223/8",
+      "from": "LC3_F2_entry-24",
+      "to": "LC3_F2_223/8",
+      "edge_type": "walk",
+      "distance": 18
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_entry-25|LC3_F2_223/2",
+      "from": "LC3_F2_entry-25",
+      "to": "LC3_F2_223/2",
+      "edge_type": "walk",
+      "distance": 15
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_entry-25|LC3_F2_entry-26",
+      "from": "LC3_F2_entry-25",
+      "to": "LC3_F2_entry-26",
+      "edge_type": "walk",
+      "distance": 26
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_entry-25|LC3_F2_entry-27",
+      "from": "LC3_F2_entry-25",
+      "to": "LC3_F2_entry-27",
+      "edge_type": "walk",
+      "distance": 25
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_entry-26|LC3_F2_223/1",
+      "from": "LC3_F2_entry-26",
+      "to": "LC3_F2_223/1",
+      "edge_type": "walk",
+      "distance": 15
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_entry-27|LC3_F2_223/3",
+      "from": "LC3_F2_entry-27",
+      "to": "LC3_F2_223/3",
+      "edge_type": "walk",
+      "distance": 16
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_entry-27|LC3_F2_223/5",
+      "from": "LC3_F2_entry-27",
+      "to": "LC3_F2_223/5",
+      "edge_type": "walk",
+      "distance": 18
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_entry-27|LC3_F2_entry-28",
+      "from": "LC3_F2_entry-27",
+      "to": "LC3_F2_entry-28",
+      "edge_type": "walk",
+      "distance": 28
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_entry-28|LC3_F2_223/4",
+      "from": "LC3_F2_entry-28",
+      "to": "LC3_F2_223/4",
+      "edge_type": "walk",
+      "distance": 16
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_entry-28|LC3_F2_223/6",
+      "from": "LC3_F2_entry-28",
+      "to": "LC3_F2_223/6",
+      "edge_type": "walk",
+      "distance": 17
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_entry-29|LC3_F2_220",
+      "from": "LC3_F2_entry-29",
+      "to": "LC3_F2_220",
+      "edge_type": "walk",
+      "distance": 17
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_entry-29|LC3_F2_hallway-15",
+      "from": "LC3_F2_entry-29",
+      "to": "LC3_F2_hallway-15",
+      "edge_type": "walk",
+      "distance": 229
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_entry-2|LC3_F2_entry-3",
+      "from": "LC3_F2_entry-2",
+      "to": "LC3_F2_entry-3",
+      "edge_type": "walk",
+      "distance": 32
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_entry-30|LC3_F2_213",
+      "from": "LC3_F2_entry-30",
+      "to": "LC3_F2_213",
+      "edge_type": "walk",
+      "distance": 60
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_entry-30|LC3_F2_entry-31",
+      "from": "LC3_F2_entry-30",
+      "to": "LC3_F2_entry-31",
+      "edge_type": "walk",
+      "distance": 24
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_entry-31|LC3_F2_212",
+      "from": "LC3_F2_entry-31",
+      "to": "LC3_F2_212",
+      "edge_type": "walk",
+      "distance": 26
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_entry-31|LC3_F2_hallway-1",
+      "from": "LC3_F2_entry-31",
+      "to": "LC3_F2_hallway-1",
+      "edge_type": "walk",
+      "distance": 25
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_entry-32|LC3_F2_209",
+      "from": "LC3_F2_entry-32",
+      "to": "LC3_F2_209",
+      "edge_type": "walk",
+      "distance": 29
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_entry-32|LC3_F2_210/1",
+      "from": "LC3_F2_entry-32",
+      "to": "LC3_F2_210/1",
+      "edge_type": "walk",
+      "distance": 34
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_entry-3|LC3_F2_205",
+      "from": "LC3_F2_entry-3",
+      "to": "LC3_F2_205",
+      "edge_type": "walk",
+      "distance": 22
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_entry-3|LC3_F2_hallway-2",
+      "from": "LC3_F2_entry-3",
+      "to": "LC3_F2_hallway-2",
+      "edge_type": "walk",
+      "distance": 58
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_entry-4|LC3_hallway-4",
+      "from": "LC3_F2_entry-4",
+      "to": "LC3_hallway-4",
+      "edge_type": "walk",
+      "distance": 68
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_entry-5|LC3_F2_hallway-14",
+      "from": "LC3_F2_entry-5",
+      "to": "LC3_F2_hallway-14",
+      "edge_type": "walk",
+      "distance": 168
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_entry-6|LC3_F2_243/1",
+      "from": "LC3_F2_entry-6",
+      "to": "LC3_F2_243/1",
+      "edge_type": "walk",
+      "distance": 31
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_entry-6|LC3_F2_entry-7",
+      "from": "LC3_F2_entry-6",
+      "to": "LC3_F2_entry-7",
+      "edge_type": "walk",
+      "distance": 125
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_entry-7|LC3_F2_243/2",
+      "from": "LC3_F2_entry-7",
+      "to": "LC3_F2_243/2",
+      "edge_type": "walk",
+      "distance": 31
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_entry-7|LC3_F2_hallway-13",
+      "from": "LC3_F2_entry-7",
+      "to": "LC3_F2_hallway-13",
+      "edge_type": "walk",
+      "distance": 42
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_entry-8|LC3_F2_241",
+      "from": "LC3_F2_entry-8",
+      "to": "LC3_F2_241",
+      "edge_type": "walk",
+      "distance": 21
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_entry-8|LC3_F2_hallway-7",
+      "from": "LC3_F2_entry-8",
+      "to": "LC3_F2_hallway-7",
+      "edge_type": "walk",
+      "distance": 28
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_entry-9|LC3_F2_238",
+      "from": "LC3_F2_entry-9",
+      "to": "LC3_F2_238",
+      "edge_type": "walk",
+      "distance": 22
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_entry-9|LC3_F2_entry-10",
+      "from": "LC3_F2_entry-9",
+      "to": "LC3_F2_entry-10",
+      "edge_type": "walk",
+      "distance": 108
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_hallway-11|LC3_F2_stair-3",
+      "from": "LC3_F2_hallway-11",
+      "to": "LC3_F2_stair-3",
+      "edge_type": "walk",
+      "distance": 19
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_hallway-13|LC3_F2_hallway-14",
+      "from": "LC3_F2_hallway-13",
+      "to": "LC3_F2_hallway-14",
+      "edge_type": "walk",
+      "distance": 85
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_hallway-13|LC3_entry-36",
+      "from": "LC3_F2_hallway-13",
+      "to": "LC3_entry-36",
+      "edge_type": "walk",
+      "distance": 39
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_hallway-14|LC3_entry-35",
+      "from": "LC3_F2_hallway-14",
+      "to": "LC3_entry-35",
+      "edge_type": "walk",
+      "distance": 37
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_hallway-15|LC3_F2_217",
+      "from": "LC3_F2_hallway-15",
+      "to": "LC3_F2_217",
+      "edge_type": "walk",
+      "distance": 44
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_hallway-1|LC3_F2_entry-1",
+      "from": "LC3_F2_hallway-1",
+      "to": "LC3_F2_entry-1",
+      "edge_type": "walk",
+      "distance": 63
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_hallway-1|LC3_F2_entry-32",
+      "from": "LC3_F2_hallway-1",
+      "to": "LC3_F2_entry-32",
+      "edge_type": "walk",
+      "distance": 26
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_hallway-2|LC3_F2_hallway-3",
+      "from": "LC3_F2_hallway-2",
+      "to": "LC3_F2_hallway-3",
+      "edge_type": "walk",
+      "distance": 62
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_hallway-3|LC3_F2_entry-4",
+      "from": "LC3_F2_hallway-3",
+      "to": "LC3_F2_entry-4",
+      "edge_type": "walk",
+      "distance": 29
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_hallway-5|LC3_F2_hallway-6",
+      "from": "LC3_F2_hallway-5",
+      "to": "LC3_F2_hallway-6",
+      "edge_type": "walk",
+      "distance": 42
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_hallway-5|LC3_F2_stair-2",
+      "from": "LC3_F2_hallway-5",
+      "to": "LC3_F2_stair-2",
+      "edge_type": "walk",
+      "distance": 30
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_hallway-5|LC3_hallway-QR5",
+      "from": "LC3_F2_hallway-5",
+      "to": "LC3_hallway-QR5",
+      "edge_type": "walk",
+      "distance": 15
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_hallway-6|LC3_F2_entry-6",
+      "from": "LC3_F2_hallway-6",
+      "to": "LC3_F2_entry-6",
+      "edge_type": "walk",
+      "distance": 48
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_hallway-6|LC3_F2_entry-8",
+      "from": "LC3_F2_hallway-6",
+      "to": "LC3_F2_entry-8",
+      "edge_type": "walk",
+      "distance": 69
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_hallway-7|LC3_F2_hallway-8",
+      "from": "LC3_F2_hallway-7",
+      "to": "LC3_F2_hallway-8",
+      "edge_type": "walk",
+      "distance": 62
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_hallway-8|LC3_F2_239",
+      "from": "LC3_F2_hallway-8",
+      "to": "LC3_F2_239",
+      "edge_type": "walk",
+      "distance": 108
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_hallway-8|LC3_F2_entry-9",
+      "from": "LC3_F2_hallway-8",
+      "to": "LC3_F2_entry-9",
+      "edge_type": "walk",
+      "distance": 95
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_F2_hallway-9|LC3_F2_entry-12",
+      "from": "LC3_F2_hallway-9",
+      "to": "LC3_F2_entry-12",
+      "edge_type": "walk",
+      "distance": 14
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_Junction_LStair|LC3_entry_TLLM",
+      "from": "LC3_Junction_LStair",
+      "to": "LC3_entry_TLLM",
+      "edge_type": "walk",
+      "distance": 33
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_Junction_LStair|LC3_stair-1",
+      "from": "LC3_Junction_LStair",
+      "to": "LC3_stair-1",
+      "edge_type": "up",
+      "distance": 33
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_Junction_MStair|LC3_stair-2",
+      "from": "LC3_Junction_MStair",
+      "to": "LC3_stair-2",
+      "edge_type": "up",
+      "distance": 21
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_Junction_MidBridge|LC3_Junction_MStair",
+      "from": "LC3_Junction_MidBridge",
+      "to": "LC3_Junction_MStair",
+      "edge_type": "walk",
+      "distance": 9
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_Junction_NL1|LC3_entry_108/1,109",
+      "from": "LC3_Junction_NL1",
+      "to": "LC3_entry_108/1,109",
+      "edge_type": "walk",
+      "distance": 26
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_Junction_NL2|LC3_Junction_NL1",
+      "from": "LC3_Junction_NL2",
+      "to": "LC3_Junction_NL1",
+      "edge_type": "walk",
+      "distance": 21
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_Junction_NL2|LC3_entry_108",
+      "from": "LC3_Junction_NL2",
+      "to": "LC3_entry_108",
+      "edge_type": "walk",
+      "distance": 23
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_Junction_NM1|LC3_entry_101",
+      "from": "LC3_Junction_NM1",
+      "to": "LC3_entry_101",
+      "edge_type": "walk",
+      "distance": 64
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_Junction_NM2|LC3_Junction_NM3",
+      "from": "LC3_Junction_NM2",
+      "to": "LC3_Junction_NM3",
+      "edge_type": "walk",
+      "distance": 19
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_Junction_NM3|LC3_Junction_NM4",
+      "from": "LC3_Junction_NM3",
+      "to": "LC3_Junction_NM4",
+      "edge_type": "walk",
+      "distance": 37
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_Junction_NM3|LC3_Junction_NM5",
+      "from": "LC3_Junction_NM3",
+      "to": "LC3_Junction_NM5",
+      "edge_type": "walk",
+      "distance": 22
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_Junction_NM4|LC3_Junction_MidBridge",
+      "from": "LC3_Junction_NM4",
+      "to": "LC3_Junction_MidBridge",
+      "edge_type": "walk",
+      "distance": 9
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_Junction_NM5|LC3_Junction_NM6",
+      "from": "LC3_Junction_NM5",
+      "to": "LC3_Junction_NM6",
+      "edge_type": "walk",
+      "distance": 35
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_Junction_NM6|LC3_Junction_NM7",
+      "from": "LC3_Junction_NM6",
+      "to": "LC3_Junction_NM7",
+      "edge_type": "walk",
+      "distance": 128
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_Junction_NM7|LC3_Junction_RRoundabout2",
+      "from": "LC3_Junction_NM7",
+      "to": "LC3_Junction_RRoundabout2",
+      "edge_type": "walk",
+      "distance": 80
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_Junction_NM7|LC3_entry_141",
+      "from": "LC3_Junction_NM7",
+      "to": "LC3_entry_141",
+      "edge_type": "walk",
+      "distance": 81
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_Junction_NM|LC3_Junction_NM1",
+      "from": "LC3_Junction_NM",
+      "to": "LC3_Junction_NM1",
+      "edge_type": "walk",
+      "distance": 50
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_Junction_NR1|LC3_entry_138",
+      "from": "LC3_Junction_NR1",
+      "to": "LC3_entry_138",
+      "edge_type": "walk",
+      "distance": 31
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_Junction_NR1|LC3_entry_139,140",
+      "from": "LC3_Junction_NR1",
+      "to": "LC3_entry_139,140",
+      "edge_type": "walk",
+      "distance": 27
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_Junction_QR1-1|LC3_Junction_MidBridge",
+      "from": "LC3_Junction_QR1-1",
+      "to": "LC3_Junction_MidBridge",
+      "edge_type": "walk",
+      "distance": 143
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_Junction_QR1-1|LC3_Junction_SM",
+      "from": "LC3_Junction_QR1-1",
+      "to": "LC3_Junction_SM",
+      "edge_type": "walk",
+      "distance": 50
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_Junction_QR4-1|LC3_Junction_SR1",
+      "from": "LC3_Junction_QR4-1",
+      "to": "LC3_Junction_SR1",
+      "edge_type": "walk",
+      "distance": 28
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_Junction_QR4-1|LC3_Junction_TLRM",
+      "from": "LC3_Junction_QR4-1",
+      "to": "LC3_Junction_TLRM",
+      "edge_type": "walk",
+      "distance": 54
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_Junction_RRoundabout1|LC3_Junction_RRoundabout",
+      "from": "LC3_Junction_RRoundabout1",
+      "to": "LC3_Junction_RRoundabout",
+      "edge_type": "walk",
+      "distance": 86
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_Junction_RRoundabout2|LC3_Junction_RRoundabout1",
+      "from": "LC3_Junction_RRoundabout2",
+      "to": "LC3_Junction_RRoundabout1",
+      "edge_type": "walk",
+      "distance": 44
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_Junction_RRoundabout3|LC3_Junction_TLRM",
+      "from": "LC3_Junction_RRoundabout3",
+      "to": "LC3_Junction_TLRM",
+      "edge_type": "walk",
+      "distance": 24
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_Junction_RRoundabout|LC3_Junction_RRoundabout3",
+      "from": "LC3_Junction_RRoundabout",
+      "to": "LC3_Junction_RRoundabout3",
+      "edge_type": "walk",
+      "distance": 104
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_Junction_RRoundabout|LC3_Junction_SR3",
+      "from": "LC3_Junction_RRoundabout",
+      "to": "LC3_Junction_SR3",
+      "edge_type": "walk",
+      "distance": 106
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_Junction_RRoundabout|LC3_entry_137/2",
+      "from": "LC3_Junction_RRoundabout",
+      "to": "LC3_entry_137/2",
+      "edge_type": "walk",
+      "distance": 173.01
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_Junction_RStair|LC3_Junction_RRoundabout3",
+      "from": "LC3_Junction_RStair",
+      "to": "LC3_Junction_RRoundabout3",
+      "edge_type": "walk",
+      "distance": 11
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_Junction_RStair|LC3_stair-3",
+      "from": "LC3_Junction_RStair",
+      "to": "LC3_stair-3",
+      "edge_type": "up",
+      "distance": 42
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_Junction_SL1|LC3_entry_117",
+      "from": "LC3_Junction_SL1",
+      "to": "LC3_entry_117",
+      "edge_type": "walk",
+      "distance": 39
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_Junction_SL2|LC3_Junction_SL1",
+      "from": "LC3_Junction_SL2",
+      "to": "LC3_Junction_SL1",
+      "edge_type": "walk",
+      "distance": 22
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_Junction_SL2|LC3_entry_116",
+      "from": "LC3_Junction_SL2",
+      "to": "LC3_entry_116",
+      "edge_type": "walk",
+      "distance": 21
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_Junction_SM1|LC3_entry_121,122",
+      "from": "LC3_Junction_SM1",
+      "to": "LC3_entry_121,122",
+      "edge_type": "walk",
+      "distance": 70
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_Junction_SM1|LC3_entry_121/1,121/2",
+      "from": "LC3_Junction_SM1",
+      "to": "LC3_entry_121/1,121/2",
+      "edge_type": "walk",
+      "distance": 27
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_Junction_SM1|LC3_entry_122/1,122/2",
+      "from": "LC3_Junction_SM1",
+      "to": "LC3_entry_122/1,122/2",
+      "edge_type": "walk",
+      "distance": 23
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_Junction_SM2|LC3_Junction_SM1",
+      "from": "LC3_Junction_SM2",
+      "to": "LC3_Junction_SM1",
+      "edge_type": "walk",
+      "distance": 54
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_Junction_SM2|LC3_entry_121/3",
+      "from": "LC3_Junction_SM2",
+      "to": "LC3_entry_121/3",
+      "edge_type": "walk",
+      "distance": 26.48
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_Junction_SM2|LC3_entry_122/2-5",
+      "from": "LC3_Junction_SM2",
+      "to": "LC3_entry_122/2-5",
+      "edge_type": "walk",
+      "distance": 22.36
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_Junction_SM3|LC3_Junction_SM",
+      "from": "LC3_Junction_SM3",
+      "to": "LC3_Junction_SM",
+      "edge_type": "walk",
+      "distance": 38
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_Junction_SM3|LC3_Junction_SM2",
+      "from": "LC3_Junction_SM3",
+      "to": "LC3_Junction_SM2",
+      "edge_type": "walk",
+      "distance": 62
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_Junction_SM3|LC3_entry_122/6",
+      "from": "LC3_Junction_SM3",
+      "to": "LC3_entry_122/6",
+      "edge_type": "walk",
+      "distance": 21
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_Junction_SM4|LC3_entry_123",
+      "from": "LC3_Junction_SM4",
+      "to": "LC3_entry_123",
+      "edge_type": "walk",
+      "distance": 44
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_Junction_SM|LC3_entry_121/4",
+      "from": "LC3_Junction_SM",
+      "to": "LC3_entry_121/4",
+      "edge_type": "walk",
+      "distance": 126
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_Junction_SR1|LC3_entry_132",
+      "from": "LC3_Junction_SR1",
+      "to": "LC3_entry_132",
+      "edge_type": "walk",
+      "distance": 78
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_Junction_SR2|LC3_Junction_SR1",
+      "from": "LC3_Junction_SR2",
+      "to": "LC3_Junction_SR1",
+      "edge_type": "walk",
+      "distance": 54
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_Junction_SR2|LC3_Junction_SR3",
+      "from": "LC3_Junction_SR2",
+      "to": "LC3_Junction_SR3",
+      "edge_type": "walk",
+      "distance": 51
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_Junction_SR3|LC3_Junction_SM4",
+      "from": "LC3_Junction_SR3",
+      "to": "LC3_Junction_SM4",
+      "edge_type": "walk",
+      "distance": 117
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_Junction_SR4|LC3_entry_127",
+      "from": "LC3_Junction_SR4",
+      "to": "LC3_entry_127",
+      "edge_type": "walk",
+      "distance": 44
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_Junction_SR5|LC3_entry_125,126",
+      "from": "LC3_Junction_SR5",
+      "to": "LC3_entry_125,126",
+      "edge_type": "walk",
+      "distance": 119
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_Junction_SR5|LC3_entry_128",
+      "from": "LC3_Junction_SR5",
+      "to": "LC3_entry_128",
+      "edge_type": "walk",
+      "distance": 19
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_Junction_TLRF|LC3_Junction_RStair",
+      "from": "LC3_Junction_TLRF",
+      "to": "LC3_Junction_RStair",
+      "edge_type": "walk",
+      "distance": 15
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_Junction_TLRF|LC3_RFToilet",
+      "from": "LC3_Junction_TLRF",
+      "to": "LC3_RFToilet",
+      "edge_type": "walk",
+      "distance": 82
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_Junction_TLRM|LC3_entry_130",
+      "from": "LC3_Junction_TLRM",
+      "to": "LC3_entry_130",
+      "edge_type": "walk",
+      "distance": 23
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_LFTL|LC3_hallway_TLLF",
+      "from": "LC3_LFTL",
+      "to": "LC3_hallway_TLLF",
+      "edge_type": "walk",
+      "distance": 81
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_LMTL|LC3_hallway_TLLM",
+      "from": "LC3_LMTL",
+      "to": "LC3_hallway_TLLM",
+      "edge_type": "walk",
+      "distance": 81
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_QR1|LC3_Junction_QR1-1",
+      "from": "LC3_QR1",
+      "to": "LC3_Junction_QR1-1",
+      "edge_type": "walk",
+      "distance": 17
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_QR2|LC3_entry_TLLF",
+      "from": "LC3_QR2",
+      "to": "LC3_entry_TLLF",
+      "edge_type": "walk",
+      "distance": 20.62
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_QR3|LC3_Junction_NM1",
+      "from": "LC3_QR3",
+      "to": "LC3_Junction_NM1",
+      "edge_type": "walk",
+      "distance": 40
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_QR4|LC3_Junction_QR4-1",
+      "from": "LC3_QR4",
+      "to": "LC3_Junction_QR4-1",
+      "edge_type": "walk",
+      "distance": 19
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_QR7|LC3_hallway_TLRF",
+      "from": "LC3_QR7",
+      "to": "LC3_hallway_TLRF",
+      "edge_type": "walk",
+      "distance": 6
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_QR8|LC3_hallway-QR8",
+      "from": "LC3_QR8",
+      "to": "LC3_hallway-QR8",
+      "edge_type": "walk",
+      "distance": 6
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entey-33|LC3_F2_211/2",
+      "from": "LC3_entey-33",
+      "to": "LC3_F2_211/2",
+      "edge_type": "walk",
+      "distance": 29
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entey-33|LC3_F2_213",
+      "from": "LC3_entey-33",
+      "to": "LC3_F2_213",
+      "edge_type": "walk",
+      "distance": 31
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry-34|LC3_F2_204",
+      "from": "LC3_entry-34",
+      "to": "LC3_F2_204",
+      "edge_type": "walk",
+      "distance": 86
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry-35|LC3_F2_221",
+      "from": "LC3_entry-35",
+      "to": "LC3_F2_221",
+      "edge_type": "walk",
+      "distance": 18
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry-35|LC3_F2_entry-29",
+      "from": "LC3_entry-35",
+      "to": "LC3_F2_entry-29",
+      "edge_type": "walk",
+      "distance": 108
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry-36|LC3_F2_222",
+      "from": "LC3_entry-36",
+      "to": "LC3_F2_222",
+      "edge_type": "walk",
+      "distance": 23
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry-36|LC3_F2_entry-20",
+      "from": "LC3_entry-36",
+      "to": "LC3_F2_entry-20",
+      "edge_type": "walk",
+      "distance": 75
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry-37|LC3_F2_226/1",
+      "from": "LC3_entry-37",
+      "to": "LC3_F2_226/1",
+      "edge_type": "walk",
+      "distance": 24
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry-38|LC3_F2_230",
+      "from": "LC3_entry-38",
+      "to": "LC3_F2_230",
+      "edge_type": "walk",
+      "distance": 13
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry-38|LC3_F2_entry-17",
+      "from": "LC3_entry-38",
+      "to": "LC3_F2_entry-17",
+      "edge_type": "walk",
+      "distance": 28
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry-39|LC3_F2_entry-11",
+      "from": "LC3_entry-39",
+      "to": "LC3_F2_entry-11",
+      "edge_type": "walk",
+      "distance": 25
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry-39|LC3_F2_hallway-9",
+      "from": "LC3_entry-39",
+      "to": "LC3_F2_hallway-9",
+      "edge_type": "walk",
+      "distance": 6
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry-40|LC3_F2_234",
+      "from": "LC3_entry-40",
+      "to": "LC3_F2_234",
+      "edge_type": "walk",
+      "distance": 10
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry-41|LC3_F2_237",
+      "from": "LC3_entry-41",
+      "to": "LC3_F2_237",
+      "edge_type": "walk",
+      "distance": 17
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry-42|LC3_F2_238",
+      "from": "LC3_entry-42",
+      "to": "LC3_F2_238",
+      "edge_type": "walk",
+      "distance": 87
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry-43|LC3_F2_239",
+      "from": "LC3_entry-43",
+      "to": "LC3_F2_239",
+      "edge_type": "walk",
+      "distance": 28
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry-43|LC3_F2_240",
+      "from": "LC3_entry-43",
+      "to": "LC3_F2_240",
+      "edge_type": "walk",
+      "distance": 49
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_101/1,104|LC3_101/1",
+      "from": "LC3_entry_101/1,104",
+      "to": "LC3_101/1",
+      "edge_type": "walk",
+      "distance": 36
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_101/1,104|LC3_104",
+      "from": "LC3_entry_101/1,104",
+      "to": "LC3_104",
+      "edge_type": "walk",
+      "distance": 30
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_101/1,104|LC3_entry_101/2",
+      "from": "LC3_entry_101/1,104",
+      "to": "LC3_entry_101/2",
+      "edge_type": "walk",
+      "distance": 45
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_101/2|LC3_101/2",
+      "from": "LC3_entry_101/2",
+      "to": "LC3_101/2",
+      "edge_type": "walk",
+      "distance": 36
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_101/2|LC3_entry_103",
+      "from": "LC3_entry_101/2",
+      "to": "LC3_entry_103",
+      "edge_type": "walk",
+      "distance": 19
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_101|LC3_101",
+      "from": "LC3_entry_101",
+      "to": "LC3_101",
+      "edge_type": "walk",
+      "distance": 78
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_101|LC3_Junction_NM2",
+      "from": "LC3_entry_101",
+      "to": "LC3_Junction_NM2",
+      "edge_type": "walk",
+      "distance": 24
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_102/1|LC3_102/1",
+      "from": "LC3_entry_102/1",
+      "to": "LC3_102/1",
+      "edge_type": "walk",
+      "distance": 32
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_102/1|LC3_Junction_NM",
+      "from": "LC3_entry_102/1",
+      "to": "LC3_Junction_NM",
+      "edge_type": "walk",
+      "distance": 104
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_102/2|LC3_102/2",
+      "from": "LC3_entry_102/2",
+      "to": "LC3_102/2",
+      "edge_type": "walk",
+      "distance": 31
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_102/2|LC3_entry_102/1",
+      "from": "LC3_entry_102/2",
+      "to": "LC3_entry_102/1",
+      "edge_type": "walk",
+      "distance": 32
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_103|LC3_103",
+      "from": "LC3_entry_103",
+      "to": "LC3_103",
+      "edge_type": "walk",
+      "distance": 31
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_103|LC3_entry_102/2",
+      "from": "LC3_entry_103",
+      "to": "LC3_entry_102/2",
+      "edge_type": "walk",
+      "distance": 45
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_104/1,105|LC3_104/1",
+      "from": "LC3_entry_104/1,105",
+      "to": "LC3_104/1",
+      "edge_type": "walk",
+      "distance": 30
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_104/1,105|LC3_105",
+      "from": "LC3_entry_104/1,105",
+      "to": "LC3_105",
+      "edge_type": "walk",
+      "distance": 38
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_104/1,105|LC3_entry_101/1,104",
+      "from": "LC3_entry_104/1,105",
+      "to": "LC3_entry_101/1,104",
+      "edge_type": "walk",
+      "distance": 49
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_105|LC3_115",
+      "from": "LC3_entry_105",
+      "to": "LC3_115",
+      "edge_type": "walk",
+      "distance": 69
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_105|LC3_entry_TLLF",
+      "from": "LC3_entry_105",
+      "to": "LC3_entry_TLLF",
+      "edge_type": "walk",
+      "distance": 41
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_106|LC3_106",
+      "from": "LC3_entry_106",
+      "to": "LC3_106",
+      "edge_type": "walk",
+      "distance": 29
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_106|LC3_entry_104/1,105",
+      "from": "LC3_entry_106",
+      "to": "LC3_entry_104/1,105",
+      "edge_type": "walk",
+      "distance": 49
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_107|LC3_107",
+      "from": "LC3_entry_107",
+      "to": "LC3_107",
+      "edge_type": "walk",
+      "distance": 35
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_107|LC3_entry_106",
+      "from": "LC3_entry_107",
+      "to": "LC3_entry_106",
+      "edge_type": "walk",
+      "distance": 27
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_108/1,109|LC3_108/1",
+      "from": "LC3_entry_108/1,109",
+      "to": "LC3_108/1",
+      "edge_type": "walk",
+      "distance": 19
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_108/1,109|LC3_109",
+      "from": "LC3_entry_108/1,109",
+      "to": "LC3_109",
+      "edge_type": "walk",
+      "distance": 47
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_108|LC3_108",
+      "from": "LC3_entry_108",
+      "to": "LC3_108",
+      "edge_type": "walk",
+      "distance": 29
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_108|LC3_entry_107",
+      "from": "LC3_entry_108",
+      "to": "LC3_entry_107",
+      "edge_type": "walk",
+      "distance": 35
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_110|LC3_110",
+      "from": "LC3_entry_110",
+      "to": "LC3_110",
+      "edge_type": "walk",
+      "distance": 71
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_110|LC3_Junction_NL2",
+      "from": "LC3_entry_110",
+      "to": "LC3_Junction_NL2",
+      "edge_type": "walk",
+      "distance": 26
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_111|LC3_111",
+      "from": "LC3_entry_111",
+      "to": "LC3_111",
+      "edge_type": "walk",
+      "distance": 70.01
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_111|LC3_entry_110",
+      "from": "LC3_entry_111",
+      "to": "LC3_entry_110",
+      "edge_type": "walk",
+      "distance": 68
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_116|LC3_116",
+      "from": "LC3_entry_116",
+      "to": "LC3_116",
+      "edge_type": "walk",
+      "distance": 69
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_116|LC3_entry_105",
+      "from": "LC3_entry_116",
+      "to": "LC3_entry_105",
+      "edge_type": "walk",
+      "distance": 66
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_117|LC3_117",
+      "from": "LC3_entry_117",
+      "to": "LC3_117",
+      "edge_type": "walk",
+      "distance": 43
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_118,119|LC3_118",
+      "from": "LC3_entry_118,119",
+      "to": "LC3_118",
+      "edge_type": "walk",
+      "distance": 46
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_118,119|LC3_119",
+      "from": "LC3_entry_118,119",
+      "to": "LC3_119",
+      "edge_type": "walk",
+      "distance": 24
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_118,119|LC3_Junction_SL2",
+      "from": "LC3_entry_118,119",
+      "to": "LC3_Junction_SL2",
+      "edge_type": "walk",
+      "distance": 31
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_118/1,119/2|LC3_118/1",
+      "from": "LC3_entry_118/1,119/2",
+      "to": "LC3_118/1",
+      "edge_type": "walk",
+      "distance": 47
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_118/1,119/2|LC3_119/2",
+      "from": "LC3_entry_118/1,119/2",
+      "to": "LC3_119/2",
+      "edge_type": "walk",
+      "distance": 25
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_118/1,119/2|LC3_entry_119/1",
+      "from": "LC3_entry_118/1,119/2",
+      "to": "LC3_entry_119/1",
+      "edge_type": "walk",
+      "distance": 21
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_119/1|LC3_119/1",
+      "from": "LC3_entry_119/1",
+      "to": "LC3_119/1",
+      "edge_type": "walk",
+      "distance": 25.02
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_119/1|LC3_entry_118,119",
+      "from": "LC3_entry_119/1",
+      "to": "LC3_entry_118,119",
+      "edge_type": "walk",
+      "distance": 22
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_119/3|LC3_119/3",
+      "from": "LC3_entry_119/3",
+      "to": "LC3_119/3",
+      "edge_type": "walk",
+      "distance": 26.02
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_119/3|LC3_entry_118/1,119/2",
+      "from": "LC3_entry_119/3",
+      "to": "LC3_entry_118/1,119/2",
+      "edge_type": "walk",
+      "distance": 24
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_119/4|LC3_119/4",
+      "from": "LC3_entry_119/4",
+      "to": "LC3_119/4",
+      "edge_type": "walk",
+      "distance": 24
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_119/4|LC3_entry_119/3",
+      "from": "LC3_entry_119/4",
+      "to": "LC3_entry_119/3",
+      "edge_type": "walk",
+      "distance": 21
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_119/5,120|LC3_119/5",
+      "from": "LC3_entry_119/5,120",
+      "to": "LC3_119/5",
+      "edge_type": "walk",
+      "distance": 24.02
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_119/5,120|LC3_120",
+      "from": "LC3_entry_119/5,120",
+      "to": "LC3_120",
+      "edge_type": "walk",
+      "distance": 44.1
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_119/5,120|LC3_entry_119/4",
+      "from": "LC3_entry_119/5,120",
+      "to": "LC3_entry_119/4",
+      "edge_type": "walk",
+      "distance": 20
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_121,122|LC3_121",
+      "from": "LC3_entry_121,122",
+      "to": "LC3_121",
+      "edge_type": "walk",
+      "distance": 47
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_121,122|LC3_122",
+      "from": "LC3_entry_121,122",
+      "to": "LC3_122",
+      "edge_type": "walk",
+      "distance": 26
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_121,122|LC3_entry_119/5,120",
+      "from": "LC3_entry_121,122",
+      "to": "LC3_entry_119/5,120",
+      "edge_type": "walk",
+      "distance": 76
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_121/1,121/2|LC3_121/1",
+      "from": "LC3_entry_121/1,121/2",
+      "to": "LC3_121/1",
+      "edge_type": "walk",
+      "distance": 25
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_121/1,121/2|LC3_121/2",
+      "from": "LC3_entry_121/1,121/2",
+      "to": "LC3_121/2",
+      "edge_type": "walk",
+      "distance": 26
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_121/3|LC3_121/3",
+      "from": "LC3_entry_121/3",
+      "to": "LC3_121/3",
+      "edge_type": "walk",
+      "distance": 26
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_121/4|LC3_121/4",
+      "from": "LC3_entry_121/4",
+      "to": "LC3_121/4",
+      "edge_type": "walk",
+      "distance": 37
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_121/5|LC3_121/5",
+      "from": "LC3_entry_121/5",
+      "to": "LC3_121/5",
+      "edge_type": "walk",
+      "distance": 35
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_121/5|LC3_entry_121/4",
+      "from": "LC3_entry_121/5",
+      "to": "LC3_entry_121/4",
+      "edge_type": "walk",
+      "distance": 47
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_122/1,122/2|LC3_122/1",
+      "from": "LC3_entry_122/1,122/2",
+      "to": "LC3_122/1",
+      "edge_type": "walk",
+      "distance": 20
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_122/1,122/2|LC3_122/2",
+      "from": "LC3_entry_122/1,122/2",
+      "to": "LC3_122/2",
+      "edge_type": "walk",
+      "distance": 25
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_122/2-5|LC3_122/3",
+      "from": "LC3_entry_122/2-5",
+      "to": "LC3_122/3",
+      "edge_type": "walk",
+      "distance": 21.93
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_122/2-5|LC3_122/4",
+      "from": "LC3_entry_122/2-5",
+      "to": "LC3_122/4",
+      "edge_type": "walk",
+      "distance": 21.54
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_122/2-5|LC3_122/5",
+      "from": "LC3_entry_122/2-5",
+      "to": "LC3_122/5",
+      "edge_type": "walk",
+      "distance": 32
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_122/6|LC3_122/6",
+      "from": "LC3_entry_122/6",
+      "to": "LC3_122/6",
+      "edge_type": "walk",
+      "distance": 20
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_123/1|LC3_123/1",
+      "from": "LC3_entry_123/1",
+      "to": "LC3_123/1",
+      "edge_type": "walk",
+      "distance": 49
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_123|LC3_123",
+      "from": "LC3_entry_123",
+      "to": "LC3_123",
+      "edge_type": "walk",
+      "distance": 47
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_123|LC3_entry_121/5",
+      "from": "LC3_entry_123",
+      "to": "LC3_entry_121/5",
+      "edge_type": "walk",
+      "distance": 33
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_123|LC3_entry_123/1",
+      "from": "LC3_entry_123",
+      "to": "LC3_entry_123/1",
+      "edge_type": "walk",
+      "distance": 64
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_124/2|LC3_124/2",
+      "from": "LC3_entry_124/2",
+      "to": "LC3_124/2",
+      "edge_type": "walk",
+      "distance": 52
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_124/2|LC3_Junction_SR2",
+      "from": "LC3_entry_124/2",
+      "to": "LC3_Junction_SR2",
+      "edge_type": "walk",
+      "distance": 26
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_124/2|LC3_Junction_SR4",
+      "from": "LC3_entry_124/2",
+      "to": "LC3_Junction_SR4",
+      "edge_type": "walk",
+      "distance": 83.01
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_125,126|LC3_125",
+      "from": "LC3_entry_125,126",
+      "to": "LC3_125",
+      "edge_type": "walk",
+      "distance": 36
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_125,126|LC3_126",
+      "from": "LC3_entry_125,126",
+      "to": "LC3_126",
+      "edge_type": "walk",
+      "distance": 54
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_127|LC3_127",
+      "from": "LC3_entry_127",
+      "to": "LC3_127",
+      "edge_type": "walk",
+      "distance": 32
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_127|LC3_Junction_SR5",
+      "from": "LC3_entry_127",
+      "to": "LC3_Junction_SR5",
+      "edge_type": "walk",
+      "distance": 22
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_128|LC3_128",
+      "from": "LC3_entry_128",
+      "to": "LC3_128",
+      "edge_type": "walk",
+      "distance": 33
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_128|LC3_entry_129",
+      "from": "LC3_entry_128",
+      "to": "LC3_entry_129",
+      "edge_type": "walk",
+      "distance": 44
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_129|LC3_129",
+      "from": "LC3_entry_129",
+      "to": "LC3_129",
+      "edge_type": "walk",
+      "distance": 33
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_130|LC3_130",
+      "from": "LC3_entry_130",
+      "to": "LC3_130",
+      "edge_type": "walk",
+      "distance": 18
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_130|LC3_entry_131",
+      "from": "LC3_entry_130",
+      "to": "LC3_entry_131",
+      "edge_type": "walk",
+      "distance": 20
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_131|LC3_131",
+      "from": "LC3_entry_131",
+      "to": "LC3_131",
+      "edge_type": "walk",
+      "distance": 19
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_131|LC3_RMToilet",
+      "from": "LC3_entry_131",
+      "to": "LC3_RMToilet",
+      "edge_type": "walk",
+      "distance": 42
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_132|LC3_132",
+      "from": "LC3_entry_132",
+      "to": "LC3_132",
+      "edge_type": "walk",
+      "distance": 36
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_135|LC3_135",
+      "from": "LC3_entry_135",
+      "to": "LC3_135",
+      "edge_type": "walk",
+      "distance": 69
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_135|LC3_Junction_TLRF",
+      "from": "LC3_entry_135",
+      "to": "LC3_Junction_TLRF",
+      "edge_type": "walk",
+      "distance": 95
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_136|LC3_136",
+      "from": "LC3_entry_136",
+      "to": "LC3_136",
+      "edge_type": "walk",
+      "distance": 67
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_136|LC3_entry_135",
+      "from": "LC3_entry_136",
+      "to": "LC3_entry_135",
+      "edge_type": "walk",
+      "distance": 52
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_137/1|LC3_137/1",
+      "from": "LC3_entry_137/1",
+      "to": "LC3_137/1",
+      "edge_type": "walk",
+      "distance": 58
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_137/1|LC3_entry_136",
+      "from": "LC3_entry_137/1",
+      "to": "LC3_entry_136",
+      "edge_type": "walk",
+      "distance": 44
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_137/2|LC3_137/2",
+      "from": "LC3_entry_137/2",
+      "to": "LC3_137/2",
+      "edge_type": "walk",
+      "distance": 58
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_137/2|LC3_entry_137/1",
+      "from": "LC3_entry_137/2",
+      "to": "LC3_entry_137/1",
+      "edge_type": "walk",
+      "distance": 62
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_137/3|LC3_137/3",
+      "from": "LC3_entry_137/3",
+      "to": "LC3_137/3",
+      "edge_type": "walk",
+      "distance": 58
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_137/3|LC3_entry_137/2",
+      "from": "LC3_entry_137/3",
+      "to": "LC3_entry_137/2",
+      "edge_type": "walk",
+      "distance": 68
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_138|LC3_138",
+      "from": "LC3_entry_138",
+      "to": "LC3_138",
+      "edge_type": "walk",
+      "distance": 59
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_138|LC3_entry_137/3",
+      "from": "LC3_entry_138",
+      "to": "LC3_entry_137/3",
+      "edge_type": "walk",
+      "distance": 53
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_139,140|LC3_139",
+      "from": "LC3_entry_139,140",
+      "to": "LC3_139",
+      "edge_type": "walk",
+      "distance": 47
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_139,140|LC3_140",
+      "from": "LC3_entry_139,140",
+      "to": "LC3_140",
+      "edge_type": "walk",
+      "distance": 22
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_141|LC3_141",
+      "from": "LC3_entry_141",
+      "to": "LC3_141",
+      "edge_type": "walk",
+      "distance": 69
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_141|LC3_Junction_NR1",
+      "from": "LC3_entry_141",
+      "to": "LC3_Junction_NR1",
+      "edge_type": "walk",
+      "distance": 49.48
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_TLLF|LC3_Junction_LStair",
+      "from": "LC3_entry_TLLF",
+      "to": "LC3_Junction_LStair",
+      "edge_type": "walk",
+      "distance": 16
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_TLLF|LC3_LFToilet",
+      "from": "LC3_entry_TLLF",
+      "to": "LC3_LFToilet",
+      "edge_type": "walk",
+      "distance": 66
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_TLLM|LC3_LMToilet",
+      "from": "LC3_entry_TLLM",
+      "to": "LC3_LMToilet",
+      "edge_type": "walk",
+      "distance": 65
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_entry_TLLM|LC3_entry_111",
+      "from": "LC3_entry_TLLM",
+      "to": "LC3_entry_111",
+      "edge_type": "walk",
+      "distance": 97
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_hallway-10|LC3_F2_hallway-11",
+      "from": "LC3_hallway-10",
+      "to": "LC3_F2_hallway-11",
+      "edge_type": "walk",
+      "distance": 22
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_hallway-10|LC3_hallway_TLRF",
+      "from": "LC3_hallway-10",
+      "to": "LC3_hallway_TLRF",
+      "edge_type": "walk",
+      "distance": 33
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_hallway-12|LC3_F2_227",
+      "from": "LC3_hallway-12",
+      "to": "LC3_F2_227",
+      "edge_type": "walk",
+      "distance": 20
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_hallway-12|LC3_F2_entry-14",
+      "from": "LC3_hallway-12",
+      "to": "LC3_F2_entry-14",
+      "edge_type": "walk",
+      "distance": 78
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_hallway-16|LC3_F2_stair-1",
+      "from": "LC3_hallway-16",
+      "to": "LC3_F2_stair-1",
+      "edge_type": "walk",
+      "distance": 23
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_hallway-16|LC3_QR6",
+      "from": "LC3_hallway-16",
+      "to": "LC3_QR6",
+      "edge_type": "walk",
+      "distance": 8
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_hallway-16|LC3_hallway_TLLF",
+      "from": "LC3_hallway-16",
+      "to": "LC3_hallway_TLLF",
+      "edge_type": "walk",
+      "distance": 34
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_hallway-4|LC3_F2_entry-5",
+      "from": "LC3_hallway-4",
+      "to": "LC3_F2_entry-5",
+      "edge_type": "walk",
+      "distance": 47
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_hallway-4|LC3_hallway-QR5",
+      "from": "LC3_hallway-4",
+      "to": "LC3_hallway-QR5",
+      "edge_type": "walk",
+      "distance": 27
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_hallway-QR5|LC3_QR5",
+      "from": "LC3_hallway-QR5",
+      "to": "LC3_QR5",
+      "edge_type": "walk",
+      "distance": 18
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_hallway-QR8|LC3_entry-38",
+      "from": "LC3_hallway-QR8",
+      "to": "LC3_entry-38",
+      "edge_type": "walk",
+      "distance": 27
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_hallway-QR8|LC3_hallway-12",
+      "from": "LC3_hallway-QR8",
+      "to": "LC3_hallway-12",
+      "edge_type": "walk",
+      "distance": 33
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_hallway_TLLF|LC3_F2_hallway-15",
+      "from": "LC3_hallway_TLLF",
+      "to": "LC3_F2_hallway-15",
+      "edge_type": "walk",
+      "distance": 77.01
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_hallway_TLLM|LC3_F2_entry-30",
+      "from": "LC3_hallway_TLLM",
+      "to": "LC3_F2_entry-30",
+      "edge_type": "walk",
+      "distance": 96
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_hallway_TLLM|LC3_hallway-16",
+      "from": "LC3_hallway_TLLM",
+      "to": "LC3_hallway-16",
+      "edge_type": "walk",
+      "distance": 22
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_hallway_TLRF|LC3_F2_entry-13",
+      "from": "LC3_hallway_TLRF",
+      "to": "LC3_F2_entry-13",
+      "edge_type": "walk",
+      "distance": 95.01
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_hallway_TLRF|LC3_RFTL",
+      "from": "LC3_hallway_TLRF",
+      "to": "LC3_RFTL",
+      "edge_type": "walk",
+      "distance": 78
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_stair-1|LC3_F2_stair-1",
+      "from": "LC3_stair-1",
+      "to": "LC3_F2_stair-1",
+      "edge_type": "stairs",
+      "distance": 150
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_stair-2|LC3_F2_stair-2",
+      "from": "LC3_stair-2",
+      "to": "LC3_F2_stair-2",
+      "edge_type": "stairs",
+      "distance": 150
+    },
+    {
+      "graph_id": "LC3",
+      "element_id": "EDGE#LC3_stair-3|LC3_F2_stair-3",
+      "from": "LC3_stair-3",
+      "to": "LC3_F2_stair-3",
+      "edge_type": "stairs",
+      "distance": 150
+    }
+  ]
+}

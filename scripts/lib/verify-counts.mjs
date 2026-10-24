@@ -104,3 +104,35 @@ export function verifyApiRecords({ actualRecords, expectedKeys, actualCount, get
   const actualKeys = records.map(getKey).filter(Boolean)
   verifySeedKeys(actualKeys, expectedArray, `${resourceName} API`, '')
 }
+
+/**
+ * Asserts the GET /api/graph response holds every seeded node and edge, each in its own array.
+ * Closures staff set (#147) change an item's fields, never its element_id, so a closed walkway
+ * or room still passes; so do extra items.
+ *
+ * @param {object} params
+ * @param {object} params.body  parsed { graph_id, nodes, edges } response
+ * @param {Iterable<string>} params.expectedKeys  seeded element_id values
+ * @param {string} [params.graphId]
+ */
+export function verifyGraphApi({ body, expectedKeys, graphId = 'LC3' }) {
+  if (body?.graph_id !== graphId) {
+    throw new Error(`Graph API returned graph_id ${body?.graph_id}, expected ${graphId}`)
+  }
+  if (!Array.isArray(body.nodes) || !Array.isArray(body.edges)) {
+    throw new Error('Graph API response is missing its nodes or edges array')
+  }
+  const misfiled = [
+    ...body.nodes.filter((n) => !n.element_id?.startsWith('NODE#')),
+    ...body.edges.filter((e) => !e.element_id?.startsWith('EDGE#')),
+  ]
+  if (misfiled.length > 0) {
+    throw new Error(`Graph API filed ${misfiled.length} item(s) under the wrong array: ${misfiled[0].element_id}`)
+  }
+  verifyApiRecords({
+    actualRecords: [...body.nodes, ...body.edges],
+    expectedKeys,
+    getKey: (item) => item.element_id,
+    resourceName: 'Graph',
+  })
+}
