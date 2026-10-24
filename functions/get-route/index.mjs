@@ -140,7 +140,7 @@ export function createHandler({
         headers: CORS_HEADERS,
         body: JSON.stringify({
           error: 'Failed to calculate route',
-          message: error.message,
+          message: 'An internal error occurred. Please try again later.',
         }),
       };
     }

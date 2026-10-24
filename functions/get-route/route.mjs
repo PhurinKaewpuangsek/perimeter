@@ -166,6 +166,7 @@ function reconstructPath(endNodeId, prev, nodesById) {
  * @param {boolean} options.avoidClosures
  * @param {Date|string|number} options.at
  * @param {Set<string>} [options.ignoredEdgeIds]
+ * @param {Set<string>} [options.ignoredNodeIds]
  * @returns {object|null}
  */
 function runDijkstra({
@@ -176,12 +177,14 @@ function runDijkstra({
   avoidClosures,
   at,
   ignoredEdgeIds = new Set(),
+  ignoredNodeIds = new Set(),
 }) {
   const dist = new Map();
   const prev = new Map();
   const pq = new MinHeap();
 
   for (const startId of startNodeIds) {
+    if (ignoredNodeIds.has(startId)) continue;
     dist.set(startId, 0);
     pq.push({ id: startId, dist: 0 });
   }
@@ -211,6 +214,8 @@ function runDijkstra({
       }
 
       const nextId = neighbor.to;
+      if (ignoredNodeIds.has(nextId)) continue;
+
       const nextNode = nodesById.get(nextId);
       if (!nextNode) continue;
 
@@ -345,6 +350,7 @@ export function findRoute({ nodes = [], edges = [], from, to, at = new Date() })
   // We discover which closed elements forced a longer path or detour
   const closuresAvoidedMap = new Map();
   const ignoredEdgeIds = new Set();
+  const ignoredNodeIds = new Set();
 
   // Run unconstrained Dijkstra in a loop to collect closed edges/nodes on paths shorter than constrained distance
   let searchLimit = 20; // safety ceiling to prevent infinite loops
@@ -357,6 +363,7 @@ export function findRoute({ nodes = [], edges = [], from, to, at = new Date() })
       avoidClosures: false,
       at: targetDate,
       ignoredEdgeIds,
+      ignoredNodeIds,
     });
 
     if (!unconstrained || unconstrained.distance >= constrainedResult.distance) {
@@ -391,6 +398,7 @@ export function findRoute({ nodes = [], edges = [], from, to, at = new Date() })
             ...(node.closed_reason ? { reason: node.closed_reason } : {}),
           });
         }
+        ignoredNodeIds.add(node.node_id);
         closedFoundOnPath = true;
       }
     }
