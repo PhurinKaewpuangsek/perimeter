@@ -472,18 +472,70 @@ describe('AdminPage move schedule to another room (#153)', () => {
     await user.click(within(row).getByRole('button', { name: 'แก้ไขตาราง' }))
   }
 
-  it('shows the room field only while editing, defaulting to the current room', async () => {
+  const roomBox = () => screen.getByRole('combobox', { name: 'ย้ายไปห้อง' })
+  const optionTexts = () =>
+    within(screen.getByRole('listbox', { name: 'รายการห้อง' }))
+      .queryAllByRole('option')
+      .map((o) => o.textContent)
+
+  /** Opens the room field, types the query and picks the option whose text starts with label. */
+  async function moveTo(user: ReturnType<typeof userEvent.setup>, query: string, label: RegExp) {
+    await user.click(roomBox())
+    await user.type(roomBox(), query)
+    await user.click(screen.getByRole('option', { name: label }))
+  }
+
+  it('shows the room field only while editing; it opens as a dropdown of every room', async () => {
     const user = await openRoom101()
-    expect(screen.queryByLabelText('ย้ายไปห้อง')).not.toBeInTheDocument()
+    expect(screen.queryByRole('combobox', { name: 'ย้ายไปห้อง' })).not.toBeInTheDocument()
 
     await editCs101(user)
-    const roomSelect = screen.getByLabelText('ย้ายไปห้อง')
-    expect(roomSelect).toHaveValue('LC3-101')
-    expect(within(roomSelect).getAllByRole('option').map((o) => o.getAttribute('value'))).toEqual([
-      'LC3-101',
-      'LC3-201',
+    expect(roomBox()).toHaveValue('LC3-101 · ห้องบรรยาย 101')
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+
+    await user.click(roomBox())
+    expect(roomBox()).toHaveAttribute('aria-expanded', 'true')
+    expect(optionTexts()).toEqual([
+      'LC3-101 · ห้องบรรยาย 101 (ห้องปัจจุบัน)',
+      'LC3-201 · ห้องปฏิบัติการ 201',
     ])
     expect(screen.queryByText(/จะถูกย้ายจาก/)).not.toBeInTheDocument()
+  })
+
+  it('typing narrows the dropdown to matching rooms', async () => {
+    const user = await openRoom101()
+    await editCs101(user)
+    await user.click(roomBox())
+    await user.type(roomBox(), '201')
+
+    expect(optionTexts()).toEqual(['LC3-201 · ห้องปฏิบัติการ 201'])
+  })
+
+  it('searches by Thai name too, and says when nothing matches', async () => {
+    const user = await openRoom101()
+    await editCs101(user)
+    await user.click(roomBox())
+    await user.type(roomBox(), 'ปฏิบัติ')
+    expect(optionTexts()).toEqual(['LC3-201 · ห้องปฏิบัติการ 201'])
+
+    await user.clear(roomBox())
+    await user.type(roomBox(), '999')
+    expect(optionTexts()).toHaveLength(0)
+    expect(screen.getByText('ไม่พบห้องที่ตรงกับ "999"')).toBeInTheDocument()
+  })
+
+  it('Enter picks the closest match; Escape keeps the previous room', async () => {
+    const user = await openRoom101()
+    await editCs101(user)
+
+    await user.click(roomBox())
+    await user.type(roomBox(), '20{Escape}')
+    expect(roomBox()).toHaveValue('LC3-101 · ห้องบรรยาย 101')
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+
+    await user.type(roomBox(), '201{Enter}')
+    expect(roomBox()).toHaveValue('LC3-201 · ห้องปฏิบัติการ 201')
+    expect(screen.getByText(/จะถูกย้ายจาก LC3-101 ไป LC3-201/)).toBeInTheDocument()
   })
 
   it('does not send room_code when the room is unchanged', async () => {
@@ -500,7 +552,7 @@ describe('AdminPage move schedule to another room (#153)', () => {
   it('warns, sends the new room on save, then links to the new room', async () => {
     const user = await openRoom101()
     await editCs101(user)
-    await user.selectOptions(screen.getByLabelText('ย้ายไปห้อง'), 'LC3-201')
+    await moveTo(user, '201', /^LC3-201/)
     expect(screen.getByText(/จะถูกย้ายจาก LC3-101 ไป LC3-201/)).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'บันทึกการแก้ไข' }))
@@ -520,11 +572,11 @@ describe('AdminPage move schedule to another room (#153)', () => {
     adminServiceMock.updateSchedule.mockRejectedValueOnce(new Error('มีรายการเวลา/รหัสเดียวกันในห้องนั้นแล้ว'))
     const user = await openRoom101()
     await editCs101(user)
-    await user.selectOptions(screen.getByLabelText('ย้ายไปห้อง'), 'LC3-201')
+    await moveTo(user, '201', /^LC3-201/)
     await user.click(screen.getByRole('button', { name: 'บันทึกการแก้ไข' }))
 
     expect(await screen.findByText('มีรายการเวลา/รหัสเดียวกันในห้องนั้นแล้ว')).toBeInTheDocument()
-    expect(screen.getByLabelText('ย้ายไปห้อง')).toHaveValue('LC3-201')
+    expect(roomBox()).toHaveValue('LC3-201 · ห้องปฏิบัติการ 201')
     expect(screen.queryByText(/ไปห้อง LC3-201 แล้ว/)).not.toBeInTheDocument()
   })
 })

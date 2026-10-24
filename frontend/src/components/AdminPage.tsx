@@ -40,6 +40,7 @@ import MapContainer from './map/MapContainer'
 import { FLOOR_CONFIGS } from './map/floorConfig'
 import LoadingScreen from './LoadingScreen'
 import TopBar from './TopBar'
+import RoomCombobox from './RoomCombobox'
 import type { Room } from '../types/room'
 import type { ScheduleSlot } from '../types/schedule'
 import {
@@ -347,11 +348,6 @@ interface ScheduleRowProps {
   isAdmin?: boolean
 }
 
-/** Display name for a room in the move-target dropdown, e.g. "LC3-105 · ห้องบรรยาย 105". */
-function roomOptionLabel(room: Room): string {
-  return room.nameThai ? `${room.code} · ${room.nameThai}` : room.code
-}
-
 function ScheduleRow({ slot, onDelete, onEdit, rooms, isAdmin = false }: ScheduleRowProps) {
   const [editing, setEditing] = useState(false)
   const [targetRoomCode, setTargetRoomCode] = useState(slot.roomCode)
@@ -494,21 +490,13 @@ function ScheduleRow({ slot, onDelete, onEdit, rooms, isAdmin = false }: Schedul
             <label className="label" htmlFor={`move-room-${slot.schedule_slot}`}>
               ย้ายไปห้อง
             </label>
-            <select
+            <RoomCombobox
               id={`move-room-${slot.schedule_slot}`}
+              rooms={moveTargets}
               value={targetRoomCode}
-              onChange={(e) => setTargetRoomCode(e.target.value)}
-              className="input-boxed"
-            >
-              {!moveTargets.some((r) => r.code === slot.roomCode) && (
-                <option value={slot.roomCode}>{slot.roomCode}</option>
-              )}
-              {moveTargets.map((r) => (
-                <option key={r.id} value={r.code}>
-                  {r.code === slot.roomCode ? `${roomOptionLabel(r)} (ห้องปัจจุบัน)` : roomOptionLabel(r)}
-                </option>
-              ))}
-            </select>
+              onChange={setTargetRoomCode}
+              currentRoomCode={slot.roomCode}
+            />
             {isMoving && (
               <p role="status" className="mt-1.5 text-xs text-ink-2">
                 รายการนี้จะถูกย้ายจาก {slot.roomCode} ไป {targetRoomCode} และจะไม่แสดงในห้องนี้อีก
