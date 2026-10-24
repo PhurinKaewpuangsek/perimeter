@@ -21,9 +21,9 @@
 
 ### ฟีเจอร์หลักในระบบ (V4)
 1. **Interactive 2D SVG & 3D Floor Map:** แผนที่ผังอาคาร 2D SVG แบบ Interactive ซูม/เลื่อนและเลือกห้องเป้าหมายได้อิสระ พร้อมมุมมอง 3D Floor Plan (Three.js WebGL) ครบทั้ง 4 ชั้นของอาคาร LC-3 พร้อมกลไก Fallback กลับสู่ 2D อัตโนมัติเมื่ออุปกรณ์ไม่รองรับ WebGL
-2. **Indoor Navigation & Shortest-Path Routing (V4):** ระบบคำนวณและวาดเส้นทางเดินนำทางจริงจากจุดเริ่มต้นไปยังห้องเป้าหมาย ผ่านอัลกอริทึม Dijkstra ข้ามชั้นผ่านบันได และคำนวณหลีกเลี่ยงทางเดินหรือห้องที่ปิดชั่วคราวโดยอัตโนมัติ
+2. **Indoor Navigation & Shortest-Path Routing (V4):** ระบบคำนวณและวาดเส้นทางเดินนำทางจริงจากจุดเริ่มต้นไปยังห้องเป้าหมาย ผ่านอัลกอริทึม Dijkstra ข้ามชั้นผ่านบันได และคำนวณหลีกเลี่ยงทางเดินหรือห้องที่ปิดชั่วคราวโดยอัตโนมัติ *(V4 Planned)*
 3. **Exam & Schedule Search (V4):** ระบบค้นหาห้องเรียนและห้องสอบ ค้นหาด้วยรหัสวิชา (เช่น `CS361`, `BAS350`) วันและเวลาสอบ แล้วแสดงห้อง พิกัดชั้น และปุ่มกดเริ่มนำทางไปยังห้องสอบได้ทันที
-4. **Temporary Closures Management (V4):** เจ้าหน้าที่สามารถกำหนดสถานะ "ปิดปรับปรุง/ปิดชั่วคราว" สำหรับห้องเรียนและเส้นทางเดิน พร้อมระบุช่วงเวลา (`closed_from` ถึง `closed_until`) และเหตุผลผ่านหน้า `/staff` โดยระบบจะแสดงป้ายเตือนบนแผนที่และเลี่ยงเส้นทางนั้นในการนำทางแบบ Real-time
+4. **Temporary Closures Management (V4):** เจ้าหน้าที่สามารถกำหนดสถานะ "ปิดปรับปรุง/ปิดชั่วคราว" สำหรับห้องเรียนและเส้นทางเดิน พร้อมระบุช่วงเวลา (`closed_from` ถึง `closed_until`) และเหตุผลผ่านหน้า `/staff` โดยระบบจะแสดงป้ายเตือนบนแผนที่และเลี่ยงเส้นทางนั้นในการนำทางแบบ Real-time *(V4 Planned)*
 5. **My Schedule & Calendar Sync:** ผู้ใช้งานที่เข้าสู่ระบบสามารถบันทึก (Pin) คาบเรียนหรือการสอบเก็บไว้ในตารางส่วนตัว ส่งออกไฟล์ปฏิทินมาตรฐาน `.ics` (พร้อมกฎ Recurrence ตลอดภาคการศึกษา) หรือกดปุ่มซิงก์เข้า Google Calendar ได้ในคลิกเดียว (GIS Token Flow)
 6. **Web-based Room & Schedule Editor (`/staff`):** หน้าเว็บสำหรับเจ้าหน้าที่และผู้ดูแลระบบในการจัดการข้อมูลห้องเรียน ปรับปรุงตารางการใช้งาน และกำหนดทางปิดชั่วคราว
 7. **Unified Authentication & User Administration (`/login`, `/admin`):** ระบบยืนยันตัวตนผ่าน AWS Cognito User Pool รองรับการเปลี่ยนรหัสผ่านในการเข้าใช้งานครั้งแรก (`NEW_PASSWORD_REQUIRED`) พร้อมแผงควบคุมสิทธิ์และจัดการผู้ใช้สำหรับ Admin
@@ -82,7 +82,7 @@ npm run bootstrap
 
 **คำสั่ง `npm run bootstrap` ทำอะไรให้บ้าง?**
 1. `sam build & deploy`: สร้าง CloudFormation Stack (Lambda, API Gateway, DynamoDB ตารางหลัก, Cognito User Pool, S3 Bucket)
-2. `seed`: นำเข้าข้อมูลผังห้อง ตารางเรียน-สอบ และกราฟทางเดินจริงเข้าสู่ DynamoDB
+2. `seed`: นำเข้าข้อมูลผังห้องและตารางเรียน-สอบเข้าสู่ DynamoDB
 3. `env:pull`: ดึงค่า CloudFormation Stack Outputs (`ApiUrl`, `UserPoolId`, `UserPoolClientId` ฯลฯ) มาเขียนลง `frontend/.env.local` ให้อัตโนมัติ
 4. `site:publish`: ทำการ Build และ Publish ไฟล์หน้าเว็บขึ้น S3 Bucket ของคุณทันที
 
@@ -164,7 +164,7 @@ npm run seed:users
 ### 4. Scale & High Availability Readiness
 - มีการจัดสถาปัตยกรรมรองรับโหลดอ่านจำนวนมากในช่วงเปิดภาคการศึกษาและสัปดาห์สอบ
 - รองรับการตั้งค่า API Gateway Method Throttling, Lambda Reserved Concurrency และ In-memory Caching เพื่อป้องกัน Cold Start ซ้ำซ้อน
-- ดูรายละเอียดและผลการทดสอบโหลดของระบบได้ที่เอกสาร [docs/load-test-results.md](docs/load-test-results.md) *(อ้างอิง Issue #150)*
+- ผลการทดสอบโหลดของระบบยังอยู่ระหว่างดำเนินการ ดูความคืบหน้าได้ที่ Issue #150
 
 ---
 
