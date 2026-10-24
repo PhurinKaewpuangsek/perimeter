@@ -15,6 +15,17 @@ const CORS_HEADERS = {
 };
 
 /**
+ * The public contract (docs/adr/0001, tools/data-extraction/lc3/README.md). Anything else
+ * staff write onto an item, such as who set a closure (closed_by), stays out of this route.
+ */
+const NODE_FIELDS = ['graph_id', 'element_id', 'node_id', 'floor', 'x', 'y', 'node_type', 'location_id'];
+const EDGE_FIELDS = ['graph_id', 'element_id', 'from', 'to', 'edge_type', 'distance'];
+const CLOSURE_FIELDS = ['closed', 'closed_from', 'closed_until', 'closed_reason'];
+
+const pick = (item, fields) =>
+  Object.fromEntries(fields.filter((field) => item[field] !== undefined).map((field) => [field, item[field]]));
+
+/**
  * Reads every node and edge of one building's graph. The whole LC3 graph is ~590 items in one
  * partition, well inside a single 1 MB Query page, but the LastEvaluatedKey loop keeps the
  * handler correct as the graph grows.
@@ -51,9 +62,13 @@ export function createHandler({ docClient = defaultDocClient, tableName = TABLE_
     try {
       const items = await queryWholeGraph(docClient, tableName, graphId);
 
-      // Items are returned as stored, closure fields included: the map shows closures from here.
-      const nodes = items.filter((item) => item.element_id?.startsWith('NODE#'));
-      const edges = items.filter((item) => item.element_id?.startsWith('EDGE#'));
+      // Closure fields are included because the map and the route API read closures from here.
+      const nodes = items
+        .filter((item) => item.element_id?.startsWith('NODE#'))
+        .map((item) => pick(item, [...NODE_FIELDS, ...CLOSURE_FIELDS]));
+      const edges = items
+        .filter((item) => item.element_id?.startsWith('EDGE#'))
+        .map((item) => pick(item, [...EDGE_FIELDS, ...CLOSURE_FIELDS]));
 
       return {
         statusCode: 200,

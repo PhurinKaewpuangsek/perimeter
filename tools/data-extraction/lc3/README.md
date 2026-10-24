@@ -194,6 +194,10 @@ reachable from the building entrance.
 **Closures** (`closed`, `closed_from`, `closed_until`, `closed_reason`) belong to staff (#147)
 and are never in the seed. A node or edge with no `closed` attribute is open.
 
+`GET /api/graph` is public, so it returns only the fields in the table above plus those four
+closure fields. Anything else stored on an item, such as who set a closure (`closed_by`), is
+dropped from the response.
+
 ### Seeding the graph
 
 `seed-dynamodb.mjs --type graph` upserts each item with `UpdateItem`, setting only the fields

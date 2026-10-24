@@ -56,6 +56,26 @@ describe('GetGraphFunction Lambda Handler', () => {
     assert.deepEqual(JSON.parse(response.body), { graph_id: 'LC3', nodes: [room, corridor], edges: [closed] });
   });
 
+  test('returns only documented fields, so staff-only attributes never reach the public', async () => {
+    const closure = {
+      closed: true,
+      closed_from: '2026-10-30T08:00:00+07:00',
+      closed_until: '2026-10-30T17:00:00+07:00',
+      closed_reason: 'ปิดซ่อมทางเดิน',
+    };
+    const staffOnly = { closed_by: '3f1c9e2a-staff-sub', updatedBy: 'admin-sub', internal_note: 'x' };
+    const room = node('LC3_103', { location_id: 'LC3-F1-R103', ...closure, ...staffOnly });
+    const doorway = edge('LC3_103', 'LC3_entry_103', { ...closure, ...staffOnly });
+    const docClient = fakeDocClient([{ Items: [room, doorway] }]);
+
+    const response = await createHandler({ docClient, tableName: 'TestGraph' })();
+
+    const body = JSON.parse(response.body);
+    assert.deepEqual(body.nodes, [node('LC3_103', { location_id: 'LC3-F1-R103', ...closure })]);
+    assert.deepEqual(body.edges, [edge('LC3_103', 'LC3_entry_103', closure)]);
+    assert.doesNotMatch(response.body, /closed_by|updatedBy|internal_note|staff-sub/);
+  });
+
   test('reads one partition with a Query, never a Scan', async () => {
     const docClient = fakeDocClient([{ Items: [] }]);
 
