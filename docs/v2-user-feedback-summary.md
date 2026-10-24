@@ -1,5 +1,8 @@
 # V2 User Feedback & Peer Testing Summary
 
+> [!NOTE]
+> **Historical Archive (V2 Milestone):** This document and its accompanying feedback assets in `docs/V2_user_feedback/` represent historical records from the CS361 V2 peer testing cycle (October 2026). They are preserved for audit and retrospective reference only and do not reflect current V4 capabilities or system architecture.
+
 > Project TORCH (Perimeter), CS361 V2 peer testing, Project 8. Date: 8 Oct 2026.
 > Revised after code, CD-log and production-data inspection. Earlier drafts contained unverified theories; they are removed here.
 
