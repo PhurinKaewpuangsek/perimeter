@@ -12,6 +12,17 @@
         "arn:aws:dynamodb:ap-southeast-1:287785301136:table/SmartFacultyLocations",
         "arn:aws:dynamodb:ap-southeast-1:287785301136:table/SmartFacultySchedules"
       ]
+    },
+    {
+      "Sid": "AllowProductionGraphSeedingAndVerification",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:UpdateItem",
+        "dynamodb:Scan"
+      ],
+      "Resource": [
+        "arn:aws:dynamodb:ap-southeast-1:287785301136:table/SmartFacultyGraph"
+      ]
     }
   ]
 }

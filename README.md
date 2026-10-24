@@ -44,13 +44,13 @@
   - `SmartFacultyLocations`: ข้อมูลพิกัดห้อง ผังอาคาร หมวดหมู่ และความจุห้อง (PK: `location_id`)
   - `SmartFacultySchedules`: ข้อมูลตารางเรียน รอบการสอบ และผู้สอน (PK: `room_code`, SK: `schedule_slot`)
   - `SmartFacultyPins`: ข้อมูลการบันทึกตารางเรียนส่วนบุคคลของผู้ใช้ (PK: `user_id`, SK: `room_code#schedule_slot`)
-  - `SmartFacultyGraph` *(V4 Planned)*: ข้อมูลโครงสร้างกราฟทางเดิน LC3 ทั้งหมด (Nodes, Edges) และสถานะการปิดทางชั่วคราว (PK: `graph_id`, SK: `element_id`)
+  - `SmartFacultyGraph`: ข้อมูลโครงสร้างกราฟทางเดิน LC3 ทั้งหมด (Nodes, Edges) และสถานะการปิดทางชั่วคราว (PK: `graph_id`, SK: `element_id`)
 - **Infrastructure as Code (IaC):** AWS SAM (`template.yaml`), `samconfig.toml` — บริหารจัดการตามหลัก **No ClickOps**
 - **Data Extractor & Tooling:** Node.js Scripts สำหรับสกัดข้อมูลผัง SVG, สร้างกราฟทางเดิน, ตรวจสอบความถูกต้อง (Seed Validator) และซิงก์ Environment Variables
 - **CI/CD Pipeline:** GitHub Actions ตรวจสอบ Lint, Vitest, Lambda Tests, Automated Pre-gzip Asset Compression และ Deploy ขึ้น Production เมื่อ Merge เข้า `main`
 
 ### Request Path & Data Flow
-1. **Public Read Routes:** การเรียกดูผังห้อง (`GET /api/locations`), ตารางเรียน (`GET /api/schedules`), กราฟทางเดิน (`GET /api/graph` [planned]), และการคำนวณเส้นทางเดิน (`GET /api/route` [planned]) ส่งผ่าน API Gateway ไปยัง Lambda ได้โดยตรงโดยไม่ต้องล็อกอิน มีการแคชผลลัพธ์เพื่อรองรับโหลดสูง
+1. **Public Read Routes:** การเรียกดูผังห้อง (`GET /api/locations`), ตารางเรียน (`GET /api/schedules`), กราฟทางเดิน (`GET /api/graph`), และการคำนวณเส้นทางเดิน (`GET /api/route` [planned]) ส่งผ่าน API Gateway ไปยัง Lambda ได้โดยตรงโดยไม่ต้องล็อกอิน มีการแคชผลลัพธ์เพื่อรองรับโหลดสูง
 2. **Personal Schedule Routes (`My Schedule`):** การอ่านและบันทึกตารางส่วนตัว (`GET`, `POST`, `DELETE /api/pins`) เบราว์เซอร์จะแนบ Cognito `IdToken` ใน Header `Authorization` โดย API Gateway ตรวจสอบความถูกต้องของ Token และ Lambda ใช้ค่า `claims.sub` แยกข้อมูลเฉพาะของผู้ใช้แต่ละคน
 3. **Role-Protected Write Routes (`Staff & Admin`):** การแก้ไขข้อมูลห้อง ตารางสอน การจัดการผู้ใช้ (`/api/users`) และการบันทึกทางปิดชั่วคราว (`PUT /api/graph/closures` [planned]) จะถูกตรวจสอบความถูกต้องของ Token ที่ API Gateway และตรวจสอบกลุ่มสิทธิ์ (`cognito:groups`) ซ้ำที่ Lambda Handler เพื่อป้องกัน Privilege Escalation
 
@@ -171,7 +171,7 @@ npm run seed:users
 ## Frontend Environment Variables & Pipeline Parity
 
 เมื่อ Frontend ต้องใช้ค่า Config จาก CloudFormation Stack ระบบใช้หลักการ **Four-Point Sync** เพื่อให้ Local Dev และ Production ทำงานสอดคล้องกันเสมอ:
-1. **`template.yaml` (`Outputs`):** ส่งออกค่า `ApiUrl`, `UserPoolId`, `UserPoolClientId`, `SiteBucketName`, `LocationsTableName`, `SchedulesTableName`, `PinsTableName`, `GraphTableName` (planned)
+1. **`template.yaml` (`Outputs`):** ส่งออกค่า `ApiUrl`, `UserPoolId`, `UserPoolClientId`, `SiteBucketName`, `LocationsTableName`, `SchedulesTableName`, `PinsTableName`, `GraphTableName`
 2. **`scripts/write-env.mjs` (`npm run env:pull`):** ดึงค่าจาก Stack มาเขียนลง `frontend/.env.local` (`VITE_API_BASE_URL`, `VITE_COGNITO_USER_POOL_ID`, `VITE_COGNITO_CLIENT_ID`)
 3. **`.github/workflows/cd-frontend.yml`:** ดึงค่า Outputs เดียวกันในขั้นตอน Build ก่อนอัปโหลดขึ้น S3 Production
 4. **`frontend/.env.example`:** เก็บโครงสร้างตัวแปรตัวอย่างสำหรับนักพัฒนา
