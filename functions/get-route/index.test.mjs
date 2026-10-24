@@ -249,6 +249,6 @@ describe('GetRouteFunction Lambda Handler', () => {
     assert.equal(response.headers['Access-Control-Allow-Origin'], '*');
     const body = JSON.parse(response.body);
     assert.equal(body.error, 'Failed to calculate route');
-    assert.match(body.message, /DynamoDB connection timeout/);
+    assert.equal(body.message, 'An internal error occurred. Please try again later.');
   });
 });

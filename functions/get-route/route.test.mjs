@@ -164,6 +164,49 @@ describe('findRoute pure algorithm', () => {
     assert.equal(result.closures_avoided[0].reason, 'Floor maintenance');
   });
 
+  test('avoids closed intermediate node, detours, and reports it in closures_avoided', () => {
+    // Direct path: START -> MID (closed) -> DEST (distance 10 + 10 = 20)
+    // Detour path: START -> DETOUR -> DEST (distance 15 + 15 = 30)
+    const testNodes = [
+      { node_id: 'START', floor: 1, x: 0, y: 0, location_id: 'LOC-START' },
+      {
+        node_id: 'MID',
+        floor: 1,
+        x: 10,
+        y: 0,
+        closed: true,
+        closed_reason: 'Corridor water pipe repair',
+        element_id: 'NODE#MID',
+      },
+      { node_id: 'DEST', floor: 1, x: 20, y: 0, location_id: 'LOC-DEST' },
+      { node_id: 'DETOUR', floor: 1, x: 10, y: 20 },
+    ];
+    const testEdges = [
+      { from: 'START', to: 'MID', distance: 10 },
+      { from: 'MID', to: 'DEST', distance: 10 },
+      { from: 'START', to: 'DETOUR', distance: 15 },
+      { from: 'DETOUR', to: 'DEST', distance: 15 },
+    ];
+
+    const result = findRoute({
+      nodes: testNodes,
+      edges: testEdges,
+      from: 'LOC-START',
+      to: 'LOC-DEST',
+      at: '2026-10-25T10:00:00+07:00',
+    });
+
+    assert.equal(result.found, true);
+    assert.equal(result.distance, 30);
+    assert.deepEqual(
+      result.path.map((p) => p.node_id),
+      ['START', 'DETOUR', 'DEST']
+    );
+    assert.equal(result.closures_avoided.length, 1);
+    assert.equal(result.closures_avoided[0].element_id, 'NODE#MID');
+    assert.equal(result.closures_avoided[0].reason, 'Corridor water pipe repair');
+  });
+
   test('ignores expired closure on edge (closed_until < at)', () => {
     const edgesWithExpiredClosure = sampleEdges.map((e) => {
       if (e.from === 'N2' && e.to === 'N3') {
