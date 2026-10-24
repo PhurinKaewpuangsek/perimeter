@@ -10,6 +10,10 @@
  * Writes records with a condition that preserves items edited by an administrator.
  * Dry-run scans the target table read-only so its write/skip counts reflect current
  * updatedBy attributes.
+ *
+ * Graph items (--type graph) are upserted instead: an UpdateItem that sets only the fields
+ * the seed owns, so the closure fields staff set on a node or edge (#147) survive every
+ * re-seed the CD pipeline runs on merge.
  */
 
 import { readFileSync } from 'node:fs';
@@ -46,11 +50,22 @@ function parseArgs(argv) {
         'Point this at your own sandbox table, not the shared production stack (AGENTS.md §8.4).'
     );
   }
-  if (args.type !== 'locations' && args.type !== 'schedules') {
-    throw new Error(`Unknown --type: ${args.type}. Must be 'locations' or 'schedules'.`);
+  if (!['locations', 'schedules', 'graph'].includes(args.type)) {
+    throw new Error(`Unknown --type: ${args.type}. Must be 'locations', 'schedules' or 'graph'.`);
   }
   return args;
 }
+
+/**
+ * The fields the graph seed owns on each item kind. Anything else on a stored item, the
+ * closure fields above all, belongs to someone else and is never written by a re-seed.
+ * A required field missing from the seed is an error, never a reason to delete it from the
+ * table; only an optional field the seed no longer sets is removed.
+ */
+const GRAPH_SEED_FIELDS = {
+  'NODE#': { required: ['node_id', 'floor', 'x', 'y', 'node_type'], optional: ['location_id'] },
+  'EDGE#': { required: ['from', 'to', 'edge_type', 'distance'], optional: [] },
+};
 
 /** Splits records into bounded concurrent write groups. */
 export function chunk(items, size = WRITE_CONCURRENCY) {
@@ -74,23 +89,33 @@ export function toItem(record) {
   return JSON.parse(JSON.stringify(record));
 }
 
+const SEED_FILES = {
+  locations: { file: 'lc3-locations.seed.json', pk: 'location_id' },
+  schedules: { file: 'lc3-schedules.seed.csv', pk: 'room_code', sk: 'schedule_slot' },
+  graph: { file: 'lc3-graph.seed.json', pk: 'graph_id', sk: 'element_id' },
+};
+
+/** Graph nodes and edges, as the single list of items the graph table stores. */
+function readGraphItems(seedPath) {
+  const { nodes, edges } = JSON.parse(readFileSync(seedPath, 'utf8'));
+  return [...(nodes ?? []), ...(edges ?? [])];
+}
+
 /**
- * Loads the schedule seed when requested and the location seed otherwise.
- * Returns its records, resolved path, and required partition-key name. Throws when
- * the file has no records or a record lacks that key.
+ * Loads the seed for the requested dataset (locations by default).
+ * Returns its records, resolved path, and key attribute names. Throws when
+ * the file has no records or a record lacks a key.
  */
 export function readSeedRecords(type = 'locations') {
-  const seedPath = type === 'schedules'
-    ? join(HERE, 'lc3-schedules.seed.csv')
-    : join(HERE, 'lc3-locations.seed.json');
-  const keyAttributes = {
-    pk: type === 'schedules' ? 'room_code' : 'location_id',
-    sk: type === 'schedules' ? 'schedule_slot' : undefined,
-  };
+  const { file, pk, sk } = SEED_FILES[type];
+  const seedPath = join(HERE, file);
+  const keyAttributes = { pk, sk };
 
   const records = type === 'schedules'
     ? parseCsv(readFileSync(seedPath, 'utf8')).map(normalizeScheduleRecord)
-    : JSON.parse(readFileSync(seedPath, 'utf8')).records;
+    : type === 'graph'
+      ? readGraphItems(seedPath)
+      : JSON.parse(readFileSync(seedPath, 'utf8')).records;
 
   if (!Array.isArray(records) || records.length === 0) {
     throw new Error(`No records found in ${seedPath}`);
@@ -114,6 +139,10 @@ export function readSeedRecords(type = 'locations') {
     }
   }
 
+  if (type === 'graph') {
+    for (const record of records) assertGraphItem(record);
+  }
+
   const seen = new Set();
   for (const r of records) {
     const key = recordKey(r, keyAttributes);
@@ -126,6 +155,50 @@ export function readSeedRecords(type = 'locations') {
 
 function recordKey(record, { pk, sk }) {
   return JSON.stringify(sk ? [record[pk], record[sk]] : [record[pk]]);
+}
+
+const isMissing = (value) => value === undefined || value === null || value === '';
+
+/** Returns the item kind's seed-owned fields, or throws if the item cannot be seeded safely. */
+function assertGraphItem(record) {
+  const fields = GRAPH_SEED_FIELDS[String(record.element_id).slice(0, 5)];
+  if (!fields) {
+    throw new Error(`Every graph item needs a NODE# or EDGE# element_id (sort key); found "${record.element_id}".`);
+  }
+  const missing = fields.required.filter((field) => isMissing(record[field]));
+  if (missing.length > 0) {
+    throw new Error(`Graph item ${record.element_id} is missing ${missing.join(', ')}; refusing to seed it.`);
+  }
+  return fields;
+}
+
+/**
+ * UpdateItem input that upserts one graph item: SET every required field and each optional
+ * field the record has, REMOVE an optional field it lacks (a location link the seed no longer
+ * makes), and leave every other attribute on the stored item untouched.
+ */
+export function toGraphUpdate(tableName, record) {
+  const { required, optional } = assertGraphItem(record);
+  const names = {};
+  const values = {};
+  const set = [];
+  const remove = [];
+  [...required, ...optional].forEach((field, i) => {
+    names[`#f${i}`] = field;
+    if (isMissing(record[field])) {
+      remove.push(`#f${i}`);
+    } else {
+      values[`:v${i}`] = record[field];
+      set.push(`#f${i} = :v${i}`);
+    }
+  });
+  return {
+    TableName: tableName,
+    Key: { graph_id: record.graph_id, element_id: record.element_id },
+    UpdateExpression: [`SET ${set.join(', ')}`, ...(remove.length > 0 ? [`REMOVE ${remove.join(', ')}`] : [])].join(' '),
+    ExpressionAttributeNames: names,
+    ExpressionAttributeValues: values,
+  };
 }
 
 /** Reads all current keys and updatedBy attributes to calculate a dry-run plan. */
@@ -172,6 +245,13 @@ export function planSeedWrites(records, existingItems, keyAttributes) {
   );
 }
 
+/** Counts graph items a seed run would create and update. Closures never block an update. */
+export function planGraphWrites(records, existingItems, keyAttributes) {
+  const existing = new Set(existingItems.map((item) => recordKey(item, keyAttributes)));
+  const updated = records.filter((record) => existing.has(recordKey(record, keyAttributes))).length;
+  return { created: records.length - updated, updated };
+}
+
 /** Writes each record without replacing any item marked as edited by an admin. */
 export async function writeRecords(docClient, PutCommand, tableName, records) {
   const counts = { written: 0, skipped: 0 };
@@ -204,6 +284,25 @@ export async function writeRecords(docClient, PutCommand, tableName, records) {
   return counts;
 }
 
+/** Upserts every graph item's seed-owned fields, leaving closure fields as staff set them. */
+export async function writeGraphRecords(docClient, UpdateCommand, tableName, records) {
+  // Built up front so one malformed item stops the run before anything is written.
+  const updates = records.map((record) => toGraphUpdate(tableName, record));
+  let written = 0;
+
+  for (const batch of chunk(updates)) {
+    const results = await Promise.allSettled(
+      batch.map((input) => docClient.send(new UpdateCommand(input)))
+    );
+    for (const result of results) {
+      if (result.status === 'rejected') throw result.reason;
+      written += 1;
+    }
+  }
+
+  return { written, skipped: 0 };
+}
+
 /**
  * Seeds the dataset selected by the command line. Dry-run performs a read-only scan;
  * write mode conditionally puts each record and propagates non-conflict failures.
@@ -222,12 +321,25 @@ async function main() {
 
   // Imported lazily so reading the seed remains testable without AWS dependencies.
   const { DynamoDBClient } = await import('@aws-sdk/client-dynamodb');
-  const { DynamoDBDocumentClient, PutCommand, ScanCommand } = await import('@aws-sdk/lib-dynamodb');
+  const { DynamoDBDocumentClient, PutCommand, ScanCommand, UpdateCommand } = await import('@aws-sdk/lib-dynamodb');
 
   const docClient = DynamoDBDocumentClient.from(
     new DynamoDBClient(createDynamoDBClientOptions(region)),
     { marshallOptions: { removeUndefinedValues: true } }
   );
+
+  if (dryRun && type === 'graph') {
+    const existingItems = await readExistingItems(docClient, ScanCommand, table, keyAttributes);
+    const { created, updated } = planGraphWrites(records, existingItems, keyAttributes);
+    console.log(`Dry run complete. ${created} items would be created and ${updated} updated; closure fields are never written.`);
+    return;
+  }
+
+  if (type === 'graph') {
+    const { written } = await writeGraphRecords(docClient, UpdateCommand, table, records);
+    console.log(`\nDone. ${written} graph items upserted in "${table}"; closure fields left as staff set them.`);
+    return;
+  }
 
   if (dryRun) {
     const existingItems = await readExistingItems(docClient, ScanCommand, table, keyAttributes);

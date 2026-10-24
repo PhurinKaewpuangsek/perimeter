@@ -3,8 +3,11 @@ import { describe, test } from 'node:test';
 import { normalizeScheduleRecord } from './csv.mjs';
 import {
   createDynamoDBClientOptions,
+  planGraphWrites,
   planSeedWrites,
   readSeedRecords,
+  toGraphUpdate,
+  writeGraphRecords,
   writeRecords,
 } from './seed-dynamodb.mjs';
 
@@ -13,6 +16,38 @@ class FakePutCommand {
     this.input = input;
   }
 }
+
+const FakeUpdateCommand = FakePutCommand;
+
+/**
+ * In-memory graph table that applies UpdateItem the way DynamoDB does for the expressions
+ * toGraphUpdate builds: upsert by key, SET the named attributes, REMOVE the rest listed.
+ */
+function fakeGraphTable(initialItems = []) {
+  const items = new Map(initialItems.map((item) => [item.element_id, structuredClone(item)]));
+  return {
+    items,
+    async send({ input }) {
+      const { Key, UpdateExpression, ExpressionAttributeNames: names, ExpressionAttributeValues: values } = input;
+      const item = items.get(Key.element_id) ?? { ...Key };
+      const [, setPart, removePart] = /^SET (.+?)(?: REMOVE (.+))?$/.exec(UpdateExpression);
+      for (const assignment of setPart.split(', ')) {
+        const [name, value] = assignment.split(' = ');
+        item[names[name]] = values[value];
+      }
+      for (const name of removePart?.split(', ') ?? []) delete item[names[name]];
+      items.set(Key.element_id, item);
+    },
+  };
+}
+
+const CLOSURE = {
+  closed: true,
+  closed_from: '2026-10-30T08:00:00+07:00',
+  closed_until: '2026-10-30T17:00:00+07:00',
+  closed_reason: 'ปิดซ่อมทางเดิน',
+  closed_by: 'staff@example.com',
+};
 
 describe('schedule seeder', () => {
   test('configures six total DynamoDB request attempts and preserves the selected region', () => {
@@ -109,5 +144,88 @@ describe('schedule seeder', () => {
     assert.equal(exams.length, 10);
     assert.ok(exams.every((record) => /^\d{4}-\d{2}-\d{2}$/.test(record.event_date)));
     assert.ok(classes.every((record) => !Object.hasOwn(record, 'event_date')));
+  });
+});
+
+describe('graph seeder', () => {
+  const { records, keyAttributes } = readSeedRecords('graph');
+  const node = records.find((r) => r.element_id === 'NODE#LC3_103');
+  const edge = records.find((r) => r.element_id.startsWith('EDGE#'));
+
+  test('reads every node and edge of the graph seed, keyed by graph_id and element_id', () => {
+    assert.deepEqual(keyAttributes, { pk: 'graph_id', sk: 'element_id' });
+    assert.equal(records.length, 590);
+    assert.equal(records.filter((r) => r.element_id.startsWith('NODE#')).length, 288);
+    assert.equal(records.filter((r) => r.element_id.startsWith('EDGE#')).length, 302);
+  });
+
+  test('builds an update that writes only seed-owned fields, aliasing reserved words', () => {
+    const input = toGraphUpdate('Graph', edge);
+    assert.deepEqual(input.Key, { graph_id: 'LC3', element_id: edge.element_id });
+    assert.deepEqual(
+      Object.values(input.ExpressionAttributeNames).sort(),
+      ['distance', 'edge_type', 'from', 'to']
+    );
+    // FROM and TO are DynamoDB reserved words, so no field may appear in the expression raw.
+    assert.doesNotMatch(input.UpdateExpression, /\b(from|to|closed\w*)\b/);
+  });
+
+  test('re-seeding keeps the closures staff set and restores the structure', async () => {
+    const table = fakeGraphTable([
+      { ...node, x: 0, y: 0, ...CLOSURE },
+      { ...edge, distance: 1, ...CLOSURE },
+    ]);
+
+    const result = await writeGraphRecords(table, FakeUpdateCommand, 'Graph', [node, edge]);
+
+    assert.deepEqual(result, { written: 2, skipped: 0 });
+    assert.deepEqual(table.items.get(node.element_id), { ...node, ...CLOSURE });
+    assert.deepEqual(table.items.get(edge.element_id), { ...edge, ...CLOSURE });
+  });
+
+  test('creates missing items and drops a location link the seed no longer makes', async () => {
+    const { location_id: _dropped, ...unlinked } = node;
+    const table = fakeGraphTable([{ ...node, ...CLOSURE }]);
+
+    await writeGraphRecords(table, FakeUpdateCommand, 'Graph', [unlinked, edge]);
+
+    assert.deepEqual(table.items.get(node.element_id), { ...unlinked, ...CLOSURE });
+    assert.deepEqual(table.items.get(edge.element_id), edge);
+  });
+
+  test('refuses to seed an item missing a required field, before writing anything', async () => {
+    const { x: _x, ...noX } = node;
+    const { distance: _d, ...noDistance } = edge;
+    const table = fakeGraphTable([{ ...node, ...CLOSURE }]);
+
+    assert.throws(() => toGraphUpdate('Graph', noX), /NODE#LC3_103 is missing x; refusing to seed it/);
+    assert.throws(() => toGraphUpdate('Graph', { ...edge, edge_type: '' }), /is missing edge_type/);
+    assert.throws(() => toGraphUpdate('Graph', { ...node, element_id: 'ROOM#LC3_103' }), /NODE# or EDGE# element_id/);
+    await assert.rejects(
+      writeGraphRecords(table, FakeUpdateCommand, 'Graph', [edge, noDistance]),
+      /is missing distance/
+    );
+    // Nothing was written, and the stored node kept every field.
+    assert.equal(table.items.size, 1);
+    assert.deepEqual(table.items.get(node.element_id), { ...node, ...CLOSURE });
+  });
+
+  test('propagates write errors', async () => {
+    const docClient = {
+      async send() {
+        throw new Error('AccessDeniedException');
+      },
+    };
+
+    await assert.rejects(writeGraphRecords(docClient, FakeUpdateCommand, 'Graph', [node]), /AccessDeniedException/);
+  });
+
+  test('dry-run counts existing items as updates, whatever closures they carry', () => {
+    const existingItems = [
+      { graph_id: 'LC3', element_id: node.element_id, updatedBy: 'staff@example.com' },
+      { graph_id: 'LC3', element_id: 'NODE#NOT-IN-SEED' },
+    ];
+
+    assert.deepEqual(planGraphWrites([node, edge], existingItems, keyAttributes), { created: 1, updated: 1 });
   });
 });
