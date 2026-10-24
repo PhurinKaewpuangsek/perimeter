@@ -168,7 +168,9 @@ export default function MyScheduleDrawer() {
         )}
       </button>
 
-      {/* Drawer Overlay & Panel (Constrained below the 64px top navbar so the header stays crisp and unobstructed) */}
+      {/* Drawer Overlay & Panel (Constrained below the 64px top navbar so the header stays crisp and unobstructed).
+          z-95 is deliberately under the top bar's z-100 so header popovers (AccountMenu) still open on top;
+          TopBar hides its z-100 dock while the drawer is open, and modals (z-2001+) stay above it. */}
       {isDrawerOpen &&
         typeof document !== 'undefined' &&
         createPortal(
