@@ -11,11 +11,12 @@
 import {
   awsJson,
   banner,
+  expectedGraphKeys,
   expectedLocationKeys,
   expectedScheduleKeys,
   getStackOutputs,
 } from './lib/stack.mjs'
-import { verifyApiRecords, verifyTableRecords } from './lib/verify-counts.mjs'
+import { verifyApiRecords, verifyGraphApi, verifyTableRecords } from './lib/verify-counts.mjs'
 
 const results = []
 
@@ -35,8 +36,10 @@ banner('verify')
 const { stackName, region, status, outputs } = getStackOutputs()
 const expectedLocKeys = expectedLocationKeys()
 const expectedSchedKeys = expectedScheduleKeys()
+const expectedGraphElementKeys = expectedGraphKeys()
 const expected = expectedLocKeys.length
 const expectedSchedules = expectedSchedKeys.length
+const expectedGraphItems = expectedGraphElementKeys.length
 
 await check('stack status', async () => {
   expect(
@@ -47,9 +50,14 @@ await check('stack status', async () => {
 })
 
 await check('stack outputs', async () => {
-  const missing = ['ApiUrl', 'SiteUrl', 'SiteBucketName', 'LocationsTableName', 'SchedulesTableName'].filter(
-    (key) => !outputs[key]
-  )
+  const missing = [
+    'ApiUrl',
+    'SiteUrl',
+    'SiteBucketName',
+    'LocationsTableName',
+    'SchedulesTableName',
+    'GraphTableName',
+  ].filter((key) => !outputs[key])
   expect(missing.length === 0, `missing output(s): ${missing.join(', ')}`)
   return Object.keys(outputs).length + ' outputs present'
 })
@@ -57,7 +65,8 @@ await check('stack outputs', async () => {
 await check('table item count', async () => {
   expect(Boolean(outputs.LocationsTableName), 'no Locations table to scan')
   expect(Boolean(outputs.SchedulesTableName), 'no Schedules table to scan')
-  
+  expect(Boolean(outputs.GraphTableName), 'no Graph table to scan')
+
   const scanTableKeys = (table, projection) => {
     const data = awsJson([
       'dynamodb',
@@ -95,7 +104,20 @@ await check('table item count', async () => {
     tableName: outputs.SchedulesTableName,
   })
 
-  return `${locItems.length} locs (>= ${expected}), ${schedItems.length} scheds (>= ${expectedSchedules})`
+  // Keys only: staff closures (#147) edit graph items in place and never remove one. Only the
+  // LC3 partition counts, since that is all GET /api/graph serves.
+  const graphItems = scanTableKeys(outputs.GraphTableName, 'graph_id, element_id').filter(
+    (item) => item.graph_id?.S === 'LC3'
+  )
+  verifyTableRecords({
+    actualKeys: graphItems.map((item) => item.element_id?.S).filter(Boolean),
+    expectedKeys: expectedGraphElementKeys,
+    actualCount: graphItems.length,
+    expectedCount: expectedGraphItems,
+    tableName: outputs.GraphTableName,
+  })
+
+  return `${locItems.length} locs (>= ${expected}), ${schedItems.length} scheds (>= ${expectedSchedules}), ${graphItems.length} graph items (>= ${expectedGraphItems})`
 })
 
 await check('GET /api/locations & /api/schedules', async () => {
@@ -126,6 +148,18 @@ await check('GET /api/locations & /api/schedules', async () => {
   })
 
   return `200 OK, seed keys present (${locBody.count} >= ${expected} locs, ${schedBody.count} >= ${expectedSchedules} scheds)`
+})
+
+await check('GET /api/graph', async () => {
+  expect(Boolean(outputs.ApiUrl), 'no ApiUrl output')
+
+  const response = await fetch(`${outputs.ApiUrl}/api/graph`)
+  expect(response.status === 200, `Graph HTTP ${response.status}`)
+  expect(response.headers.get('access-control-allow-origin') === '*', 'missing CORS header')
+  const body = await response.json()
+  verifyGraphApi({ body, expectedKeys: expectedGraphElementKeys })
+
+  return `200 OK, ${body.nodes.length} nodes + ${body.edges.length} edges (>= ${expectedGraphItems} seeded items)`
 })
 
 await check('OPTIONS preflight', async () => {

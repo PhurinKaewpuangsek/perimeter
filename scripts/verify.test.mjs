@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { expectedGraphKeys } from './lib/stack.mjs'
 import {
   verifyApiCount,
   verifyApiRecords,
+  verifyGraphApi,
   verifySeedKeys,
   verifyTableCount,
   verifyTableRecords,
@@ -273,4 +275,57 @@ test('verifyApiRecords — fails when envelope count does not match records arra
       }),
     /Locations API envelope count \(999\) does not match records length \(1\)/
   )
+})
+
+/* -------------------------------------------------------------------------
+ * Graph verification (#143): staff closures (#147) must never fail verify
+ * ------------------------------------------------------------------------- */
+
+const graphSeedKeys = ['NODE#LC3_103', 'NODE#LC3_entry_103', 'EDGE#LC3_103|LC3_entry_103']
+const graphBody = (overrides = {}) => ({
+  graph_id: 'LC3',
+  nodes: [
+    { graph_id: 'LC3', element_id: 'NODE#LC3_103', node_id: 'LC3_103', location_id: 'LC3-F1-R103' },
+    { graph_id: 'LC3', element_id: 'NODE#LC3_entry_103', node_id: 'LC3_entry_103' },
+  ],
+  edges: [{ graph_id: 'LC3', element_id: 'EDGE#LC3_103|LC3_entry_103', from: 'LC3_103', to: 'LC3_entry_103' }],
+  ...overrides,
+})
+
+test('expectedGraphKeys — lists every node and edge of the graph seed', () => {
+  const keys = expectedGraphKeys()
+  assert.equal(keys.length, 590)
+  assert.equal(new Set(keys).size, keys.length)
+  assert.ok(keys.includes('NODE#LC3_103'))
+})
+
+test('verifyGraphApi — passes when staff have closed a seeded room and walkway', () => {
+  const body = graphBody()
+  const closure = { closed: true, closed_from: '2026-10-30T08:00:00+07:00', closed_until: '2026-10-30T17:00:00+07:00', closed_by: 'staff@example.com' }
+  Object.assign(body.nodes[0], closure)
+  Object.assign(body.edges[0], closure)
+
+  assert.doesNotThrow(() => verifyGraphApi({ body, expectedKeys: graphSeedKeys }))
+})
+
+test('verifyGraphApi — fails when a seeded node is missing, even if another item offsets the count', () => {
+  const body = graphBody({
+    nodes: [
+      { graph_id: 'LC3', element_id: 'NODE#LC3_103' },
+      { graph_id: 'LC3', element_id: 'NODE#ADMIN-ADDED' },
+    ],
+  })
+
+  assert.throws(
+    () => verifyGraphApi({ body, expectedKeys: graphSeedKeys }),
+    /Graph API missing 1 seeded key\(s\): NODE#LC3_entry_103/
+  )
+})
+
+test('verifyGraphApi — fails on the wrong graph or a malformed envelope', () => {
+  assert.throws(() => verifyGraphApi({ body: graphBody({ graph_id: 'LC9' }), expectedKeys: graphSeedKeys }), /graph_id LC9, expected LC3/)
+  assert.throws(() => verifyGraphApi({ body: graphBody({ edges: undefined }), expectedKeys: graphSeedKeys }), /missing its nodes or edges array/)
+  const swapped = graphBody()
+  ;[swapped.nodes, swapped.edges] = [swapped.edges, swapped.nodes]
+  assert.throws(() => verifyGraphApi({ body: swapped, expectedKeys: graphSeedKeys }), /under the wrong array/)
 })
