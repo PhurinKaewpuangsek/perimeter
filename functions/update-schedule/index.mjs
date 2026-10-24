@@ -5,6 +5,10 @@ const client = new DynamoDBClient({});
 const defaultDocClient = DynamoDBDocumentClient.from(client);
 
 const TABLE_NAME = process.env.TABLE_NAME || 'SmartFacultySchedules';
+const LOCATIONS_TABLE_NAME = process.env.LOCATIONS_TABLE_NAME || 'SmartFacultyLocations';
+
+const TARGET_ROOM_NOT_FOUND = 'Target room not found';
+const TARGET_SLOT_CONFLICT = 'มีรายการเวลา/รหัสเดียวกันในห้องนั้นแล้ว';
 
 const CORS_HEADERS = {
   'Content-Type': 'application/json',
@@ -60,7 +64,30 @@ function badRequest(message) {
   };
 }
 
-export function createHandler({ docClient = defaultDocClient, tableName = TABLE_NAME } = {}) {
+/** Reads the move target from the body. Returns null when the row stays in its room. */
+function parseMoveTarget(body, currentRoomCode) {
+  if (body.room_code === undefined || body.room_code === null) return null;
+  if (typeof body.room_code !== 'string') return { error: 'room_code must be a string' };
+  const targetRoomCode = body.room_code.trim();
+  if (!targetRoomCode || targetRoomCode === currentRoomCode) return null;
+
+  // SmartFacultyLocations is keyed by location_id (e.g. LC3-F1-R105), not room_code
+  // (LC3-105), so the client also names the target location to allow a single GetItem.
+  const targetLocationId = typeof body.location_id === 'string' ? body.location_id.trim() : '';
+  if (!targetLocationId) return { error: 'location_id of the target room is required when changing room_code' };
+  return { targetRoomCode, targetLocationId };
+}
+
+/** True when the transaction failed because a given item's condition did not hold. */
+function transactionConditionFailed(error, index) {
+  return error?.CancellationReasons?.[index]?.Code === 'ConditionalCheckFailed';
+}
+
+export function createHandler({
+  docClient = defaultDocClient,
+  tableName = TABLE_NAME,
+  locationsTableName = LOCATIONS_TABLE_NAME,
+} = {}) {
   return async function updateSchedule(event) {
     const groups = getCallerGroups(event);
     if (!groups.includes('staff') && !groups.includes('admin')) {
@@ -133,7 +160,10 @@ export function createHandler({ docClient = defaultDocClient, tableName = TABLE_
       return badRequest(EXAM_DATE_REQUIRED);
     }
 
-    if (Object.keys(updateData).length === 0 && !clearEventDate) {
+    const move = parseMoveTarget(body, roomCode);
+    if (move?.error) return badRequest(move.error);
+
+    if (Object.keys(updateData).length === 0 && !clearEventDate && !move) {
       return {
         statusCode: 400,
         headers: CORS_HEADERS,
@@ -145,7 +175,18 @@ export function createHandler({ docClient = defaultDocClient, tableName = TABLE_
     const updatedAt = new Date().toISOString();
 
     try {
-      if (updateData.day_of_week || updateData.start_time || updateData.event_code) {
+      if (move) {
+        const target = await docClient.send(new GetCommand({
+          TableName: locationsTableName,
+          Key: { location_id: move.targetLocationId },
+        }));
+        if (!target.Item || target.Item.room_code !== move.targetRoomCode) {
+          return badRequest(TARGET_ROOM_NOT_FOUND);
+        }
+      }
+
+      // The key is (room_code, schedule_slot): changing either one re-creates the row.
+      if (move || updateData.day_of_week || updateData.start_time || updateData.event_code) {
         const getResult = await docClient.send(new GetCommand({
           TableName: tableName,
           Key: { room_code: roomCode, schedule_slot: scheduleSlot }
@@ -163,11 +204,13 @@ export function createHandler({ docClient = defaultDocClient, tableName = TABLE_
         const newTime = updateData.start_time || oldItem.start_time;
         const newCourse = updateData.event_code || oldItem.event_code;
         const newScheduleSlot = `${newDay}#${newTime}#${newCourse}`;
-        
-        if (newScheduleSlot !== scheduleSlot) {
+        const newRoomCode = move ? move.targetRoomCode : roomCode;
+
+        if (newScheduleSlot !== scheduleSlot || newRoomCode !== roomCode) {
           const newItem = {
             ...oldItem,
             ...updateData,
+            room_code: newRoomCode,
             schedule_slot: newScheduleSlot,
             updatedBy,
             updatedAt,
@@ -186,7 +229,10 @@ export function createHandler({ docClient = defaultDocClient, tableName = TABLE_
           return {
             statusCode: 200,
             headers: CORS_HEADERS,
-            body: JSON.stringify({ message: 'Schedule re-created successfully', data: newItem }),
+            body: JSON.stringify({
+              message: newRoomCode !== roomCode ? 'Schedule moved successfully' : 'Schedule re-created successfully',
+              data: newItem,
+            }),
           };
         }
       }
@@ -253,6 +299,13 @@ export function createHandler({ docClient = defaultDocClient, tableName = TABLE_
         return { statusCode: 404, headers: CORS_HEADERS, body: JSON.stringify({ error: 'Schedule slot not found' }) };
       }
       if (error.name === 'TransactionCanceledException') {
+        // TransactItems: [0] Delete of the source row, [1] Put of the new row.
+        if (transactionConditionFailed(error, 0)) {
+          return { statusCode: 404, headers: CORS_HEADERS, body: JSON.stringify({ error: 'Schedule slot not found' }) };
+        }
+        if (transactionConditionFailed(error, 1)) {
+          return { statusCode: 409, headers: CORS_HEADERS, body: JSON.stringify({ error: TARGET_SLOT_CONFLICT }) };
+        }
         return { statusCode: 409, headers: CORS_HEADERS, body: JSON.stringify({ error: 'Schedule slot conflict: target slot already exists or source was deleted' }) };
       }
       return {

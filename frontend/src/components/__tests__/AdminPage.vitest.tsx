@@ -444,3 +444,87 @@ describe('AdminPage exam date (event_date)', () => {
     )
   })
 })
+
+describe('AdminPage move schedule to another room (#153)', () => {
+  beforeEach(() => {
+    currentSession = {
+      idToken: 'mock-token',
+      accessToken: 'mock-access',
+      expiresAt: Date.now() + 3600000,
+      user: { email: 'staff@torch.dev', sub: 'staff-sub', groups: ['staff'] },
+    }
+    Object.values(adminServiceMock).forEach((fn) => fn.mockClear())
+  })
+
+  async function openRoom101() {
+    const user = userEvent.setup()
+    render(
+      <MemoryRouter>
+        <AdminPage />
+      </MemoryRouter>,
+    )
+    await user.click(screen.getByText('ห้อง 101').closest('button')!)
+    return user
+  }
+
+  async function editCs101(user: ReturnType<typeof userEvent.setup>) {
+    const row = screen.getByText('CS101').closest('div.group') as HTMLElement
+    await user.click(within(row).getByRole('button', { name: 'แก้ไขตาราง' }))
+  }
+
+  it('shows the room field only while editing, defaulting to the current room', async () => {
+    const user = await openRoom101()
+    expect(screen.queryByLabelText('ย้ายไปห้อง')).not.toBeInTheDocument()
+
+    await editCs101(user)
+    const roomSelect = screen.getByLabelText('ย้ายไปห้อง')
+    expect(roomSelect).toHaveValue('LC3-101')
+    expect(within(roomSelect).getAllByRole('option').map((o) => o.getAttribute('value'))).toEqual([
+      'LC3-101',
+      'LC3-201',
+    ])
+    expect(screen.queryByText(/จะถูกย้ายจาก/)).not.toBeInTheDocument()
+  })
+
+  it('does not send room_code when the room is unchanged', async () => {
+    const user = await openRoom101()
+    await editCs101(user)
+    await user.click(screen.getByRole('button', { name: 'บันทึกการแก้ไข' }))
+
+    expect(adminServiceMock.updateSchedule).toHaveBeenCalledTimes(1)
+    const [, , payload] = adminServiceMock.updateSchedule.mock.calls[0] as unknown as [string, string, object]
+    expect(payload).not.toHaveProperty('room_code')
+    expect(payload).not.toHaveProperty('location_id')
+  })
+
+  it('warns, sends the new room on save, then links to the new room', async () => {
+    const user = await openRoom101()
+    await editCs101(user)
+    await user.selectOptions(screen.getByLabelText('ย้ายไปห้อง'), 'LC3-201')
+    expect(screen.getByText(/จะถูกย้ายจาก LC3-101 ไป LC3-201/)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'บันทึกการแก้ไข' }))
+
+    expect(adminServiceMock.updateSchedule).toHaveBeenCalledWith(
+      'LC3-101',
+      'MON#09:30#CS101',
+      expect.objectContaining({ room_code: 'LC3-201', location_id: 'LC3-201' }),
+    )
+    expect(await screen.findByText(/ไปห้อง LC3-201 แล้ว/)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'ไปที่ห้อง LC3-201' }))
+    expect(screen.getByDisplayValue('ห้องปฏิบัติการ 201')).toBeInTheDocument()
+  })
+
+  it('shows the 409 conflict message and keeps the editor open', async () => {
+    adminServiceMock.updateSchedule.mockRejectedValueOnce(new Error('มีรายการเวลา/รหัสเดียวกันในห้องนั้นแล้ว'))
+    const user = await openRoom101()
+    await editCs101(user)
+    await user.selectOptions(screen.getByLabelText('ย้ายไปห้อง'), 'LC3-201')
+    await user.click(screen.getByRole('button', { name: 'บันทึกการแก้ไข' }))
+
+    expect(await screen.findByText('มีรายการเวลา/รหัสเดียวกันในห้องนั้นแล้ว')).toBeInTheDocument()
+    expect(screen.getByLabelText('ย้ายไปห้อง')).toHaveValue('LC3-201')
+    expect(screen.queryByText(/ไปห้อง LC3-201 แล้ว/)).not.toBeInTheDocument()
+  })
+})
