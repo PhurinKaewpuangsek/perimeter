@@ -1,6 +1,6 @@
 # Contributing Guidelines
 
-Thank you for investing your time in contributing to the **Smart Faculty Navigator** project!
+Thank you for investing your time in contributing to the **Perimeter** project!
 
 To ensure a smooth and consistent workflow across the team, please adhere to the following guidelines when contributing.
 
@@ -50,10 +50,10 @@ Before a PR can be merged into `main`:
 3. **Tech Lead Sign-off**: Wait for the Tech Lead (`@PhurinKaewpuangsek`) to approve the PR.
 4. **Squash Merge**: When merging, we use Squash Merge. Ensure the final commit message includes the PR number (e.g., `(#<pr-number>)`) to maintain traceability.
 
-## Environment & Architecture (V2)
+## Environment & Architecture (V4)
 This project is a Serverless application using AWS Lambda, DynamoDB, and React.
-- **Frontend**: `frontend/` (React + Vite + TypeScript)
-- **Backend**: `functions/<name>/` (AWS Lambda)
+- **Frontend**: `frontend/` (React + Vite + TypeScript + Tailwind + Three.js)
+- **Backend**: `functions/<name>/` (AWS Lambda Node.js 24)
 - **Infrastructure**: Managed strictly via `template.yaml` (AWS SAM). **No ClickOps.** Do not manually modify resources in the AWS Console.
 
 By following these rules, you help keep the codebase robust, traceable, and easy to maintain. Happy coding!

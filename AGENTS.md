@@ -1,4 +1,4 @@
-# Agent Guidelines: Project TORCH
+# Agent Guidelines: Perimeter
 
 > Stop and ask the human if a request conflicts with these rules.
 
@@ -11,13 +11,13 @@
 - **No secrets.** Keep `.env` local; track only `.env.example`.
 - **Leave workflows alone.** Do not edit `.github/workflows/` unless explicitly requested or required for Pipeline Parity when introducing new stack outputs.
 
-## Architecture (V3)
-Project TORCH is a serverless information service mapping cloud data onto interactive 2D SVG and 3D floor plans with authenticated user schedule pinning.
+## Architecture (V4)
+Perimeter is a serverless indoor navigation and timetable information service mapping cloud data onto interactive 2D SVG and 3D floor plans with shortest-path routing, temporary walkway/room closures, exam search, and authenticated user schedule pinning. (Legacy CloudFormation resources retain the `Torch` prefix, e.g., `TorchUserPool`).
 - **Frontend**: React 18 + Vite + TypeScript + Tailwind + Three.js (`frontend/`)
-- **Routes**: `/` (landing), `/login` (unified sign-in & password challenge), `/map` (floor plan & My Schedule), `/staff` (room/schedule editor), `/admin` (user management)
-- **Backend**: AWS Lambda (Node.js 24) (`functions/<name>/`) via Implicit API Gateway with Cognito User Pool Authorizer on write routes
+- **Routes**: `/` (landing), `/login` (unified sign-in & password challenge), `/map` (floor plan, routing & My Schedule), `/staff` (room/schedule editor & closure manager), `/admin` (user management)
+- **Backend**: AWS Lambda (Node.js 24) (`functions/<name>/`) via Implicit API Gateway with Cognito User Pool Authorizer on write routes. Public read endpoints include `/api/locations`, `/api/schedules`, `/api/graph` (planned), and `/api/route` (planned); protected endpoints include `/api/pins`, `/api/users`, and `/api/graph/closures` (planned).
 - **Auth**: AWS Cognito User Pool with groups (`admin`, `staff`, `user`)
-- **Database**: Amazon DynamoDB (on-demand: `SmartFacultyLocations`, `SmartFacultySchedules`, `SmartFacultyPins`)
+- **Database**: Amazon DynamoDB (on-demand: `SmartFacultyLocations`, `SmartFacultySchedules`, `SmartFacultyPins`, `SmartFacultyGraph` [planned])
 - **Infrastructure**: AWS SAM (`template.yaml` at repo root)
 
 ## Directory Boundaries
