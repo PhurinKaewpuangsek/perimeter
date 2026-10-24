@@ -40,6 +40,7 @@ import MapContainer from './map/MapContainer'
 import { FLOOR_CONFIGS } from './map/floorConfig'
 import LoadingScreen from './LoadingScreen'
 import TopBar from './TopBar'
+import RoomCombobox from './RoomCombobox'
 import type { Room } from '../types/room'
 import type { ScheduleSlot } from '../types/schedule'
 import {
@@ -331,15 +332,30 @@ function RoomListItem({
 // Schedule Row Subcomponent (with inline editor)
 // ---------------------------------------------------------------------------
 
+type ScheduleEditFields = Partial<
+  Pick<ScheduleSlot, 'dayOfWeek' | 'startTime' | 'eventCode' | 'endTime' | 'eventName' | 'eventType' | 'eventDate'>
+> & {
+  /** Set only when the row should move to another room. */
+  targetRoom?: Room
+}
+
 interface ScheduleRowProps {
   slot: ScheduleSlot & { schedule_slot: string }
   onDelete: () => Promise<void>
-  onEdit: (updated: Partial<Pick<ScheduleSlot, 'dayOfWeek' | 'startTime' | 'eventCode' | 'endTime' | 'eventName' | 'eventType' | 'eventDate'>>) => Promise<void>
+  onEdit: (updated: ScheduleEditFields) => Promise<void>
+  /** Rooms already loaded by the page, offered as move targets (no extra API call). */
+  rooms: Room[]
   isAdmin?: boolean
 }
 
-function ScheduleRow({ slot, onDelete, onEdit, isAdmin = false }: ScheduleRowProps) {
+function ScheduleRow({ slot, onDelete, onEdit, rooms, isAdmin = false }: ScheduleRowProps) {
   const [editing, setEditing] = useState(false)
+  const [targetRoomCode, setTargetRoomCode] = useState(slot.roomCode)
+  const moveTargets = useMemo(
+    () => rooms.filter((r) => r.code).sort((a, b) => a.code.localeCompare(b.code)),
+    [rooms],
+  )
+  const isMoving = targetRoomCode !== slot.roomCode
   const [dayOfWeek, setDayOfWeek] = useState(slot.dayOfWeek)
   const [startTime, setStartTime] = useState(slot.startTime)
   const [eventCode, setEventCode] = useState(slot.eventCode)
@@ -372,10 +388,15 @@ function ScheduleRow({ slot, onDelete, onEdit, isAdmin = false }: ScheduleRowPro
       setErr(dateError)
       return
     }
+    const targetRoom = isMoving ? moveTargets.find((r) => r.code === targetRoomCode) : undefined
+    if (isMoving && !targetRoom) {
+      setErr('ไม่พบห้องปลายทาง กรุณาเลือกห้องจากรายการ')
+      return
+    }
     setSaving(true)
     setErr(null)
     try {
-      await onEdit({ dayOfWeek, startTime, eventCode, endTime, eventName, eventType, eventDate })
+      await onEdit({ dayOfWeek, startTime, eventCode, endTime, eventName, eventType, eventDate, targetRoom })
       setEditing(false)
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'เกิดข้อผิดพลาด')
@@ -465,6 +486,23 @@ function ScheduleRow({ slot, onDelete, onEdit, isAdmin = false }: ScheduleRowPro
             </select>
           </div>
           <EventDateField eventType={eventType} value={eventDate} onChange={setEventDate} />
+          <div className="col-span-2">
+            <label className="label" htmlFor={`move-room-${slot.schedule_slot}`}>
+              ย้ายไปห้อง
+            </label>
+            <RoomCombobox
+              id={`move-room-${slot.schedule_slot}`}
+              rooms={moveTargets}
+              value={targetRoomCode}
+              onChange={setTargetRoomCode}
+              currentRoomCode={slot.roomCode}
+            />
+            {isMoving && (
+              <p role="status" className="mt-1.5 text-xs text-ink-2">
+                รายการนี้จะถูกย้ายจาก {slot.roomCode} ไป {targetRoomCode} และจะไม่แสดงในห้องนี้อีก
+              </p>
+            )}
+          </div>
         </div>
         <div className="flex gap-2 justify-end pt-1">
           <button
@@ -719,7 +757,12 @@ interface RoomEditPanelProps {
   onBack: () => void
   onRoomDeleted: () => void
   onRoomMutated: () => void
-  onSchedulesMutated: () => void
+  /** Refreshes the schedule list; resolves once the new list is shown. */
+  onSchedulesMutated: () => Promise<void> | void
+  /** All loaded rooms, offered as targets when moving a schedule row. */
+  rooms: Room[]
+  /** Opens another room's panel (used by the "moved to room X" link). */
+  onOpenRoom: (roomId: string) => void
   isAdmin?: boolean
 }
 
@@ -730,8 +773,11 @@ function RoomEditPanel({
   onRoomDeleted,
   onRoomMutated,
   onSchedulesMutated,
+  rooms,
+  onOpenRoom,
   isAdmin = false,
 }: RoomEditPanelProps) {
+  const [movedNotice, setMovedNotice] = useState<{ eventCode: string; room: Room; refreshed: boolean } | null>(null)
   const [nameInput, setNameInput] = useState(room.nameThai)
   const [capacityInput, setCapacityInput] = useState(
     room.capacity !== undefined ? String(room.capacity) : '',
@@ -803,11 +849,15 @@ function RoomEditPanel({
 
   async function handleScheduleEdit(
     slot: ScheduleSlot & { schedule_slot: string },
-    updated: Partial<Pick<ScheduleSlot, 'dayOfWeek' | 'startTime' | 'eventCode' | 'endTime' | 'eventName' | 'eventType' | 'eventDate'>>,
+    updated: ScheduleEditFields,
   ) {
     const finalType = updated.eventType ?? slot.eventType
     const finalDate = updated.eventDate ?? slot.eventDate ?? ''
+    const targetRoom = updated.targetRoom && updated.targetRoom.code !== room.code ? updated.targetRoom : undefined
+    setMovedNotice(null)
+    // The path always names the current room; a new room_code in the body moves the row.
     await updateSchedule(room.code, slot.schedule_slot, {
+      ...(targetRoom ? { room_code: targetRoom.code, location_id: targetRoom.id } : {}),
       day_of_week: updated.dayOfWeek,
       start_time: updated.startTime,
       event_code: updated.eventCode,
@@ -817,7 +867,18 @@ function RoomEditPanel({
       // Dated rows send their date; other rows clear any stale date (null).
       event_date: eventDateForPayload(finalType, finalDate) ?? null,
     })
-    onSchedulesMutated()
+    if (!targetRoom) {
+      onSchedulesMutated()
+      return
+    }
+    const eventCode = updated.eventCode ?? slot.eventCode
+    // Report the move only once the old room's list no longer shows the row.
+    try {
+      await onSchedulesMutated()
+      setMovedNotice({ eventCode, room: targetRoom, refreshed: true })
+    } catch {
+      setMovedNotice({ eventCode, room: targetRoom, refreshed: false })
+    }
   }
 
   async function handleScheduleDelete(slot: ScheduleSlot & { schedule_slot: string }) {
@@ -1035,6 +1096,22 @@ function RoomEditPanel({
           </div>
         )}
 
+        {movedNotice && (
+          <div role="status" className="card flex items-center justify-between gap-2 p-3 text-button text-ink">
+            <span>
+              ย้าย <span className="font-mono font-bold">{movedNotice.eventCode}</span> ไปห้อง {movedNotice.room.code} แล้ว
+              {!movedNotice.refreshed && ' แต่โหลดรายการล่าสุดไม่สำเร็จ กรุณารีเฟรชหน้า'}
+            </span>
+            <button
+              type="button"
+              onClick={() => onOpenRoom(movedNotice.room.id)}
+              className="btn btn-ghost btn-sm"
+            >
+              ไปที่ห้อง {movedNotice.room.code}
+            </button>
+          </div>
+        )}
+
         {/* Schedules list */}
         {displayedSchedules.length === 0 ? (
           <div className="card border-dashed p-6 text-center">
@@ -1057,6 +1134,7 @@ function RoomEditPanel({
                 slot={slot}
                 onDelete={() => handleScheduleDelete(slot)}
                 onEdit={(updated) => handleScheduleEdit(slot, updated)}
+                rooms={rooms}
                 isAdmin={isAdmin}
               />
             ))}
@@ -1637,6 +1715,8 @@ export default function AdminPage() {
                   onRoomDeleted={handleRoomDeleted}
                   onRoomMutated={() => reloadRooms(true)}
                   onSchedulesMutated={() => reloadSchedules(true)}
+                  rooms={rooms}
+                  onOpenRoom={handleAdminSelectRoom}
                   isAdmin={isUserAdmin}
                 />
               ) : (

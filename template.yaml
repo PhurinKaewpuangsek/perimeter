@@ -405,6 +405,11 @@ Resources:
                     - dynamodb:PutItem
                     - dynamodb:DeleteItem
                 Resource: !GetAtt SmartFacultySchedules.Arn
+              # Moving a row to another room checks that the target room exists.
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                Resource: !GetAtt SmartFacultyLocations.Arn
 
   UpdateScheduleFunction:
     Type: AWS::Serverless::Function
@@ -418,6 +423,7 @@ Resources:
       Environment:
         Variables:
           TABLE_NAME: !Ref SmartFacultySchedules
+          LOCATIONS_TABLE_NAME: !Ref SmartFacultyLocations
       Events:
         UpdateSchedule:
           Type: Api
