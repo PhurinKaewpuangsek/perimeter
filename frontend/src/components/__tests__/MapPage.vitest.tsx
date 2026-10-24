@@ -445,15 +445,19 @@ describe('MapPage layering with My Schedule open (issue #139)', () => {
     mockViewport(false)
     const user = userEvent.setup()
     renderMapWithDrawerOpen('/map?room=LC3-F1-R105')
-    await user.type(screen.getByRole('textbox'), 'CS102')
-
     const drawerZ = rootZIndex(screen.getByTestId('drawer-backdrop'))
     const topBarZ = rootZIndex(screen.getByTestId('map-top-bar'))
+
+    // The room sheet unmounts once search results open, so check it first.
+    const roomSheet = document.querySelector('[data-sheet-handle="true"]')
+    expect(roomSheet).not.toBeNull()
+    expect(rootZIndex(roomSheet!)).toBeLessThan(drawerZ)
+
+    await user.type(screen.getByRole('textbox'), 'CS102')
     const mapChrome = [
       screen.getByRole('textbox'),
       ...screen.getAllByRole('button', { name: 'รีเซ็ตแผนที่' }),
       screen.getByTestId('mobile-search-results'),
-      document.querySelector('[data-sheet-handle="true"]')!,
     ]
 
     for (const el of mapChrome) expect(rootZIndex(el)).toBeLessThan(drawerZ)
