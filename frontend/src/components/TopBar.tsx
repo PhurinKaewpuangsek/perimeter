@@ -16,6 +16,7 @@ import perimeterLogoDarkNoBg from '../assets/perimeter_logo_negative_dark_nobg.p
 import AccountMenu from './AccountMenu'
 import MyScheduleDrawer from './MyScheduleDrawer'
 import { FLOOR_CONFIGS } from './map/floorConfig'
+import { usePins } from '../hooks/usePins'
 import { getSession, getUserRole } from '../services/authService'
 import type { AuthSession } from '../types/auth'
 
@@ -113,6 +114,7 @@ export default function TopBar({
   const [session, setSession] = useState<AuthSession | null>(() => getSession())
   const [isWorkspaceOpen, setIsWorkspaceOpen] = useState(false)
   const workspaceRef = useRef<HTMLDivElement>(null)
+  const { isDrawerOpen } = usePins()
   const location = useLocation()
   const pathname = location.pathname
   const role = getUserRole(session)
@@ -163,7 +165,8 @@ export default function TopBar({
     sidebarWidth && !isSidebarCollapsed ? `calc(50% + ${Math.round(sidebarWidth / 2)}px)` : '50%'
   const hasFloorSwitcher = currentFloor !== undefined && Boolean(onFloorChange)
   const hasViewToggle = mapView !== undefined && Boolean(onToggleMapView)
-  const showDock = isStaffOrAdmin || hasFloorSwitcher || hasViewToggle
+  // The My Schedule drawer sits below the top bar (z-95 < z-100), so the dock hides while it is open.
+  const showDock = (isStaffOrAdmin || hasFloorSwitcher || hasViewToggle) && !isDrawerOpen
 
   function closeWorkspace() {
     setIsWorkspaceOpen(false)
