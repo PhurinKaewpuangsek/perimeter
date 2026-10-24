@@ -551,8 +551,10 @@ export default function MapPage() {
         }
       />
 
-      {/* Map area below the top bar */}
-      <div className="absolute inset-x-0 top-16 bottom-0 overflow-hidden">
+      {/* Map area below the top bar. `isolate` keeps every map layer (3D pins, sidebar,
+          mobile search panel and backdrop, room sheet) under the top bar and the
+          My Schedule drawer, whatever z-index they use inside (issue #139). */}
+      <div className="absolute inset-x-0 top-16 bottom-0 isolate overflow-hidden">
         {/* Interactive map workspace, with a 2D fallback */}
         <MapContainer
           rooms={rooms}

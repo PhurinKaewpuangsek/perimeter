@@ -2,6 +2,8 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { PinsContext, defaultContextValue } from '../../hooks/usePins'
+import { MODAL_OVERLAY_Z, rootZIndex } from '../../test/stacking'
 import type { Room } from '../../types/room'
 import type { ScheduleSlot } from '../../types/schedule'
 
@@ -421,5 +423,52 @@ describe('MapPage course search (issue #91)', () => {
       expect(pinned[0]).toHaveTextContent('105')
       expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent('105')
     })
+  })
+})
+
+describe('MapPage layering with My Schedule open (issue #139)', () => {
+  afterEach(() => {
+    window.matchMedia = originalMatchMedia
+  })
+
+  function renderMapWithDrawerOpen(path = '/map') {
+    return render(
+      <PinsContext.Provider value={{ ...defaultContextValue, isDrawerOpen: true }}>
+        <MemoryRouter initialEntries={[path]}>
+          <MapPage />
+        </MemoryRouter>
+      </PinsContext.Provider>
+    )
+  }
+
+  it('on mobile, stacks map chrome < drawer < top bar < modals', async () => {
+    mockViewport(false)
+    const user = userEvent.setup()
+    renderMapWithDrawerOpen('/map?room=LC3-F1-R105')
+    await user.type(screen.getByRole('textbox'), 'CS102')
+
+    const drawerZ = rootZIndex(screen.getByTestId('drawer-backdrop'))
+    const topBarZ = rootZIndex(screen.getByTestId('map-top-bar'))
+    const mapChrome = [
+      screen.getByRole('textbox'),
+      ...screen.getAllByRole('button', { name: 'รีเซ็ตแผนที่' }),
+      screen.getByTestId('mobile-search-results'),
+      document.querySelector('[data-sheet-handle="true"]')!,
+    ]
+
+    for (const el of mapChrome) expect(rootZIndex(el)).toBeLessThan(drawerZ)
+    // The search backdrop spans the whole screen but must not swallow taps on the top bar.
+    expect(rootZIndex(screen.getByTestId('mobile-search-backdrop'))).toBeLessThan(topBarZ)
+    // Header popovers (AccountMenu) open over the drawer, and modals still cover it.
+    expect(drawerZ).toBeLessThan(topBarZ)
+    expect(drawerZ).toBeLessThan(MODAL_OVERLAY_Z)
+  })
+
+  it('on desktop, hides the bottom dock so it cannot draw over the drawer', () => {
+    mockViewport(true)
+    renderMapWithDrawerOpen()
+
+    expect(screen.getByTestId('drawer-backdrop')).toBeInTheDocument()
+    expect(screen.queryByRole('navigation', { name: 'แถบควบคุมแผนที่' })).not.toBeInTheDocument()
   })
 })
