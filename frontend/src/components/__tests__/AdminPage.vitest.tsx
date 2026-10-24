@@ -128,12 +128,14 @@ vi.mock('../../hooks/useRooms', () => ({
   }),
 }))
 
+const reloadSchedulesMock = vi.hoisted(() => vi.fn(async () => {}))
+
 vi.mock('../../hooks/useSchedules', () => ({
   useSchedules: () => ({
     schedules: mockSchedules,
     loading: false,
     error: null,
-    reload: vi.fn(),
+    reload: reloadSchedulesMock,
   }),
 }))
 
@@ -566,6 +568,36 @@ describe('AdminPage move schedule to another room (#153)', () => {
 
     await user.click(screen.getByRole('button', { name: 'ไปที่ห้อง LC3-201' }))
     expect(screen.getByDisplayValue('ห้องปฏิบัติการ 201')).toBeInTheDocument()
+  })
+
+  it('shows the move notice only after the schedule list has refreshed', async () => {
+    let finishRefresh: () => void = () => {}
+    reloadSchedulesMock.mockImplementationOnce(
+      () => new Promise<void>((resolve) => { finishRefresh = resolve }),
+    )
+    const user = await openRoom101()
+    await editCs101(user)
+    await moveTo(user, '201', /^LC3-201/)
+    await user.click(screen.getByRole('button', { name: 'บันทึกการแก้ไข' }))
+
+    expect(reloadSchedulesMock).toHaveBeenCalledWith(true)
+    expect(screen.queryByText(/ไปห้อง LC3-201 แล้ว/)).not.toBeInTheDocument()
+
+    finishRefresh()
+    expect(await screen.findByText(/ไปห้อง LC3-201 แล้ว/)).toBeInTheDocument()
+    expect(screen.queryByText(/โหลดรายการล่าสุดไม่สำเร็จ/)).not.toBeInTheDocument()
+  })
+
+  it('says the list could not refresh when the reload after a move fails', async () => {
+    reloadSchedulesMock.mockRejectedValueOnce(new Error('network'))
+    const user = await openRoom101()
+    await editCs101(user)
+    await moveTo(user, '201', /^LC3-201/)
+    await user.click(screen.getByRole('button', { name: 'บันทึกการแก้ไข' }))
+
+    expect(
+      await screen.findByText(/ไปห้อง LC3-201 แล้ว แต่โหลดรายการล่าสุดไม่สำเร็จ กรุณารีเฟรชหน้า/),
+    ).toBeInTheDocument()
   })
 
   it('shows the 409 conflict message and keeps the editor open', async () => {

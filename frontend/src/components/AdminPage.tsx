@@ -757,7 +757,8 @@ interface RoomEditPanelProps {
   onBack: () => void
   onRoomDeleted: () => void
   onRoomMutated: () => void
-  onSchedulesMutated: () => void
+  /** Refreshes the schedule list; resolves once the new list is shown. */
+  onSchedulesMutated: () => Promise<void> | void
   /** All loaded rooms, offered as targets when moving a schedule row. */
   rooms: Room[]
   /** Opens another room's panel (used by the "moved to room X" link). */
@@ -776,7 +777,7 @@ function RoomEditPanel({
   onOpenRoom,
   isAdmin = false,
 }: RoomEditPanelProps) {
-  const [movedNotice, setMovedNotice] = useState<{ eventCode: string; room: Room } | null>(null)
+  const [movedNotice, setMovedNotice] = useState<{ eventCode: string; room: Room; refreshed: boolean } | null>(null)
   const [nameInput, setNameInput] = useState(room.nameThai)
   const [capacityInput, setCapacityInput] = useState(
     room.capacity !== undefined ? String(room.capacity) : '',
@@ -866,10 +867,18 @@ function RoomEditPanel({
       // Dated rows send their date; other rows clear any stale date (null).
       event_date: eventDateForPayload(finalType, finalDate) ?? null,
     })
-    if (targetRoom) {
-      setMovedNotice({ eventCode: updated.eventCode ?? slot.eventCode, room: targetRoom })
+    if (!targetRoom) {
+      onSchedulesMutated()
+      return
     }
-    onSchedulesMutated()
+    const eventCode = updated.eventCode ?? slot.eventCode
+    // Report the move only once the old room's list no longer shows the row.
+    try {
+      await onSchedulesMutated()
+      setMovedNotice({ eventCode, room: targetRoom, refreshed: true })
+    } catch {
+      setMovedNotice({ eventCode, room: targetRoom, refreshed: false })
+    }
   }
 
   async function handleScheduleDelete(slot: ScheduleSlot & { schedule_slot: string }) {
@@ -1091,6 +1100,7 @@ function RoomEditPanel({
           <div role="status" className="card flex items-center justify-between gap-2 p-3 text-button text-ink">
             <span>
               ย้าย <span className="font-mono font-bold">{movedNotice.eventCode}</span> ไปห้อง {movedNotice.room.code} แล้ว
+              {!movedNotice.refreshed && ' แต่โหลดรายการล่าสุดไม่สำเร็จ กรุณารีเฟรชหน้า'}
             </span>
             <button
               type="button"
