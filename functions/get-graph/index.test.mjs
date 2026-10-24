@@ -1,0 +1,110 @@
+import { test, describe } from 'node:test';
+import assert from 'node:assert/strict';
+import { createHandler } from './index.mjs';
+
+/** Minimal stand-in for DynamoDBDocumentClient: replays the given Query pages in order. */
+function fakeDocClient(pages) {
+  const calls = [];
+  return {
+    calls,
+    async send(command) {
+      calls.push(command.input);
+      const page = pages[calls.length - 1];
+      if (page instanceof Error) throw page;
+      return page;
+    },
+  };
+}
+
+const node = (id, extra = {}) => ({
+  graph_id: 'LC3',
+  element_id: `NODE#${id}`,
+  node_id: id,
+  floor: 1,
+  x: 10,
+  y: 20,
+  node_type: 'junction',
+  ...extra,
+});
+
+const edge = (from, to, extra = {}) => ({
+  graph_id: 'LC3',
+  element_id: `EDGE#${from}|${to}`,
+  from,
+  to,
+  edge_type: 'walk',
+  distance: 33,
+  ...extra,
+});
+
+describe('GetGraphFunction Lambda Handler', () => {
+  test('returns 200 with nodes and edges split by element_id, closures included', async () => {
+    const room = node('LC3_103', { node_type: 'room', location_id: 'LC3-F1-R103' });
+    const corridor = node('LC3_entry_103', { node_type: 'entrance' });
+    const closed = edge('LC3_103', 'LC3_entry_103', {
+      closed: true,
+      closed_from: '2026-10-30T08:00:00+07:00',
+      closed_until: '2026-10-30T17:00:00+07:00',
+    });
+    const docClient = fakeDocClient([{ Items: [closed, room, corridor] }]);
+
+    const response = await createHandler({ docClient, tableName: 'TestGraph' })();
+
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.headers['Access-Control-Allow-Origin'], '*');
+    assert.equal(response.headers['Content-Type'], 'application/json');
+    assert.deepEqual(JSON.parse(response.body), { graph_id: 'LC3', nodes: [room, corridor], edges: [closed] });
+  });
+
+  test('reads one partition with a Query, never a Scan', async () => {
+    const docClient = fakeDocClient([{ Items: [] }]);
+
+    await createHandler({ docClient, tableName: 'TestGraph' })();
+
+    assert.equal(docClient.calls.length, 1);
+    assert.equal(docClient.calls[0].TableName, 'TestGraph');
+    assert.equal(docClient.calls[0].KeyConditionExpression, 'graph_id = :graphId');
+    assert.deepEqual(docClient.calls[0].ExpressionAttributeValues, { ':graphId': 'LC3' });
+  });
+
+  test('follows LastEvaluatedKey until the whole graph is read', async () => {
+    const lastKey = { graph_id: 'LC3', element_id: 'NODE#A' };
+    const docClient = fakeDocClient([
+      { Items: [node('A')], LastEvaluatedKey: lastKey },
+      { Items: [node('B'), edge('A', 'B')] },
+    ]);
+
+    const response = await createHandler({ docClient, tableName: 'TestGraph' })();
+
+    const body = JSON.parse(response.body);
+    assert.deepEqual(body.nodes.map((n) => n.node_id), ['A', 'B']);
+    assert.deepEqual(body.edges.map((e) => e.element_id), ['EDGE#A|B']);
+    assert.equal(docClient.calls.length, 2);
+    assert.equal(docClient.calls[0].ExclusiveStartKey, undefined);
+    assert.deepEqual(docClient.calls[1].ExclusiveStartKey, lastKey);
+  });
+
+  test('returns empty arrays when the table holds no graph', async () => {
+    const docClient = fakeDocClient([{ Items: [] }]);
+
+    const response = await createHandler({ docClient, tableName: 'TestGraph' })();
+
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.headers['Access-Control-Allow-Origin'], '*');
+    assert.deepEqual(JSON.parse(response.body), { graph_id: 'LC3', nodes: [], edges: [] });
+  });
+
+  test('returns 500 with CORS headers and no AWS details when the query fails', async () => {
+    const denied = new Error(
+      'User: arn:aws:sts::123456789012:assumed-role/GetGraphRole/fn is not authorized to perform: dynamodb:Query'
+    );
+    const docClient = fakeDocClient([denied]);
+
+    const response = await createHandler({ docClient, tableName: 'TestGraph' })();
+
+    assert.equal(response.statusCode, 500);
+    assert.equal(response.headers['Access-Control-Allow-Origin'], '*');
+    assert.deepEqual(JSON.parse(response.body), { error: 'Failed to fetch graph' });
+    assert.doesNotMatch(response.body, /arn:aws|123456789012/);
+  });
+});
