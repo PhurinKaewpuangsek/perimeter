@@ -209,6 +209,37 @@ describe('updateSchedule', () => {
     mockFetch(400, { error: 'No updatable fields' })
     await expect(updateSchedule('x', 'y', {})).rejects.toThrow()
   })
+
+  it('moves a row: path keeps the current room, body names the target room', async () => {
+    mockFetch(200, { message: 'Schedule moved successfully' })
+    await updateSchedule('LC3-104', 'MON#09:00#CS333', { room_code: 'LC3-105', location_id: 'LC3-F1-R105' })
+
+    const { url, init } = lastFetch()
+    expect(url).toContain('/api/schedules/LC3-104/MON%2309%3A00%23CS333')
+    expect(JSON.parse(init.body as string)).toEqual({ room_code: 'LC3-105', location_id: 'LC3-F1-R105' })
+  })
+
+  it('shows the API conflict message on 409', async () => {
+    mockFetch(409, { error: 'มีรายการเวลา/รหัสเดียวกันในห้องนั้นแล้ว' })
+    await expect(updateSchedule('LC3-104', 'MON#09:00#CS333', { room_code: 'LC3-105' })).rejects.toThrow(
+      'มีรายการเวลา/รหัสเดียวกันในห้องนั้นแล้ว',
+    )
+  })
+
+  it('falls back to a Thai conflict message on 409 without a body', async () => {
+    mockFetch(409, {})
+    await expect(updateSchedule('x', 'y', {})).rejects.toThrow('มีรายการเวลา/รหัสเดียวกันในห้องนั้นแล้ว')
+  })
+
+  it('translates "Target room not found" (400) into a readable message', async () => {
+    mockFetch(400, { error: 'Target room not found' })
+    await expect(updateSchedule('x', 'y', { room_code: 'LC3-999' })).rejects.toThrow('ไม่พบห้องปลายทาง')
+  })
+
+  it('keeps other 400 messages from the API, e.g. the exam date rule', async () => {
+    mockFetch(400, { error: 'event_date is required for exam rows (YYYY-MM-DD)' })
+    await expect(updateSchedule('x', 'y', {})).rejects.toThrow(/event_date is required/)
+  })
 })
 
 // ---------------------------------------------------------------------------

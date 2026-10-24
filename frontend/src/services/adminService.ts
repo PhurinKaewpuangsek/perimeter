@@ -64,6 +64,13 @@ export interface UpdateSchedulePayload {
   event_type?: string
   /** YYYY-MM-DD to set the date, null to clear it. */
   event_date?: string | null
+  /**
+   * Target room when moving the row. Omit (or send the current room) to keep it.
+   * The path keeps the current room_code.
+   */
+  room_code?: string
+  /** location_id of the target room; required together with a new room_code. */
+  location_id?: string
 }
 
 export interface CreateScheduleResult {
@@ -156,6 +163,21 @@ export async function updateSchedule(
     body: JSON.stringify(payload),
   })
   if (!res.ok) {
+    if (res.status === 409) {
+      const err = await res.json().catch(() => ({}))
+      throw new Error(
+        (err as { error?: string }).error ?? 'มีรายการเวลา/รหัสเดียวกันในห้องนั้นแล้ว',
+      )
+    }
+    if (res.status === 400) {
+      const err = await res.json().catch(() => ({}))
+      const message = (err as { error?: string }).error
+      throw new Error(
+        message === 'Target room not found'
+          ? 'ไม่พบห้องปลายทาง กรุณาเลือกห้องจากรายการ'
+          : message ?? 'ข้อมูลไม่ถูกต้อง (400)',
+      )
+    }
     await handleFetchError(res, 'PUT /api/schedules')
   }
 }

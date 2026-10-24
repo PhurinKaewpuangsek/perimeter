@@ -362,4 +362,192 @@ describe('UpdateScheduleFunction Lambda Handler', () => {
       assert.equal('event_date' in put, false);
     });
   });
+  describe('moving a row to another room (room_code in body)', () => {
+    const staffContext = {
+      authorizer: { claims: { sub: 'staff-uuid', 'cognito:username': 'staff@torch.dev', 'cognito:groups': 'staff' } },
+    };
+    const pathParameters = { room_code: 'LC3-104', schedule_slot: 'MON#09:00#CS333' };
+    const storedRow = {
+      room_code: 'LC3-104',
+      schedule_slot: 'MON#09:00#CS333',
+      day_of_week: 'MON',
+      start_time: '09:00',
+      end_time: '12:00',
+      event_code: 'CS333',
+      event_name: 'Cloud Computing',
+      event_type: 'lecture',
+    };
+    const targetRoom = { location_id: 'LC3-F1-R105', room_code: 'LC3-105' };
+    const moveTo105 = { room_code: 'LC3-105', location_id: 'LC3-F1-R105' };
+
+    /**
+     * Fake client: GetCommand on the locations table answers targetRoom, on the schedules
+     * table answers storedRow; TransactWriteCommand throws transactError when given.
+     */
+    function moveDocClient({ room = targetRoom, row = storedRow, transactError } = {}) {
+      const commands = [];
+      return {
+        commands,
+        async send(command) {
+          commands.push(command);
+          const name = command.constructor.name;
+          if (name === 'GetCommand') {
+            return { Item: (command.input.TableName === 'LocationsTable' ? room : row) ?? undefined };
+          }
+          if (name === 'TransactWriteCommand' && transactError) throw transactError;
+          return { Attributes: {} };
+        },
+      };
+    }
+
+    async function move(body, docClient, requestContext = staffContext) {
+      const handler = createHandler({ docClient, tableName: 'TestTable', locationsTableName: 'LocationsTable' });
+      return handler({ pathParameters, body: JSON.stringify(body), requestContext });
+    }
+
+    function transactCanceled(reasons) {
+      return Object.assign(new Error('Transaction cancelled'), {
+        name: 'TransactionCanceledException',
+        CancellationReasons: reasons,
+      });
+    }
+
+    test('moves the row in one transaction: deletes the old key and puts every field under the new room', async () => {
+      const docClient = moveDocClient();
+      const response = await move(moveTo105, docClient);
+
+      assert.equal(response.statusCode, 200);
+      assert.match(JSON.parse(response.body).message, /moved/);
+      const [locationGet, rowGet, transact] = docClient.commands;
+      assert.deepEqual(locationGet.input, { TableName: 'LocationsTable', Key: { location_id: 'LC3-F1-R105' } });
+      assert.deepEqual(rowGet.input.Key, { room_code: 'LC3-104', schedule_slot: 'MON#09:00#CS333' });
+
+      const [del, put] = transact.input.TransactItems;
+      assert.deepEqual(del.Delete.Key, { room_code: 'LC3-104', schedule_slot: 'MON#09:00#CS333' });
+      assert.equal(del.Delete.ConditionExpression, 'attribute_exists(schedule_slot)');
+      assert.equal(put.Put.ConditionExpression, 'attribute_not_exists(schedule_slot)');
+      assert.deepEqual(
+        { ...put.Put.Item, updatedAt: undefined },
+        { ...storedRow, room_code: 'LC3-105', updatedBy: 'staff@torch.dev', updatedAt: undefined },
+      );
+      assert.equal('location_id' in put.Put.Item, false, 'location_id is not stored on the schedule row');
+    });
+
+    test('keeps event_date when an exam row is moved', async () => {
+      const examRow = { ...storedRow, event_type: 'exam', event_date: '2026-12-01' };
+      const docClient = moveDocClient({ row: examRow });
+      const response = await move(moveTo105, docClient);
+
+      assert.equal(response.statusCode, 200);
+      const put = docClient.commands[2].input.TransactItems[1].Put.Item;
+      assert.equal(put.event_date, '2026-12-01');
+    });
+
+    test('moves and changes the time together (new room and new schedule_slot)', async () => {
+      const docClient = moveDocClient();
+      const response = await move({ ...moveTo105, start_time: '13:00', end_time: '16:00' }, docClient);
+
+      assert.equal(response.statusCode, 200);
+      const put = docClient.commands[2].input.TransactItems[1].Put.Item;
+      assert.equal(put.room_code, 'LC3-105');
+      assert.equal(put.schedule_slot, 'MON#13:00#CS333');
+      assert.equal(put.end_time, '16:00');
+    });
+
+    test('returns 400 when the target room does not exist, without touching schedules', async () => {
+      const docClient = moveDocClient({ room: null });
+      const response = await move(moveTo105, docClient);
+
+      assert.equal(response.statusCode, 400);
+      assert.equal(JSON.parse(response.body).error, 'Target room not found');
+      assert.equal(docClient.commands.length, 1, 'only the location lookup ran');
+    });
+
+    test('returns 400 when location_id points at a different room than room_code', async () => {
+      const docClient = moveDocClient({ room: { location_id: 'LC3-F1-R105', room_code: 'LC3-106' } });
+      const response = await move(moveTo105, docClient);
+
+      assert.equal(response.statusCode, 400);
+      assert.equal(JSON.parse(response.body).error, 'Target room not found');
+    });
+
+    test('returns 400 when moving without the target location_id', async () => {
+      const docClient = moveDocClient();
+      const response = await move({ room_code: 'LC3-105' }, docClient);
+
+      assert.equal(response.statusCode, 400);
+      assert.match(JSON.parse(response.body).error, /location_id/);
+      assert.equal(docClient.commands.length, 0);
+    });
+
+    test('returns 400 when room_code is not a string', async () => {
+      const docClient = moveDocClient();
+      const response = await move({ room_code: 105, location_id: 'LC3-F1-R105' }, docClient);
+      assert.equal(response.statusCode, 400);
+      assert.equal(docClient.commands.length, 0);
+    });
+
+    test('returns 409 with a readable message when the target room already has the slot', async () => {
+      const error = transactCanceled([{ Code: 'None' }, { Code: 'ConditionalCheckFailed' }]);
+      const response = await move(moveTo105, moveDocClient({ transactError: error }));
+
+      assert.equal(response.statusCode, 409);
+      assert.equal(JSON.parse(response.body).error, 'มีรายการเวลา/รหัสเดียวกันในห้องนั้นแล้ว');
+    });
+
+    test('returns 404 when the source row was deleted before the move committed', async () => {
+      const error = transactCanceled([{ Code: 'ConditionalCheckFailed' }, { Code: 'None' }]);
+      const response = await move(moveTo105, moveDocClient({ transactError: error }));
+      assert.equal(response.statusCode, 404);
+    });
+
+    test('returns 404 when the source row does not exist', async () => {
+      const docClient = moveDocClient({ row: null });
+      const response = await move(moveTo105, docClient);
+
+      assert.equal(response.statusCode, 404);
+      assert.equal(docClient.commands.some((c) => c.constructor.name === 'TransactWriteCommand'), false);
+    });
+
+    test('rejects moving an exam row that has no event_date', async () => {
+      const docClient = moveDocClient({ row: { ...storedRow, event_type: 'exam' } });
+      const response = await move(moveTo105, docClient);
+
+      assert.equal(response.statusCode, 400);
+      assert.match(JSON.parse(response.body).error, /event_date is required for exam rows/);
+      assert.equal(docClient.commands.some((c) => c.constructor.name === 'TransactWriteCommand'), false);
+    });
+
+    test('rejects moving a row into an exam without a date', async () => {
+      const docClient = moveDocClient();
+      const response = await move({ ...moveTo105, event_type: 'exam' }, docClient);
+      assert.equal(response.statusCode, 400);
+      assert.equal(docClient.commands.some((c) => c.constructor.name === 'TransactWriteCommand'), false);
+    });
+
+    test('returns 403 for a user who is not staff or admin', async () => {
+      const docClient = moveDocClient();
+      const userContext = { authorizer: { claims: { sub: 'user-uuid', 'cognito:groups': 'user' } } };
+      const response = await move(moveTo105, docClient, userContext);
+
+      assert.equal(response.statusCode, 403);
+      assert.equal(docClient.commands.length, 0);
+    });
+
+    test('same room_code as the path is a normal update, with no lookup or transaction', async () => {
+      const docClient = moveDocClient();
+      const response = await move({ room_code: 'LC3-104', location_id: 'LC3-F1-R104', end_time: '12:30' }, docClient);
+
+      assert.equal(response.statusCode, 200);
+      assert.equal(docClient.commands.length, 1);
+      assert.equal(docClient.commands[0].constructor.name, 'UpdateCommand');
+    });
+
+    test('same room_code with no other field still reports nothing to update', async () => {
+      const docClient = moveDocClient();
+      const response = await move({ room_code: 'LC3-104' }, docClient);
+      assert.equal(response.statusCode, 400);
+      assert.match(JSON.parse(response.body).error, /No fields provided/);
+    });
+  });
 });
