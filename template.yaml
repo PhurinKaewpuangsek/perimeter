@@ -35,6 +35,13 @@ Parameters:
       one AWS account. Changing it on a live stack REPLACES the table.
     AllowedPattern: "^[A-Za-z0-9_.-]{3,255}$"
 
+  GraphTableName:
+    Type: String
+    Default: SmartFacultyGraph
+    Description: >
+      Name of the routing graph table storing nodes, edges, and temporary closures.
+    AllowedPattern: "^[A-Za-z0-9_.-]{3,255}$"
+
   ExistingLambdaRoleName:
     Type: String
     Default: LabRole
@@ -806,6 +813,78 @@ Resources:
             Method: delete
 
 
+  # ---------------------------------------------------------------------------
+  # Routing graph & pathfinding — issue #144 (feat: route calculation API)
+  # ---------------------------------------------------------------------------
+
+  SmartFacultyGraph:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Ref GraphTableName
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: graph_id
+          AttributeType: S
+        - AttributeName: element_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: graph_id
+          KeyType: HASH
+        - AttributeName: element_id
+          KeyType: RANGE
+
+  GetRouteRole:
+    Type: AWS::IAM::Role
+    Condition: CreateLambdaRoles
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: ReadGraphOnly
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:Query
+                Resource: !GetAtt SmartFacultyGraph.Arn
+
+  GetRouteFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/get-route/
+      Handler: index.handler
+      MemorySize: 1024
+      Role: !If
+        - UseExistingLambdaRole
+        - !Sub "arn:aws:iam::${AWS::AccountId}:role/${ExistingLambdaRoleName}"
+        - !GetAtt GetRouteRole.Arn
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref SmartFacultyGraph
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: dynamodb:Query
+              Resource: !GetAtt SmartFacultyGraph.Arn
+      Events:
+        GetRoute:
+          Type: Api
+          Properties:
+            Path: /api/route
+            Method: get
+            Auth:
+              Authorizer: NONE
+
+
+
 # ---------------------------------------------------------------------------
 # Outputs — the scripts under scripts/ read these instead of hardcoding names,
 # so every teammate's stack drives their own environment.
@@ -838,6 +917,10 @@ Outputs:
   UserPoolId:
     Description: Cognito User Pool ID
     Value: !Ref TorchUserPool
+
+  GraphTableName:
+    Description: DynamoDB table storing routing nodes, edges, and temporary closures
+    Value: !Ref SmartFacultyGraph
 
   UserPoolClientId:
     Description: Cognito User Pool App Client ID
