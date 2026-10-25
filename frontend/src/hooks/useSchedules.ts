@@ -64,27 +64,33 @@ export function useSchedules(): UseSchedulesResult {
   const hasSchedulesRef = useRef(inMemorySchedules !== null && inMemorySchedules.length > 0)
   // Callers of reload() waiting for the next fetch started by it.
   const waitersRef = useRef<Array<{ resolve: () => void; reject: (err: Error) => void }>>([])
+  const hookRequestIdRef = useRef(0)
 
   useEffect(() => {
     let isMounted = true
-    let hookRequestId = 0
 
-    const fetchSchedules = (force = false, waiters: typeof waitersRef.current = []) => {
-      const currentHookId = ++hookRequestId
+    const fetchSchedules = (force = false) => {
+      const currentHookId = ++hookRequestIdRef.current
       fetchSchedulesDeduplicated(force)
         .then((data) => {
-          if (isMounted && currentHookId === hookRequestId) {
+          if (currentHookId !== hookRequestIdRef.current) return
+          if (isMounted) {
             hasSchedulesRef.current = data.length > 0
             setSchedules(data)
             setError(null)
             setLoading(false)
           }
+          const waiters = waitersRef.current
+          waitersRef.current = []
           waiters.forEach((w) => w.resolve())
         })
         .catch((err) => {
           const error = err instanceof Error ? err : new Error(String(err))
+          if (currentHookId !== hookRequestIdRef.current) return
+          const waiters = waitersRef.current
+          waitersRef.current = []
           waiters.forEach((w) => w.reject(error))
-          if (!isMounted || currentHookId !== hookRequestId) return
+          if (!isMounted) return
           setLoading(false)
           if (!hasSchedulesRef.current) {
             setError(error)
@@ -92,9 +98,7 @@ export function useSchedules(): UseSchedulesResult {
         })
     }
 
-    const waiters = waitersRef.current
-    waitersRef.current = []
-    fetchSchedules(attempt > 0, waiters)
+    fetchSchedules(attempt > 0)
 
     const onFocus = () => {
       if (Date.now() - inMemorySchedulesFetchedAt >= SCHEDULES_CACHE_TTL_MS) {

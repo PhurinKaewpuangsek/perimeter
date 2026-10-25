@@ -84,4 +84,96 @@ describe('useSchedules reload()', () => {
     await act(() => done)
     expect(getSchedulesMock).toHaveBeenLastCalledWith({ bypassCache: true })
   })
+
+  it('transfers waiters across superseded reloads so they resolve only when the latest succeeds', async () => {
+    let resolveFirst!: (val: ScheduleSlot[]) => void
+    let resolveSecond!: (val: ScheduleSlot[]) => void
+
+    getSchedulesMock
+      .mockResolvedValueOnce([slot('INITIAL')])
+      .mockImplementationOnce(() => new Promise((resolve) => { resolveFirst = resolve }))
+      .mockImplementationOnce(() => new Promise((resolve) => { resolveSecond = resolve }))
+
+    const { result } = renderHook(() => useSchedules())
+    await waitFor(() => expect(result.current.schedules[0]?.eventCode).toBe('INITIAL'))
+
+    let done1!: Promise<void>
+    act(() => {
+      done1 = result.current.reload(true)
+    })
+
+    let done2!: Promise<void>
+    act(() => {
+      done2 = result.current.reload(true)
+    })
+
+    let done1Settled = false
+    done1.then(() => {
+      done1Settled = true
+    })
+
+    await act(async () => {
+      resolveFirst([slot('SUPERSEDED')])
+    })
+
+    expect(done1Settled).toBe(false)
+    expect(result.current.schedules[0]?.eventCode).toBe('INITIAL')
+
+    await act(async () => {
+      resolveSecond([slot('LATEST')])
+    })
+
+    await act(async () => {
+      await done1
+      await done2
+    })
+
+    expect(done1Settled).toBe(true)
+    expect(result.current.schedules[0]?.eventCode).toBe('LATEST')
+  })
+
+  it('rejects pending waiters when the latest reload fails', async () => {
+    let resolveFirst!: (val: ScheduleSlot[]) => void
+    let rejectSecond!: (err: Error) => void
+
+    getSchedulesMock
+      .mockResolvedValueOnce([slot('INITIAL')])
+      .mockImplementationOnce(() => new Promise((resolve) => { resolveFirst = resolve }))
+      .mockImplementationOnce(() => new Promise((_, reject) => { rejectSecond = reject }))
+
+    const { result } = renderHook(() => useSchedules())
+    await waitFor(() => expect(result.current.schedules[0]?.eventCode).toBe('INITIAL'))
+
+    let done1!: Promise<void>
+    act(() => {
+      done1 = result.current.reload(true)
+    })
+
+    let done2!: Promise<void>
+    act(() => {
+      done2 = result.current.reload(true)
+    })
+
+    let done1Settled = false
+    done1.catch(() => {
+      done1Settled = true
+    })
+
+    await act(async () => {
+      resolveFirst([slot('SUPERSEDED')])
+    })
+
+    expect(done1Settled).toBe(false)
+
+    await act(async () => {
+      rejectSecond(new Error('latest reload failed'))
+    })
+
+    await act(async () => {
+      await expect(done1).rejects.toThrow('latest reload failed')
+      await expect(done2).rejects.toThrow('latest reload failed')
+    })
+
+    expect(result.current.schedules[0]?.eventCode).toBe('INITIAL')
+  })
 })
