@@ -78,6 +78,9 @@ export interface GraphDataResponse {
   edges?: RawGraphEdge[]
 }
 
+/** Longest closure reason the API accepts (functions/update-closure MAX_REASON_LENGTH). */
+export const MAX_CLOSURE_REASON_LENGTH = 200
+
 /** One change sent to PUT /api/graph/closures. */
 export interface ClosureChange {
   element_id: string

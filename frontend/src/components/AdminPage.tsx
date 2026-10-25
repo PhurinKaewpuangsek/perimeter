@@ -32,6 +32,7 @@ import {
   MagnifyingGlass,
   Door,
   Sparkle,
+  Prohibit,
 } from '@phosphor-icons/react'
 import { useRooms } from '../hooks/useRooms'
 import { useSchedules } from '../hooks/useSchedules'
@@ -41,6 +42,8 @@ import { FLOOR_CONFIGS } from './map/floorConfig'
 import LoadingScreen from './LoadingScreen'
 import TopBar from './TopBar'
 import RoomCombobox from './RoomCombobox'
+import ClosureTab from './ClosurePanel'
+import type { MapOverlaySegment } from './map/MapContainer'
 import type { Room } from '../types/room'
 import type { ScheduleSlot } from '../types/schedule'
 import {
@@ -1358,7 +1361,8 @@ function AllSchedulesView({
 // ---------------------------------------------------------------------------
 
 type LeftPanelMode = 'list' | 'room'
-type LeftTab = 'rooms' | 'schedules'
+type LeftTab = 'rooms' | 'schedules' | 'closures'
+const LEFT_TABS: LeftTab[] = ['rooms', 'schedules', 'closures']
 
 export default function AdminPage() {
   const session = getSession()
@@ -1383,6 +1387,8 @@ export default function AdminPage() {
   const [mapView, setMapView] = useState<'2d' | '3d'>('3d')
   const [floorFilter, setFloorFilter] = useState<'all' | '1' | '2'>('all')
   const [categoryFilterKey, setCategoryFilterKey] = useState<string>('all')
+  // Walkways drawn on the 2D map by the closure tab (#147).
+  const [closureOverlay, setClosureOverlay] = useState<MapOverlaySegment[]>([])
 
   const sidebarScrollRef = useRef<HTMLDivElement>(null)
 
@@ -1495,6 +1501,7 @@ export default function AdminPage() {
           viewMode={mapView}
           onViewModeChange={setMapView}
           hideBottomControls
+          overlaySegments={leftTab === 'closures' ? closureOverlay : undefined}
         />
 
         {/* ------------------------------------------------------------------ */}
@@ -1510,21 +1517,21 @@ export default function AdminPage() {
             <div className="shrink-0 p-3 border-b border-line-soft bg-white">
               <div className="gooey-switch-group flex w-full rounded-full bg-surface-2 p-1">
                 {(() => {
-                  const activeTabIdx = leftTab === 'schedules' ? 1 : 0
+                  const activeTabIdx = LEFT_TABS.indexOf(leftTab)
                   const blobTransform = `translateX(${activeTabIdx * 100}%)`
                   return (
                     <div aria-hidden="true" className="gooey-switch-blobs inset-1">
                       <span
                         className="gooey-pill-lead"
-                        style={{ width: '50%', transform: blobTransform }}
+                        style={{ width: `${100 / LEFT_TABS.length}%`, transform: blobTransform }}
                       />
                       <span
                         className="gooey-pill-drop"
-                        style={{ width: '50%', transform: blobTransform }}
+                        style={{ width: `${100 / LEFT_TABS.length}%`, transform: blobTransform }}
                       />
                       <span
                         className="gooey-pill-trail"
-                        style={{ width: '50%', transform: blobTransform }}
+                        style={{ width: `${100 / LEFT_TABS.length}%`, transform: blobTransform }}
                       />
                     </div>
                   )
@@ -1563,6 +1570,23 @@ export default function AdminPage() {
                   <span className="ml-0.5 rounded-full bg-white px-1.5 py-0.5 text-xs font-medium text-ink">
                     {schedules.length}
                   </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLeftTab('closures')
+                    // Walkways are drawn on the 2D plan, so the tab opens on it.
+                    setMapView('2d')
+                  }}
+                  className={`btn btn-sm gooey-switch-btn flex-1 ${
+                    leftTab === 'closures'
+                      ? 'text-white'
+                      : 'text-ink-2 hover:text-ink'
+                  }`}
+                >
+                  <Prohibit size={14} weight="duotone" />
+                  <span>ทางปิดชั่วคราว</span>
                 </button>
               </div>
             </div>
@@ -1686,7 +1710,14 @@ export default function AdminPage() {
 
             {/* Main Sidebar Scrollable Content */}
             <div ref={sidebarScrollRef} className="flex-1 overflow-y-auto thin-scrollbar p-4 space-y-4">
-              {leftTab === 'schedules' ? (
+              {leftTab === 'closures' ? (
+                <ClosureTab
+                  rooms={rooms}
+                  floor={currentFloor}
+                  onFloorChange={setCurrentFloor}
+                  onOverlayChange={setClosureOverlay}
+                />
+              ) : leftTab === 'schedules' ? (
                 schedulesLoading ? (
                   <div className="flex flex-col items-center justify-center py-12 text-center text-ink-3">
                     <div className="h-6 w-6 border-2 border-ink border-t-transparent rounded-full animate-spin mb-2" />

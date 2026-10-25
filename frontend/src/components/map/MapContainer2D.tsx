@@ -37,6 +37,63 @@ export interface MapContainerProps {
   hideBottomControls?: boolean
   /** Suppress internal floor switcher when parent (MapContainer) renders unified dock */
   hideFloorSwitcher?: boolean
+  /**
+   * Walkway segments drawn over the 2D floor plan (staff closure tab, #147), in the same
+   * coordinates as room pins. Only segments on `currentFloor` are drawn. Ignored in 3D.
+   */
+  overlaySegments?: MapOverlaySegment[]
+}
+
+export interface MapOverlaySegment {
+  id: string
+  floor: number
+  x1: number
+  y1: number
+  x2: number
+  y2: number
+  /** 'selected' = picked in the form, 'preview' = hovered in the list, 'closed' = closed now or scheduled. */
+  tone: 'selected' | 'preview' | 'closed'
+}
+
+/** Draws overlay segments; a zero-length one (a stairwell) is drawn as a dot. */
+function OverlaySegments({ segments, floor, width, height }: { segments: MapOverlaySegment[]; floor: number; width: number; height: number }) {
+  const onFloor = segments.filter((s) => s.floor === floor)
+  if (onFloor.length === 0) return null
+  return (
+    <svg
+      data-testid="map-overlay-segments"
+      width={width}
+      height={height}
+      viewBox={`0 0 ${width} ${height}`}
+      style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', overflow: 'visible' }}
+      aria-hidden="true"
+    >
+      {onFloor.map((s) => {
+        // Theme colours only (index.css): accent for what staff picked, ink dashed for closed.
+        const color = s.tone === 'closed' ? 'var(--color-ink)' : 'var(--color-accent)'
+        const dash = s.tone === 'closed' ? '6 4' : undefined
+        const width = s.tone === 'preview' ? 12 : 6
+        const opacity = s.tone === 'preview' ? 0.45 : 0.85
+        return s.x1 === s.x2 && s.y1 === s.y2 ? (
+          <circle key={s.id} data-tone={s.tone} cx={s.x1} cy={s.y1} r={width + 1} style={{ fill: color }} opacity={opacity} />
+        ) : (
+          <line
+            key={s.id}
+            data-tone={s.tone}
+            x1={s.x1}
+            y1={s.y1}
+            x2={s.x2}
+            y2={s.y2}
+            style={{ stroke: color }}
+            strokeWidth={width}
+            strokeLinecap="round"
+            strokeDasharray={dash}
+            opacity={opacity}
+          />
+        )
+      })}
+    </svg>
+  )
 }
 
 const PADDING_X = 300
@@ -53,6 +110,7 @@ function MapContainer({
   isDetailOpen = false,
   hideBottomControls = false,
   hideFloorSwitcher = false,
+  overlaySegments = [],
 }: MapContainerProps) {
   const floorConfig = getFloorConfig(currentFloor)
   const transformRef = useRef<ReactZoomPanPinchRef | null>(null)
@@ -254,6 +312,12 @@ function MapContainer({
             }}
           >
             <FloorPlanSvg floorConfig={floorConfig} />
+            <OverlaySegments
+              segments={overlaySegments}
+              floor={currentFloor}
+              width={floorConfig.width}
+              height={floorConfig.height}
+            />
             <RoomMarkers
               rooms={rooms}
               currentFloor={currentFloor}

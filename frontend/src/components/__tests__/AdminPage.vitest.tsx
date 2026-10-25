@@ -130,6 +130,14 @@ vi.mock('../../hooks/useRooms', () => ({
 
 const reloadSchedulesMock = vi.hoisted(() => vi.fn(async () => {}))
 
+const graphStateMock = vi.hoisted(() => ({
+  graph: { graphId: 'LC3', nodes: [], edges: [] },
+  loading: false,
+  error: null,
+  reload: async () => {},
+}))
+vi.mock('../../hooks/useGraph', () => ({ useGraph: () => graphStateMock }))
+
 vi.mock('../../hooks/useSchedules', () => ({
   useSchedules: () => ({
     schedules: mockSchedules,
@@ -260,6 +268,18 @@ describe('AdminPage', () => {
     expect(screen.queryByRole('button', { name: 'ลบตาราง' })).not.toBeInTheDocument()
     // But edit button is still available
     expect(screen.getByRole('button', { name: 'แก้ไขตาราง' })).toBeInTheDocument()
+  })
+
+  it('opens the closure tab (#147) with its form and list', async () => {
+    const user = userEvent.setup()
+    render(
+      <MemoryRouter initialEntries={['/staff']}>
+        <AdminPage />
+      </MemoryRouter>,
+    )
+    await user.click(screen.getByRole('button', { name: /ทางปิดชั่วคราว/ }))
+    expect(screen.getByRole('form', { name: 'ปิดชั่วคราว' })).toBeInTheDocument()
+    expect(screen.getByText('ยังไม่มีห้องหรือทางเดินที่ปิด')).toBeInTheDocument()
   })
 
   it('switches to All Schedules view tab', async () => {
