@@ -34,3 +34,9 @@
 
 - `scale-readiness.md` (#149) — บันทึกการตั้งค่า Caching, Throttling และ Concurrency ของ Lambda/DynamoDB
 - `load-test-results.md` (#150) — ผลการทดสอบโหลดระยะสั้นและขีดจำกัดจริงของระบบ (System Limits)
+- [user-testing/test-plan.md](./user-testing/test-plan.md) (#151) — แผนทดสอบผู้ใช้จริง V4 และสถานะความพร้อม
+- [user-testing/scenario-cards.md](./user-testing/scenario-cards.md) (#151) — การ์ดสถานการณ์ TC1 และ TC2 สำหรับอ่านให้ผู้ทดสอบฟัง
+- [user-testing/test-fixtures.md](./user-testing/test-fixtures.md) (#151) — worksheet ยืนยัน dev stack, demo accounts, fixture กิจกรรม/ห้อง/ทางปิด และ baseline reset
+- [user-testing/observer-guide.md](./user-testing/observer-guide.md) (#151) — กติกาผู้สังเกตการณ์
+- [user-testing/result-template.md](./user-testing/result-template.md) (#151) — แบบฟอร์มบันทึกผลรายคนและรายงาน task
+- [user-testing/reset-checklist.md](./user-testing/reset-checklist.md) (#151) — checklist เตรียมและรีเซ็ตข้อมูลทดสอบ
