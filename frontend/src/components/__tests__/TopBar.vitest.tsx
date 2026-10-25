@@ -3,6 +3,8 @@ import { act, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import TopBar from '../TopBar'
+import { PinsContext, defaultContextValue } from '../../hooks/usePins'
+import { rootZIndex } from '../../test/stacking'
 import type { AuthSession } from '../../types/auth'
 
 let mockSession: AuthSession | null = null
@@ -258,5 +260,45 @@ describe('TopBar (Shared Component)', () => {
   it('does not render workspace switcher for guest users', () => {
     renderTopBar()
     expect(screen.queryByTestId('workspace-switcher-trigger')).not.toBeInTheDocument()
+  })
+
+  describe('with the My Schedule drawer (issue #139)', () => {
+    function topBarWithDrawer(isDrawerOpen: boolean) {
+      return (
+        <PinsContext.Provider value={{ ...defaultContextValue, isDrawerOpen }}>
+          <MemoryRouter>
+            <TopBar currentFloor={1} onFloorChange={vi.fn()} />
+          </MemoryRouter>
+        </PinsContext.Provider>
+      )
+    }
+
+    it('hides the bottom dock only while the drawer is open', () => {
+      const { rerender } = render(topBarWithDrawer(false))
+      expect(screen.getByRole('navigation', { name: 'แถบควบคุมแผนที่' })).toBeInTheDocument()
+
+      rerender(topBarWithDrawer(true))
+      expect(screen.queryByRole('navigation', { name: 'แถบควบคุมแผนที่' })).not.toBeInTheDocument()
+
+      rerender(topBarWithDrawer(false))
+      expect(screen.getByRole('navigation', { name: 'แถบควบคุมแผนที่' })).toBeInTheDocument()
+    })
+
+    it('opens the account menu above the open drawer', async () => {
+      const user = userEvent.setup()
+      mockSession = {
+        idToken: 'mock-id-token',
+        accessToken: 'mock-access-token',
+        expiresAt: Date.now() + 3600000,
+        user: { email: 'staff@example.com', sub: 'mock-sub-1', groups: ['staff'] },
+      }
+      render(topBarWithDrawer(true))
+
+      await user.click(screen.getByRole('button', { name: /staff@example.com/i }))
+
+      expect(rootZIndex(screen.getByRole('button', { name: /ออกจากระบบ/i }))).toBeGreaterThan(
+        rootZIndex(screen.getByTestId('drawer-backdrop')),
+      )
+    })
   })
 })
