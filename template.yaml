@@ -895,6 +895,63 @@ Resources:
               Authorizer: NONE
 
 
+  # ---------------------------------------------------------------------------
+  # Routing pathfinding — issue #144 (feat: route calculation API)
+  # GET /api/route
+  # ---------------------------------------------------------------------------
+
+  GetRouteRole:
+    Type: AWS::IAM::Role
+    Condition: CreateLambdaRoles
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: ReadGraphOnly
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:Query
+                Resource: !GetAtt SmartFacultyGraph.Arn
+
+  GetRouteFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/get-route/
+      Handler: index.handler
+      MemorySize: 1024
+      Role: !If
+        - UseExistingLambdaRole
+        - !Sub "arn:aws:iam::${AWS::AccountId}:role/${ExistingLambdaRoleName}"
+        - !GetAtt GetRouteRole.Arn
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref SmartFacultyGraph
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: dynamodb:Query
+              Resource: !GetAtt SmartFacultyGraph.Arn
+      Events:
+        GetRoute:
+          Type: Api
+          Properties:
+            Path: /api/route
+            Method: get
+            Auth:
+              Authorizer: NONE
+
+
+
 # ---------------------------------------------------------------------------
 # Outputs — the scripts under scripts/ read these instead of hardcoding names,
 # so every teammate's stack drives their own environment.
@@ -925,7 +982,7 @@ Outputs:
     Value: !Ref SmartFacultyPins
 
   GraphTableName:
-    Description: DynamoDB table holding the LC3 routing graph, seeded by the graph seeder and read by GET /api/graph
+    Description: DynamoDB table holding the LC3 routing graph, seeded by the graph seeder and read by GET /api/graph and GET /api/route
     Value: !Ref SmartFacultyGraph
 
   UserPoolId:
