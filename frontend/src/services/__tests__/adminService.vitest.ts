@@ -13,6 +13,7 @@ import {
   createSchedule,
   updateSchedule,
   deleteSchedule,
+  updateClosures,
 } from '../adminService'
 
 // ---------------------------------------------------------------------------
@@ -259,5 +260,43 @@ describe('deleteSchedule', () => {
   it('throws when response is not ok', async () => {
     mockFetch(500, { error: 'DynamoDB error' })
     await expect(deleteSchedule('x', 'y')).rejects.toThrow()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// updateClosures (#147)
+// ---------------------------------------------------------------------------
+
+describe('updateClosures', () => {
+  const room = { element_id: 'NODE#LC3_101', closed: true, closed_reason: 'ปรับปรุง' }
+  const walkway = { element_id: 'EDGE#LC3_124/2|LC3_124/1', closed: true }
+
+  it('sends one change as the body of PUT /api/graph/closures', async () => {
+    mockFetch(200, { message: 'ok' })
+    await updateClosures([room])
+    const { url, init } = lastFetch()
+    expect(url).toMatch(/\/api\/graph\/closures$/)
+    expect(init.method).toBe('PUT')
+    expect(JSON.parse(init.body as string)).toEqual(room)
+  })
+
+  it('sends several changes as { items } in one request', async () => {
+    mockFetch(200, { message: 'ok' })
+    await updateClosures([room, walkway])
+    expect(fetch).toHaveBeenCalledTimes(1)
+    expect(JSON.parse(lastFetch().init.body as string)).toEqual({ items: [room, walkway] })
+  })
+
+  it('does nothing for an empty list', async () => {
+    mockFetch(200, {})
+    await updateClosures([])
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('shows the API validation message on 400 and a Thai message on 404', async () => {
+    mockFetch(400, { error: 'closed_until is already in the past' })
+    await expect(updateClosures([room])).rejects.toThrow('closed_until is already in the past')
+    mockFetch(404, { error: 'Graph element not found' })
+    await expect(updateClosures([room])).rejects.toThrow('ไม่พบห้องหรือทางเดินนี้')
   })
 })

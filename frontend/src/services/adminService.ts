@@ -7,6 +7,7 @@
  */
 
 import { getIdToken } from './authService'
+import type { ClosureChange } from '../types/graph'
 
 const API_BASE_URL = (import.meta.env?.VITE_API_BASE_URL ?? '').replace(/\/+$/, '')
 
@@ -199,3 +200,29 @@ export async function deleteSchedule(
   }
 }
 
+
+// ---------------------------------------------------------------------------
+// Closures (#147)
+// ---------------------------------------------------------------------------
+
+/**
+ * PUT /api/graph/closures
+ * Opens or closes rooms (NODE#) and walkways (EDGE#). One change, or several in one
+ * all-or-nothing request (e.g. every walkway of a corridor). element_id goes in the body
+ * because edge ids contain "/" and "|".
+ */
+export async function updateClosures(changes: ClosureChange[]): Promise<void> {
+  if (changes.length === 0) return
+  const url = `${API_BASE_URL}/api/graph/closures`
+  const res = await fetch(url, {
+    method: 'PUT',
+    headers: getWriteHeaders(),
+    body: JSON.stringify(changes.length === 1 ? changes[0] : { items: changes }),
+  })
+  if (!res.ok) {
+    if (res.status === 404) {
+      throw new Error('ไม่พบห้องหรือทางเดินนี้ในผังอาคาร กรุณาโหลดหน้าใหม่')
+    }
+    await handleFetchError(res, 'PUT /api/graph/closures')
+  }
+}
