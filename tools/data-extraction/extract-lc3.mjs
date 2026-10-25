@@ -7,14 +7,15 @@
  *   node tools/data-extraction/extract-lc3.mjs                 regenerate the node inventory
  *   node tools/data-extraction/extract-lc3.mjs --verify-assets re-check asset hashes and bounds
  *
- * Scope is issue #8: nodes only. The 302 routing edges in the source graph are read but
- * never emitted — routing is a later issue. Schema and DB import belong to #7 and #19.
+ * Rooms, toilets and stairs become the location seed (issue #8). Every node and all 302 edges
+ * also become the routing graph seed, lc3-graph.seed.json (issue #143); see lc3/routing-graph.mjs.
  */
 
 import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { buildGraphSeed } from './lc3/routing-graph.mjs';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const DATASET_DIR = join(REPO_ROOT, 'tools', 'data-extraction', 'lc3');
@@ -24,6 +25,7 @@ const INVENTORY_PATH = join(DATASET_DIR, 'reports', 'node-inventory.csv');
 const SURVEY_PATH = join(DATASET_DIR, 'survey', 'lc3-field-survey.template.csv');
 const SEED_JSON_PATH = join(DATASET_DIR, 'lc3-locations.seed.json');
 const SEED_CSV_PATH = join(DATASET_DIR, 'lc3-locations.seed.csv');
+const GRAPH_SEED_PATH = join(DATASET_DIR, 'lc3-graph.seed.json');
 
 /**
  * Beyond this many walkable hops a POI stops being a useful landmark. 15 is not arbitrary:
@@ -54,8 +56,12 @@ const SURVEY_PLACEHOLDERS = [
   { source_node_id: '', room_code: '', floor: 1, subject: 'building_entrance', note: 'ทางเข้าอาคารรอง — ระบุตำแหน่งและฝั่ง' },
 ];
 
-/** Expected source composition. A mismatch means upstream changed and the rules need review. */
-const EXPECTED = { total: 288, include: 131, excludeOutOfScope: 157, needsFieldValidation: 6 };
+/**
+ * Expected source composition. A mismatch means upstream changed and the rules need review.
+ * `includeGraph` nodes are routing-only: 149 junctions and doorways plus the 8 QR anchors.
+ * The 8 unmatched graph nodes are those QR anchors, typed `room` upstream with no location.
+ */
+const EXPECTED = { total: 288, include: 131, includeGraph: 157, needsFieldValidation: 6, edges: 302, unmatchedGraphNodes: 8 };
 
 /**
  * Thai label prefix -> category. Order matters and is load-bearing:
@@ -121,11 +127,12 @@ function naturalCompare(a, b) {
 function classify(node) {
   const isQrAnchor = /^QR\d+$/.test(node.name);
 
+  // Both stay out of the location seed but are routable nodes in the graph seed.
   if (isQrAnchor) {
-    return { disposition: 'exclude_out_of_scope', reason: 'qr_anchor_not_a_room' };
+    return { disposition: 'include_graph', reason: 'qr_anchor_not_a_room' };
   }
   if (node.type === 'junction' || node.type === 'entrance') {
-    return { disposition: 'exclude_out_of_scope', reason: 'routing_topology_out_of_v1_scope' };
+    return { disposition: 'include_graph', reason: 'routing_topology_not_a_location' };
   }
   if (node.type === 'facility') {
     const code = node.name.slice(0, 2).toUpperCase();
@@ -191,7 +198,7 @@ const slug = (name) => name.toUpperCase().replace(/\//g, '-').replace(/[^A-Z0-9-
  * edges rather than straight-line pixels. A wall between two rooms makes them far apart even
  * when their pins are 20px apart, and only the edge topology knows that.
  *
- * The edges are read here but never emitted — routing data stays out of the seed.
+ * Routing data stays out of the location seed; the edges ship separately in lc3-graph.seed.json.
  */
 function deriveLandmarks(graph, includedByNodeId) {
   const neighbours = new Map();
@@ -301,7 +308,7 @@ function main() {
 
   const rows = [];
   const seedByNodeId = new Map();
-  const counts = { include: 0, exclude_out_of_scope: 0, exclude_unclassified: 0, needs_field_validation: 0 };
+  const counts = { include: 0, include_graph: 0, exclude_unclassified: 0, needs_field_validation: 0 };
 
   for (const node of graph.nodes) {
     const asset = assetsByFloor.get(node.floor);
@@ -316,11 +323,10 @@ function main() {
     counts[c.disposition] += 1;
     if (c.needsFieldValidation) counts.needs_field_validation += 1;
 
-    if (c.disposition === 'include') {
-      const [, , vbWidth, vbHeight] = asset.viewbox;
-      if (x < 0 || x > vbWidth || y < 0 || y > vbHeight) {
-        problems.push(`node ${node.id} lands at (${x},${y}), outside ${asset.map_asset_id} ${vbWidth}x${vbHeight}`);
-      }
+    // Every node is drawn on the map now: a location pin or a point on a route.
+    const [, , vbWidth, vbHeight] = asset.viewbox;
+    if (x < 0 || x > vbWidth || y < 0 || y > vbHeight) {
+      problems.push(`node ${node.id} lands at (${x},${y}), outside ${asset.map_asset_id} ${vbWidth}x${vbHeight}`);
     }
 
     rows.push({
@@ -330,9 +336,9 @@ function main() {
       floor: node.floor,
       source_x: node.x,
       source_y: node.y,
-      map_asset_id: c.disposition === 'include' ? asset.map_asset_id : '',
-      x: c.disposition === 'include' ? x : '',
-      y: c.disposition === 'include' ? y : '',
+      map_asset_id: asset.map_asset_id,
+      x,
+      y,
       // The slash in "101/1" is part of the room number — 101/1 and 101/2 are different
       // rooms with different purposes. Never split on it to derive a "base" room code.
       room_code: c.disposition === 'include' && c.kind === 'room' ? `LC3-${node.name}` : '',
@@ -383,7 +389,7 @@ function main() {
 
   for (const [key, expected] of [
     ['include', EXPECTED.include],
-    ['exclude_out_of_scope', EXPECTED.excludeOutOfScope],
+    ['include_graph', EXPECTED.includeGraph],
     ['needs_field_validation', EXPECTED.needsFieldValidation],
   ]) {
     if (counts[key] !== expected) problems.push(`expected ${expected} ${key} nodes, found ${counts[key]}`);
@@ -391,13 +397,28 @@ function main() {
   if (counts.exclude_unclassified !== 0) {
     problems.push(`${counts.exclude_unclassified} nodes could not be classified`);
   }
-  const dispositioned = counts.include + counts.exclude_out_of_scope + counts.exclude_unclassified;
+  const dispositioned = counts.include + counts.include_graph + counts.exclude_unclassified;
   if (dispositioned !== graph.nodes.length) {
     problems.push(`${dispositioned} dispositions for ${graph.nodes.length} nodes — every node must get exactly one`);
   }
   const labelled = rows.filter((r) => r.location_kind === 'room' && r.name_th && r.category === 'unknown');
   if (labelled.length > 0) {
     problems.push(`${labelled.length} labelled rooms fell through the category rules: ${labelled.map((r) => r.source_node_id).join(', ')}`);
+  }
+
+  if (graph.edges.length !== EXPECTED.edges) {
+    problems.push(`expected ${EXPECTED.edges} source edges, found ${graph.edges.length}`);
+  }
+  let graphSeed;
+  try {
+    graphSeed = buildGraphSeed({ graph, manifest, locationRecords: [...seedByNodeId.values()] });
+    const unmatched = graphSeed.unmatched_room_or_facility_nodes;
+    const unexpected = unmatched.filter((id) => !/^LC3_QR\d+$/.test(id));
+    if (unmatched.length !== EXPECTED.unmatchedGraphNodes || unexpected.length > 0) {
+      problems.push(`expected ${EXPECTED.unmatchedGraphNodes} graph nodes without a location (the QR anchors), found ${unmatched.join(', ')}`);
+    }
+  } catch (error) {
+    problems.push(error.message);
   }
 
   if (problems.length > 0) {
@@ -475,16 +496,20 @@ function main() {
   };
   writeFileSync(SEED_JSON_PATH, JSON.stringify(seedDoc, null, 2) + '\n', 'utf8');
   writeFileSync(SEED_CSV_PATH, seedToCsv(seedRecords), 'utf8');
+  writeFileSync(GRAPH_SEED_PATH, JSON.stringify(graphSeed, null, 2) + '\n', 'utf8');
 
   console.log('extract-lc3: OK');
   console.log(`  source nodes            ${graph.nodes.length}`);
   console.log(`  include                 ${counts.include}`);
-  console.log(`  exclude_out_of_scope    ${counts.exclude_out_of_scope}`);
+  console.log(`  include_graph           ${counts.include_graph}`);
   console.log(`  needs_field_validation  ${counts.needs_field_validation}`);
   console.log(`  wrote                   ${INVENTORY_PATH.slice(REPO_ROOT.length + 1)}`);
   console.log(`  wrote                   ${SURVEY_PATH.slice(REPO_ROOT.length + 1)} (${surveyRows.length} rows)`);
   console.log(`  wrote                   ${SEED_JSON_PATH.slice(REPO_ROOT.length + 1)} (${seedRecords.length} records, ${withLandmarks} with landmarks)`);
   console.log(`  wrote                   ${SEED_CSV_PATH.slice(REPO_ROOT.length + 1)}`);
+  const { counts: g } = graphSeed;
+  console.log(`  wrote                   ${GRAPH_SEED_PATH.slice(REPO_ROOT.length + 1)} (${g.nodes} nodes, ${g.edges} edges, ${g.nodes_with_location_id} with location_id)`);
+  console.log(`  room/facility nodes without a location_id: ${g.unmatched_room_or_facility_nodes} (${graphSeed.unmatched_room_or_facility_nodes.join(', ')})`);
 }
 
 main();

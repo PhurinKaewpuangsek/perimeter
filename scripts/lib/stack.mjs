@@ -133,7 +133,7 @@ export function awsJson(args, { stackName = '' } = {}) {
 
 /**
  * The deployed stack's Outputs as a plain object:
- * { ApiUrl, SiteUrl, SiteBucketName, LocationsTableName }.
+ * { ApiUrl, SiteUrl, SiteBucketName, LocationsTableName, SchedulesTableName, GraphTableName, ... }.
  */
 export function getStackOutputs() {
   const { stackName, region, configEnv } = readStackConfig()
@@ -173,6 +173,13 @@ export function expectedScheduleKeys() {
   return parseCsv(readFileSync(seed, 'utf8')).map(
     (r) => `${r.room_code}#${r.day_of_week}#${r.start_time}#${r.event_code}`
   )
+}
+
+/** Sort keys (element_id) of every node and edge the graph seed file holds. */
+export function expectedGraphKeys() {
+  const seed = join(repoRoot, 'tools/data-extraction/lc3/lc3-graph.seed.json')
+  const { nodes, edges } = JSON.parse(readFileSync(seed, 'utf8'))
+  return [...nodes, ...edges].map((item) => item.element_id)
 }
 
 export function banner(text) {

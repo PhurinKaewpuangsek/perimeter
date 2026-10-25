@@ -1,7 +1,7 @@
 # LC3 map assets and location inventory
 
 Floor-plan assets and the extracted location inventory for **อาคาร LC3** (building code `LC3`),
-floors 1–2. Issue #8.
+floors 1–2. Issue #8; the routing graph seed is issue #143.
 
 This directory is **data and assets only**. It contains no SQL, no importer, and no runtime code.
 
@@ -11,6 +11,8 @@ This directory is **data and assets only**. It contains no SQL, no importer, and
 | --- | --- |
 | `lc3-locations.seed.json` | **Generated. The seed dataset — the deliverable.** 131 records |
 | `lc3-locations.seed.csv` | Generated from the same in-memory array as the JSON, so the two cannot drift |
+| `lc3-graph.seed.json` | **Generated. The routing graph** (288 nodes + 302 edges = 590 SmartFacultyGraph items), issue #143. See [Routing graph](#routing-graph) |
+| `routing-graph.mjs` | Builds `lc3-graph.seed.json`; the extractor writes it and the validator rebuilds it to prove the file is current |
 | `source/graph.source.json` | Byte-identical copy of the upstream `Database/graph.json` blob (288 nodes, 302 edges) |
 | `source/source-manifest.json` | Provenance: source repo + commit, SHA-256 of every copied file, per-floor viewBox and coordinate transform |
 | `reports/node-inventory.csv` | Generated. Every one of the 288 source nodes with a disposition and a reason |
@@ -20,7 +22,7 @@ This directory is **data and assets only**. It contains no SQL, no importer, and
 ## Commands
 
 ```bash
-node tools/data-extraction/extract-lc3.mjs                  # regenerate seed + inventory + survey template
+node tools/data-extraction/extract-lc3.mjs                  # regenerate seeds (locations + graph), inventory, survey template
 node tools/data-extraction/extract-lc3.mjs --verify-assets  # also re-check SHA-256 and viewBox
 node --test tools/data-extraction/validate-lc3-seed.mjs     # validate the generated location and schedule data
 npm --prefix tools/data-extraction test                     # also test conditional seed writes
@@ -30,7 +32,8 @@ node tools/data-extraction/preview-lc3-overlay.mjs          # write pin-baked QA
 Schedule exam rows carry `event_date` as `YYYY-MM-DD`; class rows leave it empty.
 The DynamoDB seeder conditionally writes only items without `updatedBy`, preserving
 administrator-edited records. Its `--dry-run` scans the selected table read-only to
-report how many seed records would be written or skipped.
+report how many seed records would be written or skipped. `--type graph` works differently; see
+[Seeding the graph](#seeding-the-graph).
 
 Everything under "Generated" above comes out of `extract-lc3.mjs`. **Never hand-edit them** —
 the next run overwrites your change. Corrections belong in the generator or in the survey results.
@@ -56,8 +59,8 @@ offset**, so upstream coordinates are remapped rather than re-surveyed:
 | 1 | `floor-1.svg` | 1217×742 | `x+40, y+40` | 196 of 221 rects in the superseded asset match at this offset |
 | 2 | `floor-2.svg` | 1070×528 | `x−2, y−37` | 236 of 240 match |
 
-All 288 nodes land inside their viewBox after transforming; the extractor asserts this and fails
-if it ever stops being true.
+All 288 nodes land inside their viewBox after transforming; the extractor and the validator both
+assert this and fail if it ever stops being true.
 
 **The transform lives in `source-manifest.json` and nowhere else.** Tools read it from there. If
 you ever replace an asset, update the manifest — never hardcode an offset in a second place.
@@ -98,15 +101,15 @@ Room code is `LC3-` plus the **full** upstream node name, slash included: `LC3-1
 
 ## What was included and what was not
 
-131 of 288 nodes are in scope: 117 rooms + 8 toilets + 6 stairs.
+131 of 288 nodes are locations (`include`): 117 rooms + 8 toilets + 6 stairs. All 288 nodes and
+all 302 edges are in the routing graph.
 
-| Excluded | Count | Reason |
+| Graph only (`include_graph`) | Count | Reason |
 | --- | --- | --- |
-| `junction`, `entrance` nodes | 149 | `routing_topology_out_of_v1_scope` — routing is not in V1. The 93 "entrance" nodes are room doorways, not building entrances. |
-| `LC3_QR1`–`QR8` | 8 | `qr_anchor_not_a_room` — QR deep-link anchors, typed `room` upstream. Seeding them would put fake rooms in the search index. |
-| all 302 edges | — | Routing topology. Kept in the snapshot for provenance, never emitted. |
+| `junction`, `entrance` nodes | 149 | `routing_topology_not_a_location` — corridor points a route passes through. The 93 "entrance" nodes are room doorways, not building entrances. |
+| `LC3_QR1`–`QR8` | 8 | `qr_anchor_not_a_room` — QR deep-link anchors, typed `room` upstream. Seeding them as locations would put fake rooms in the search index. |
 
-Every node gets exactly one disposition, and the extractor asserts the three counts — so a silent
+Every node gets exactly one disposition, and the extractor asserts the counts — so a silent
 upstream change fails loudly instead of quietly dropping rooms.
 
 ## Data that is inferred or missing
@@ -140,7 +143,76 @@ validator enforces both halves of this — see `detail_th never asserts an unver
 All 117 rooms resolve to both a toilet and a stairwell within the 15-hop cap (the furthest actual
 distance is 14 hops), so the survey is a confirm-or-correct job rather than a blank sheet.
 
-The 302 edges are read for this and **never emitted** — no routing data is in the seed.
+No routing data is in the location seed. The edges ship separately, in `lc3-graph.seed.json`.
+
+## Routing graph
+
+`lc3-graph.seed.json` carries every source node and edge as the item SmartFacultyGraph stores
+([ADR 0001](../../../docs/adr/0001-separate-graph-table.md)). `GET /api/graph` returns them as
+`{ graph_id, nodes, edges }`.
+
+| Item | Key (`graph_id` = `LC3`, `element_id`) | Fields |
+| --- | --- | --- |
+| node | `NODE#<node_id>` | `node_id`, `floor`, `x`, `y`, `node_type` (source value: `room`, `junction`, `entrance`, `facility`, `stairs`), `location_id` when the node is a location |
+| edge | `EDGE#<from>\|<to>` | `from`, `to`, `edge_type` (source value: `walk`, `up`, `stairs`), `distance` |
+
+The graph is undirected; `from`/`to` keep the source's order only to build a stable key.
+
+**Coordinates** are the source's plus the floor's `coordinate_transform`, the same as the
+location seed, so a node and its room's pin sit on the same point.
+
+**`location_id`** links 131 nodes to SmartFacultyLocations: every room, toilet and stairwell
+in the location seed, matched through its `source.node_id`. The only `room`/`facility` nodes
+with no location are the 8 QR anchors (`LC3_QR1`–`QR8`), which are listed in the seed as
+`unmatched_room_or_facility_nodes` and stay routable. The extractor fails if any other room
+loses its link.
+
+**Distance rule.** Every source edge stores `distance: 0` (or none), so it is recomputed:
+
+- Same-floor edges (`walk`, `up`) cost their straight-line length between the transformed
+  `x,y` of both ends, rounded to 0.01 map units.
+- `stairs` edges join two floor plans drawn in different coordinate frames, so a length between
+  them means nothing. They cost a constant **150 map units per floor crossed**
+  (`STAIRS_DISTANCE`). Measured over every node pair, a cost of 0 would let a same-floor route
+  save up to 144 units by climbing to the other floor and back, so the cost must exceed 72; 150
+  doubles that margin. The validator checks that no same-floor shortest path ever leaves its
+  floor.
+
+Map units have no metre scale, so `distance` is for comparing routes, not for showing
+walking distance or time.
+
+**Building entrance.** The source does not model one. `building_entrances` names
+`LC3_Junction_SM`: the floor-1 south corridor where it opens to the outside, under the floor-2
+balcony (ระเบียง) and beside the QR1 anchor. It was read off the floor plans and is marked
+`derived_unverified` until the field survey's `building_entrance` rows confirm it.
+
+**Connectivity.** Each floor is one connected network over `walk`/`up` edges, and the three
+stairwells join the floors, so no repair edges were needed. The validator fails and names any
+cut-off group if that ever changes, and checks that every room the schedule seed uses is
+reachable from the building entrance.
+
+**Closures** (`closed`, `closed_from`, `closed_until`, `closed_reason`) belong to staff (#147)
+and are never in the seed. A node or edge with no `closed` attribute is open.
+
+`GET /api/graph` is public, so it returns only the fields in the table above plus those four
+closure fields. Anything else stored on an item, such as who set a closure (`closed_by`), is
+dropped from the response.
+
+### Seeding the graph
+
+`seed-dynamodb.mjs --type graph` upserts each item with `UpdateItem`, setting only the fields
+above and removing a `location_id` the seed no longer makes. It never writes a closure field, so
+the CD pipeline's re-seed on every merge leaves staff closures in place. `BatchWriteItem` is
+not used because it can only replace whole items. An item missing a required field stops the
+run before anything is written, rather than deleting that field from the table.
+
+**Known limitation: re-seeding never deletes.** An item that drops out of the seed stays in the
+table, and `GET /api/graph` keeps serving it as a live node or walkway. That happens if a future
+import removes a node or edge, or flips an edge's `from`/`to` order, which changes its key. Today
+it cannot happen silently: the source file is pinned by SHA-256 in `source-manifest.json` and the
+extractor asserts 288 nodes and 302 edges. Whoever re-imports the graph must delete the stale
+items by hand, or add pruning to the seeder. Pruning would mean the CD pipeline deleting
+production items, which needs `dynamodb:DeleteItem` on its role, so it is a tech-lead decision.
 
 ## Hand-off
 

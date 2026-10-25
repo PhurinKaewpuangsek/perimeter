@@ -14,6 +14,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { buildGraphSeed, STAIRS_DISTANCE } from './lc3/routing-graph.mjs';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const DATASET_DIR = join(REPO_ROOT, 'tools', 'data-extraction', 'lc3');
@@ -229,7 +230,12 @@ test('no field value contains the pipe used as the CSV multi-value separator', (
 });
 
 test('generated files are LF and end with exactly one newline', () => {
-  for (const [name, text] of [['seed.csv', seedCsvText], ['node-inventory.csv', inventoryText]]) {
+  const generated = [
+    ['seed.csv', seedCsvText],
+    ['node-inventory.csv', inventoryText],
+    ['lc3-graph.seed.json', read('lc3-graph.seed.json')],
+  ];
+  for (const [name, text] of generated) {
     assert.ok(!text.includes('\r'), `${name} contains CR`);
     assert.ok(text.endsWith('\n') && !text.endsWith('\n\n'), `${name} newline ending`);
   }
@@ -251,13 +257,23 @@ test('every source node is accounted for exactly once', () => {
   assert.equal(included.length, seed.records.length, 'inventory includes differ from seed records');
 });
 
-test('QR anchors are excluded — they are deep-link targets, not rooms', () => {
+test('QR anchors stay out of the location seed — they are deep-link targets, not rooms', () => {
   const inventory = parseCsv(inventoryText);
   const qr = inventory.filter((r) => /^QR\d+$/.test(r.source_name));
   assert.equal(qr.length, 8);
   for (const row of qr) {
-    assert.equal(row.disposition, 'exclude_out_of_scope');
+    assert.equal(row.disposition, 'include_graph');
     assert.equal(row.reason, 'qr_anchor_not_a_room');
+  }
+});
+
+test('junctions and doorways are routing-graph nodes, not locations', () => {
+  const inventory = parseCsv(inventoryText);
+  const topology = inventory.filter((r) => r.node_type === 'junction' || r.node_type === 'entrance');
+  assert.equal(topology.length, 149);
+  for (const row of topology) {
+    assert.equal(row.disposition, 'include_graph', `${row.source_node_id} disposition`);
+    assert.equal(row.reason, 'routing_topology_not_a_location', `${row.source_node_id} reason`);
   }
 });
 
@@ -530,5 +546,225 @@ test('schedule seed — generated DynamoDB room_code + schedule_slot keys are un
       `lc3-schedules.seed.csv row ${i + 2}: duplicate DynamoDB key "${key}" already used by row ${seen.get(key)}`
     );
     seen.set(key, i + 2);
+  }
+});
+
+/* ================================================================= routing graph ===== */
+/*
+ * The tests below validate tools/data-extraction/lc3/lc3-graph.seed.json (issue #143).
+ * Its nodes and edges are written to SmartFacultyGraph as they stand, so these are the
+ * guarantees the route API (#144) and the closure editor (#147) build on.
+ */
+
+const sourceGraph = JSON.parse(readFileSync(join(REPO_ROOT, manifest.graph.dest_path), 'utf8'));
+const graphSeedText = read('lc3-graph.seed.json');
+const graphSeed = JSON.parse(graphSeedText);
+const graphNodes = new Map(graphSeed.nodes.map((n) => [n.node_id, n]));
+const floorOf = (nodeId) => graphNodes.get(nodeId)?.floor;
+
+function adjacency(nodeIds, edges, weight = () => 1) {
+  const adj = new Map(nodeIds.map((id) => [id, []]));
+  for (const e of edges) {
+    if (!adj.has(e.from) || !adj.has(e.to)) continue;
+    adj.get(e.from).push([e.to, weight(e)]);
+    adj.get(e.to).push([e.from, weight(e)]);
+  }
+  return adj;
+}
+
+/** Groups of node ids that can reach each other over `edges`, largest first. */
+function components(nodeIds, edges) {
+  const adj = adjacency(nodeIds, edges);
+  const seen = new Set();
+  const groups = [];
+  for (const start of nodeIds) {
+    if (seen.has(start)) continue;
+    const group = [];
+    const stack = [start];
+    seen.add(start);
+    while (stack.length > 0) {
+      const id = stack.pop();
+      group.push(id);
+      for (const [next] of adj.get(id)) {
+        if (!seen.has(next)) {
+          seen.add(next);
+          stack.push(next);
+        }
+      }
+    }
+    groups.push(group);
+  }
+  return groups.sort((a, b) => b.length - a.length);
+}
+
+/** Shortest walking distance from `start` to every node it can reach. */
+function shortestDistances(start, nodeIds, edges) {
+  const adj = adjacency(nodeIds, edges, (e) => e.distance);
+  const dist = new Map([[start, 0]]);
+  const done = new Set();
+  for (;;) {
+    let current = null;
+    for (const [id, d] of dist) {
+      if (!done.has(id) && (current === null || d < dist.get(current))) current = id;
+    }
+    if (current === null) return dist;
+    done.add(current);
+    for (const [next, w] of adj.get(current)) {
+      const candidate = dist.get(current) + w;
+      if (candidate < (dist.get(next) ?? Infinity)) dist.set(next, candidate);
+    }
+  }
+}
+
+const describeGroups = (groups) =>
+  groups
+    .slice(1)
+    .map((g) => `[${g.length} nodes: ${g.slice(0, 5).join(', ')}${g.length > 5 ? ', ...' : ''}]`)
+    .join(' ');
+
+test('graph seed is exactly what the extractor builds from the source graph', () => {
+  const rebuilt = buildGraphSeed({ graph: sourceGraph, manifest, locationRecords: seed.records });
+  assert.equal(
+    graphSeedText,
+    JSON.stringify(rebuilt, null, 2) + '\n',
+    'lc3-graph.seed.json is stale — run: node tools/data-extraction/extract-lc3.mjs'
+  );
+});
+
+test('graph holds every source node and edge exactly once, keyed as SmartFacultyGraph expects', () => {
+  assert.equal(graphSeed.nodes.length, manifest.graph.node_count, 'node count');
+  assert.equal(graphSeed.edges.length, manifest.graph.edge_count, 'edge count');
+  assert.equal(graphSeed.counts.items, graphSeed.nodes.length + graphSeed.edges.length, 'counts.items');
+  const keys = new Set();
+  for (const n of graphSeed.nodes) {
+    assert.equal(n.graph_id, 'LC3');
+    assert.equal(n.element_id, `NODE#${n.node_id}`);
+    keys.add(n.element_id);
+  }
+  for (const e of graphSeed.edges) {
+    assert.equal(e.graph_id, 'LC3');
+    assert.equal(e.element_id, `EDGE#${e.from}|${e.to}`);
+    keys.add(e.element_id);
+  }
+  assert.equal(keys.size, graphSeed.counts.items, 'duplicate element_id');
+  // The graph is undirected: A|B and B|A would be one walkway under two keys, and closing one
+  // would leave the other open for routing.
+  const pairs = new Map();
+  for (const e of graphSeed.edges) {
+    const pair = [e.from, e.to].sort().join('|');
+    assert.equal(pairs.get(pair), undefined, `${e.element_id} duplicates ${pairs.get(pair)} in the other direction`);
+    pairs.set(pair, e.element_id);
+  }
+  assert.deepEqual(
+    [...graphNodes.keys()].sort(),
+    sourceGraph.nodes.map((n) => n.id).sort(),
+    'graph nodes differ from source nodes'
+  );
+});
+
+test('every edge references nodes that exist', () => {
+  for (const e of graphSeed.edges) {
+    assert.ok(graphNodes.has(e.from), `${e.element_id} starts at missing node ${e.from}`);
+    assert.ok(graphNodes.has(e.to), `${e.element_id} ends at missing node ${e.to}`);
+    assert.notEqual(e.from, e.to, `${e.element_id} is a self-loop`);
+  }
+});
+
+test('each floor is one connected walkway network, and the stairs join the floors', () => {
+  for (const floor of new Set(graphSeed.nodes.map((n) => n.floor))) {
+    const ids = graphSeed.nodes.filter((n) => n.floor === floor).map((n) => n.node_id);
+    const sameFloor = graphSeed.edges.filter((e) => floorOf(e.from) === floor && floorOf(e.to) === floor);
+    const groups = components(ids, sameFloor);
+    assert.equal(groups.length, 1, `floor ${floor} splits into ${groups.length} groups; cut off: ${describeGroups(groups)}`);
+  }
+  const whole = components([...graphNodes.keys()], graphSeed.edges);
+  assert.equal(whole.length, 1, `the building splits into ${whole.length} groups; cut off: ${describeGroups(whole)}`);
+});
+
+test('every test room can be walked to from the building entrance', () => {
+  // The rooms the schedule seed puts classes and exams in, plus LC3-103 for an empty CSV.
+  const testRooms = new Set(['LC3-103', ...(scheduleRows ?? []).map((r) => r.room_code)]);
+  assert.ok(graphSeed.building_entrances.length > 0, 'no building entrance declared');
+  for (const entrance of graphSeed.building_entrances) {
+    const node = graphNodes.get(entrance.node_id);
+    assert.ok(node, `building entrance ${entrance.node_id} is not a graph node`);
+    assert.equal(node.floor, entrance.floor, `building entrance ${entrance.node_id} floor`);
+    const reachable = shortestDistances(entrance.node_id, [...graphNodes.keys()], graphSeed.edges);
+    for (const roomCode of testRooms) {
+      const locationId = resolveRoomCodeToLocationId(roomCode);
+      const roomNodes = graphSeed.nodes.filter((n) => n.location_id === locationId);
+      assert.equal(roomNodes.length, 1, `${roomCode} (${locationId}) has ${roomNodes.length} graph nodes`);
+      assert.ok(reachable.has(roomNodes[0].node_id), `${roomCode} cannot be reached from ${entrance.node_id}`);
+    }
+  }
+});
+
+test('graph node coordinates equal source plus the floor transform, and land inside the viewBox', () => {
+  const assetsByFloor = new Map(manifest.assets.map((a) => [a.floor, a]));
+  for (const source of sourceGraph.nodes) {
+    const n = graphNodes.get(source.id);
+    const asset = assetsByFloor.get(n.floor);
+    assert.equal(n.floor, source.floor, `${n.node_id} floor`);
+    assert.equal(n.x, source.x + asset.coordinate_transform.translate_x, `${n.node_id} x`);
+    assert.equal(n.y, source.y + asset.coordinate_transform.translate_y, `${n.node_id} y`);
+    const [, , w, h] = asset.viewbox;
+    assert.ok(n.x >= 0 && n.x <= w, `${n.node_id} x=${n.x} outside 0..${w}`);
+    assert.ok(n.y >= 0 && n.y <= h, `${n.node_id} y=${n.y} outside 0..${h}`);
+  }
+});
+
+test('location_id links point at the location built from the same node; only QR anchors go without', () => {
+  for (const n of graphSeed.nodes.filter((x) => x.location_id)) {
+    const location = byId.get(n.location_id);
+    assert.ok(location, `${n.node_id} links missing location ${n.location_id}`);
+    assert.equal(location.source.node_id, n.node_id, `${n.node_id} links a location built from another node`);
+  }
+  assert.equal(graphSeed.counts.nodes_with_location_id, seed.records.length, 'a location has no graph node');
+  const unmatched = graphSeed.nodes
+    .filter((n) => ['room', 'facility'].includes(n.node_type) && !n.location_id)
+    .map((n) => n.node_id);
+  assert.deepEqual(unmatched, graphSeed.unmatched_room_or_facility_nodes);
+  for (const id of unmatched) assert.match(id, /^LC3_QR\d+$/, `${id} is a room or facility with no location`);
+});
+
+test('edge types are known, and an edge is stairs exactly when it changes floor', () => {
+  for (const e of graphSeed.edges) {
+    assert.ok(['walk', 'up', 'stairs'].includes(e.edge_type), `${e.element_id} has unknown edge_type ${e.edge_type}`);
+    const crossesFloors = floorOf(e.from) !== floorOf(e.to);
+    assert.equal(e.edge_type === 'stairs', crossesFloors, `${e.element_id} is ${e.edge_type} but crossesFloors=${crossesFloors}`);
+  }
+});
+
+test('edge distances follow the documented rule', () => {
+  for (const e of graphSeed.edges) {
+    const a = graphNodes.get(e.from);
+    const b = graphNodes.get(e.to);
+    assert.ok(Number.isFinite(e.distance) && e.distance > 0, `${e.element_id} distance ${e.distance}`);
+    if (a.floor === b.floor) {
+      assert.equal(e.distance, Math.round(Math.hypot(a.x - b.x, a.y - b.y) * 100) / 100, `${e.element_id} length`);
+    } else {
+      assert.equal(e.distance, STAIRS_DISTANCE * Math.abs(a.floor - b.floor), `${e.element_id} stairs cost`);
+    }
+  }
+});
+
+test('the stairs cost keeps a same-floor route on its own floor', () => {
+  // Floor plans use different coordinate frames, so a cheap floor change could look like a
+  // shortcut. Every same-floor shortest path must be no longer than its floor-only twin.
+  const ids = [...graphNodes.keys()];
+  const sameFloorEdges = graphSeed.edges.filter((e) => floorOf(e.from) === floorOf(e.to));
+  for (const start of ids) {
+    const anyRoute = shortestDistances(start, ids, graphSeed.edges);
+    const floorOnly = shortestDistances(start, ids, sameFloorEdges);
+    for (const [target, d] of floorOnly) {
+      assert.ok(anyRoute.get(target) >= d - 1e-9, `${start} -> ${target} is shorter via another floor`);
+    }
+  }
+});
+
+test('the seed carries no closure fields — staff own those (#147)', () => {
+  for (const item of [...graphSeed.nodes, ...graphSeed.edges]) {
+    const closure = Object.keys(item).filter((k) => k.startsWith('closed'));
+    assert.deepEqual(closure, [], `${item.element_id} seeds ${closure.join(', ')}`);
   }
 });

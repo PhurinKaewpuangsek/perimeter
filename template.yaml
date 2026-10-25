@@ -35,6 +35,15 @@ Parameters:
       one AWS account. Changing it on a live stack REPLACES the table.
     AllowedPattern: "^[A-Za-z0-9_.-]{3,255}$"
 
+  GraphTableName:
+    Type: String
+    Default: SmartFacultyGraph
+    Description: >
+      Name of the routing graph table (nodes, edges and their closures). Change it only when
+      two people share one AWS account. Changing it on a live stack REPLACES the table and
+      loses every closure staff have set.
+    AllowedPattern: "^[A-Za-z0-9_.-]{3,255}$"
+
   ExistingLambdaRoleName:
     Type: String
     Default: LabRole
@@ -805,6 +814,80 @@ Resources:
             Path: /api/pins/{room_code}/{schedule_slot}
             Method: delete
 
+  # ---------------------------------------------------------------------------
+  # Routing graph — issue #143 (docs/adr/0001-separate-graph-table.md).
+  # GET /api/graph
+  # ---------------------------------------------------------------------------
+
+  SmartFacultyGraph:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Ref GraphTableName
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: graph_id
+          AttributeType: S
+        - AttributeName: element_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: graph_id
+          KeyType: HASH
+        - AttributeName: element_id
+          KeyType: RANGE
+
+  GetGraphRole:
+    Type: AWS::IAM::Role
+    Condition: CreateLambdaRoles
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: QueryGraphOnly
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: dynamodb:Query
+                Resource: !GetAtt SmartFacultyGraph.Arn
+
+  GetGraphFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/get-graph/
+      Handler: index.handler
+      # Same reasoning as GetLocationsFunction: more memory is more CPU for the SDK cold start.
+      MemorySize: 1024
+      Role: !If
+        - UseExistingLambdaRole
+        - !Sub "arn:aws:iam::${AWS::AccountId}:role/${ExistingLambdaRoleName}"
+        - !GetAtt GetGraphRole.Arn
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref SmartFacultyGraph
+      # Read-only by design: one Query on the graph partition, no Scan.
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: dynamodb:Query
+              Resource: !GetAtt SmartFacultyGraph.Arn
+      Events:
+        GetGraph:
+          # Type: Api with no RestApiId joins the single implicit API Gateway.
+          # Never declare AWS::Serverless::Api.
+          Type: Api
+          Properties:
+            Path: /api/graph
+            Method: get
+            Auth:
+              Authorizer: NONE
+
 
 # ---------------------------------------------------------------------------
 # Outputs — the scripts under scripts/ read these instead of hardcoding names,
@@ -834,6 +917,10 @@ Outputs:
   PinsTableName:
     Description: DynamoDB table storing user-pinned schedule slots
     Value: !Ref SmartFacultyPins
+
+  GraphTableName:
+    Description: DynamoDB table holding the LC3 routing graph, seeded by the graph seeder and read by GET /api/graph
+    Value: !Ref SmartFacultyGraph
 
   UserPoolId:
     Description: Cognito User Pool ID
