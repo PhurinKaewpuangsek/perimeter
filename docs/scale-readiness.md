@@ -129,3 +129,13 @@ AWS กำหนดให้ต้องเหลือ Unreserved Account Concu
 
 - ทุกตารางเป็น On-Demand (`BillingMode: PAY_PER_REQUEST`)
 - เส้นทาง Navigation วิกฤต (`/api/graph`, `/api/route`, `/api/pins`) ใช้ `QueryCommand` 100% ไม่มีการใช้ `Scan`
+
+### 6.1 การคำนวณอัตราการอ่าน DynamoDB เมื่อปรับลด Topology TTL (15 วินาที)
+- **ความถี่ในการโหลดซ้ำ (Reload Frequency)**:
+  - การลด TTL ของ Topology และ Graph จาก 30 วินาที เหลือ 15 วินาที ส่งผลให้อินสแตนซ์ Lambda (Warm Container) มีการดึงข้อมูล `SmartFacultyGraph` ซ้ำสูงสุดประมาณ **4 ครั้งต่อนาทีต่อคอนเทนเนอร์** (จากเดิม 2 ครั้งต่อนาที)
+- **การประเมิน Read Capacity Units (RCU)**:
+  - ข้อมูลกราฟ `LC3` มีขนาดรวม ~92 KB (~590 รายการ) การ query ทั้งหมดใช้ pagination 1 รอบ (DynamoDB paginates ที่เพดาน 1 MB, ข้อมูล 92 KB จึงอ่านเสร็จใน query command เดียว แต่คิดตามขนาดข้อมูลคือ 92 KB / 4 KB = ~23-24 RCU ต่อ 1 full query)
+  - ภายใต้ Reserved Concurrency สูงสุด 15 คอนเทนเนอร์สำหรับ `GetRouteFunction` และ 10 คอนเทนเนอร์สำหรับ `GetGraphFunction`:
+    - อัตราการยิง Query รวมสูงสุดคือ $(15 + 10) \times 4 = 100\text{ queries/นาที} \approx 1.67\text{ queries/วินาที}$
+    - คิดเป็นอัตราการบริโภค RCU รวมสูงสุดประมาณ $1.67 \times 24 \approx 40\text{ RCU/วินาที}$
+  - ตาราง `SmartFacultyGraph` เป็นแบบ On-Demand (`PAY_PER_REQUEST`) ซึ่งรองรับ baseline ได้ถึง 40,000 RCU/s โดยไม่ต้อง provision ล่วงหน้า อัตรา ~40 RCU/s ในช่วงโหลดสูงสุดจึงปลอดภัยอย่างยิ่งและไม่กระทบต่อประสิทธิภาพหรือโควตาของบัญชี
