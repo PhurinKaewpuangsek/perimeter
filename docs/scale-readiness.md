@@ -38,8 +38,8 @@
 | :--- | :---: | :--- | :--- |
 | `GET /api/locations` | 60 วินาที | `public, max-age=60, stale-while-revalidate=30` | ข้อมูลห้องและพิกัดอาคารเปลี่ยนแปลงน้อยมาก |
 | `GET /api/schedules` | 60 วินาที | `public, max-age=60, stale-while-revalidate=30` | ตารางเรียนเปลี่ยนแปลงเฉพาะเมื่อ Staff แก้ไข แคชได้ 1 นาที |
-| `GET /api/graph` | 30 วินาที | `public, max-age=30, stale-while-revalidate=10` | มีข้อมูลการปิดทางเดิน/ห้อง (Closures) ต้องสะท้อนผลภายใน $\le 30$ วินาที |
-| `GET /api/route` | 30 วินาที (Topology) | `public, max-age=15, stale-while-revalidate=15` | คำนวณเส้นทางเลี่ยงทางปิด ต้องสะท้อนผล closure ภายใน $\le 30$ วินาที |
+| `GET /api/graph` | 15 วินาที | `public, max-age=15` | มีข้อมูลการปิดทางเดิน/ห้อง (Closures) ต้องสะท้อนผลภายใน $\le 30$ วินาที (15s container + 15s HTTP) |
+| `GET /api/route` | 15 วินาที (Topology) | `public, max-age=15` | คำนวณเส้นทางเลี่ยงทางปิด ต้องสะท้อนผล closure ภายใน $\le 30$ วินาที (15s container + 15s HTTP) |
 | **Error (4xx / 5xx)** | ไม่แคช | `no-store` | ไม่แคชผลลัพธ์ที่ผิดพลาด |
 | **Write / Auth Routes** | ไม่แคช | ไม่มี public cache / Authorizer บังคับ | ป้องกันข้อมูลส่วนบุคคลและการแก้ไขรั่วไหล |
 
@@ -77,15 +77,15 @@ Globals:
 
 ## 4. โควตา Concurrency ของ Lambda (`ReservedConcurrentExecutions`)
 
-AWS กำหนดให้ต้องเหลือ Unreserved Account Concurrency อย่างน้อย 100 เสมอ สำหรับฟังก์ชันอื่น ๆ ในบัญชี เพื่อความปลอดภัยในโควตาของ AWS Academy Learner Lab จึงตั้งค่า Reserved Concurrency ให้กับ Lambda อ่านความถี่สูงสุดดังนี้:
+AWS กำหนดให้ต้องเหลือ Unreserved Account Concurrency อย่างน้อย 100 เสมอ สำหรับฟังก์ชันอื่น ๆ ในบัญชี เพื่อความปลอดภัยในโควตาของ AWS Academy Learner Lab จึงตั้งค่า Reserved Concurrency ให้กับ Lambda อ่านความถี่สูงสุดดังนี้ (กำหนดผ่าน CloudFormation Parameters เพื่อให้ปรับลดหรือ override ได้ตามโควตาของบัญชีเป้าหมาย):
 
-| Lambda Resource | Function Name | Reserved Concurrency | Memory |
-| :--- | :--- | :---: | :---: |
-| `GetLocationsFunction` | `functions/get-locations` | **10** | 1024 MB |
-| `GetSchedulesFunction` | `functions/get-schedules` | **10** | 1024 MB |
-| `GetGraphFunction` | `functions/get-graph` | **10** | 1024 MB |
-| `GetRouteFunction` | `functions/get-route` | **15** | 1024 MB |
-| **รวมที่กันไว้ (Reserved)** | - | **45** | - |
+| Lambda Resource | Function Name | Parameter Name | Reserved Concurrency | Memory |
+| :--- | :--- | :--- | :---: | :---: |
+| `GetLocationsFunction` | `functions/get-locations` | `LocationsReservedConcurrency` | **10** | 1024 MB |
+| `GetSchedulesFunction` | `functions/get-schedules` | `SchedulesReservedConcurrency` | **10** | 1024 MB |
+| `GetGraphFunction` | `functions/get-graph` | `GraphReservedConcurrency` | **10** | 1024 MB |
+| `GetRouteFunction` | `functions/get-route` | `RouteReservedConcurrency` | **15** | 1024 MB |
+| **รวมที่กันไว้ (Reserved)** | - | - | **45** | - |
 
 ประโยชน์:
 - ป้องกันไม่ให้ Lambda อ่านเดียวกินโควตา Lambda ทั้งบัญชีจนหมด

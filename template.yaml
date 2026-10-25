@@ -44,6 +44,26 @@ Parameters:
       loses every closure staff have set.
     AllowedPattern: "^[A-Za-z0-9_.-]{3,255}$"
 
+  LocationsReservedConcurrency:
+    Type: Number
+    Default: 10
+    Description: Reserved concurrent executions for GetLocationsFunction (leaves >= 100 unreserved in account).
+
+  SchedulesReservedConcurrency:
+    Type: Number
+    Default: 10
+    Description: Reserved concurrent executions for GetSchedulesFunction (leaves >= 100 unreserved in account).
+
+  GraphReservedConcurrency:
+    Type: Number
+    Default: 10
+    Description: Reserved concurrent executions for GetGraphFunction (leaves >= 100 unreserved in account).
+
+  RouteReservedConcurrency:
+    Type: Number
+    Default: 15
+    Description: Reserved concurrent executions for GetRouteFunction (leaves >= 100 unreserved in account).
+
   ExistingLambdaRoleName:
     Type: String
     Default: LabRole
@@ -211,7 +231,7 @@ Resources:
     Properties:
       CodeUri: functions/get-locations/
       Handler: index.handler
-      ReservedConcurrentExecutions: 10
+      ReservedConcurrentExecutions: !Ref LocationsReservedConcurrency
       # Lambda CPU scales with memory. At the 128 MB default, loading the AWS SDK and
       # serialising 131 records took 0.5 E.4 s before the first byte; this is still well
       # inside the free tier for one read on page load.
@@ -286,7 +306,7 @@ Resources:
       CodeUri: functions/get-schedules/
       Handler: index.handler
       MemorySize: 1024
-      ReservedConcurrentExecutions: 10
+      ReservedConcurrentExecutions: !Ref SchedulesReservedConcurrency
       Role: !If
         - UseExistingLambdaRole
         - !Sub "arn:aws:iam::${AWS::AccountId}:role/${ExistingLambdaRoleName}"
@@ -890,7 +910,7 @@ Resources:
     Properties:
       CodeUri: functions/get-graph/
       Handler: index.handler
-      ReservedConcurrentExecutions: 10
+      ReservedConcurrentExecutions: !Ref GraphReservedConcurrency
       # Same reasoning as GetLocationsFunction: more memory is more CPU for the SDK cold start.
       MemorySize: 1024
       Role: !If
@@ -952,7 +972,7 @@ Resources:
       CodeUri: functions/get-route/
       Handler: index.handler
       MemorySize: 1024
-      ReservedConcurrentExecutions: 15
+      ReservedConcurrentExecutions: !Ref RouteReservedConcurrency
       Role: !If
         - UseExistingLambdaRole
         - !Sub "arn:aws:iam::${AWS::AccountId}:role/${ExistingLambdaRoleName}"

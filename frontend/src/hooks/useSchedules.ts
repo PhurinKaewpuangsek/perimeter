@@ -19,11 +19,13 @@ const SCHEDULES_CACHE_TTL_MS = 60 * 1000 // 60 seconds TTL
 let inFlightSchedulesPromise: Promise<ScheduleSlot[]> | null = null
 let inMemorySchedules: ScheduleSlot[] | null = null
 let inMemorySchedulesFetchedAt = 0
+let schedulesRequestId = 0
 
 export function _resetSchedulesCacheForTesting(): void {
   inFlightSchedulesPromise = null
   inMemorySchedules = null
   inMemorySchedulesFetchedAt = 0
+  schedulesRequestId = 0
 }
 
 function fetchSchedulesDeduplicated(force = false): Promise<ScheduleSlot[]> {
@@ -35,17 +37,23 @@ function fetchSchedulesDeduplicated(force = false): Promise<ScheduleSlot[]> {
     return inFlightSchedulesPromise
   }
 
-  inFlightSchedulesPromise = getSchedules()
+  const currentId = ++schedulesRequestId
+  const promise = getSchedules({ bypassCache: force })
     .then((data) => {
-      inMemorySchedules = data
-      inMemorySchedulesFetchedAt = Date.now()
+      if (currentId === schedulesRequestId) {
+        inMemorySchedules = data
+        inMemorySchedulesFetchedAt = Date.now()
+      }
       return data
     })
     .finally(() => {
-      inFlightSchedulesPromise = null
+      if (inFlightSchedulesPromise === promise) {
+        inFlightSchedulesPromise = null
+      }
     })
 
-  return inFlightSchedulesPromise
+  inFlightSchedulesPromise = promise
+  return promise
 }
 
 export function useSchedules(): UseSchedulesResult {
@@ -53,16 +61,20 @@ export function useSchedules(): UseSchedulesResult {
   const [loading, setLoading] = useState<boolean>(() => inMemorySchedules === null)
   const [error, setError] = useState<Error | null>(null)
   const [attempt, setAttempt] = useState(0)
+  const hasSchedulesRef = useRef(inMemorySchedules !== null && inMemorySchedules.length > 0)
   // Callers of reload() waiting for the next fetch started by it.
   const waitersRef = useRef<Array<{ resolve: () => void; reject: (err: Error) => void }>>([])
 
   useEffect(() => {
     let isMounted = true
+    let hookRequestId = 0
 
     const fetchSchedules = (force = false, waiters: typeof waitersRef.current = []) => {
+      const currentHookId = ++hookRequestId
       fetchSchedulesDeduplicated(force)
         .then((data) => {
-          if (isMounted) {
+          if (isMounted && currentHookId === hookRequestId) {
+            hasSchedulesRef.current = data.length > 0
             setSchedules(data)
             setError(null)
             setLoading(false)
@@ -72,12 +84,11 @@ export function useSchedules(): UseSchedulesResult {
         .catch((err) => {
           const error = err instanceof Error ? err : new Error(String(err))
           waiters.forEach((w) => w.reject(error))
-          if (!isMounted) return
+          if (!isMounted || currentHookId !== hookRequestId) return
           setLoading(false)
-          setSchedules((prev) => {
-            if (prev.length === 0) setError(error)
-            return prev
-          })
+          if (!hasSchedulesRef.current) {
+            setError(error)
+          }
         })
     }
 

@@ -53,7 +53,7 @@ describe('GetGraphFunction Lambda Handler', () => {
     assert.equal(response.statusCode, 200);
     assert.equal(response.headers['Access-Control-Allow-Origin'], '*');
     assert.equal(response.headers['Content-Type'], 'application/json');
-    assert.equal(response.headers['Cache-Control'], 'public, max-age=30, stale-while-revalidate=10');
+    assert.equal(response.headers['Cache-Control'], 'public, max-age=15');
     assert.deepEqual(JSON.parse(response.body), { graph_id: 'LC3', nodes: [room, corridor], edges: [closed] });
   });
 
@@ -112,7 +112,7 @@ describe('GetGraphFunction Lambda Handler', () => {
 
     assert.equal(response.statusCode, 200);
     assert.equal(response.headers['Access-Control-Allow-Origin'], '*');
-    assert.equal(response.headers['Cache-Control'], 'public, max-age=30, stale-while-revalidate=10');
+    assert.equal(response.headers['Cache-Control'], 'public, max-age=15');
     assert.deepEqual(JSON.parse(response.body), { graph_id: 'LC3', nodes: [], edges: [] });
   });
 

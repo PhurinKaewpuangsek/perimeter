@@ -155,6 +155,27 @@ describe('roomsService - Data Access Layer', () => {
       }
     })
 
+    it('passes cache: "no-cache" when bypassCache is true', async () => {
+      const originalFetch = globalThis.fetch
+      try {
+        let receivedInit: RequestInit | undefined
+        globalThis.fetch = async (_input: RequestInfo | URL, init?: RequestInit) => {
+          receivedInit = init
+          return {
+            ok: true,
+            status: 200,
+            statusText: 'OK',
+            json: async () => API_RESPONSE,
+          } as Response
+        }
+
+        await getRooms({ bypassCache: true })
+        assert.strictEqual(receivedInit?.cache, 'no-cache')
+      } finally {
+        globalThis.fetch = originalFetch
+      }
+    })
+
     it('throws an error when HTTP response is not ok', async () => {
       const originalFetch = globalThis.fetch
       try {

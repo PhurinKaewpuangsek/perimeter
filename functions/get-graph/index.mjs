@@ -6,7 +6,7 @@ const defaultDocClient = DynamoDBDocumentClient.from(client);
 
 const TABLE_NAME = process.env.TABLE_NAME || 'SmartFacultyGraph';
 const GRAPH_ID = 'LC3';
-const DEFAULT_CACHE_TTL_MS = 30 * 1000; // 30 seconds TTL: closure updates reflect within <= 30 seconds
+const DEFAULT_CACHE_TTL_MS = 15 * 1000; // 15 seconds TTL: combined with 15s HTTP max-age, closures reflect within <= 30 seconds
 
 const CORS_HEADERS = {
   'Content-Type': 'application/json',
@@ -17,7 +17,7 @@ const CORS_HEADERS = {
 
 const SUCCESS_HEADERS = {
   ...CORS_HEADERS,
-  'Cache-Control': 'public, max-age=30, stale-while-revalidate=10',
+  'Cache-Control': 'public, max-age=15',
 };
 
 const ERROR_HEADERS = {

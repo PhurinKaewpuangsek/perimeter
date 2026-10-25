@@ -139,10 +139,10 @@ describe('GetRouteFunction Lambda Handler', () => {
     });
 
     assert.equal(response.statusCode, 200);
-    assert.equal(response.headers['Cache-Control'], 'public, max-age=15, stale-while-revalidate=15');
+    assert.equal(response.headers['Cache-Control'], 'public, max-age=15');
     assert.equal(response.headers['Access-Control-Allow-Origin'], '*');
     assert.equal(response.headers['Content-Type'], 'application/json');
-    assert.equal(response.headers['Cache-Control'], 'public, max-age=15, stale-while-revalidate=15');
+    assert.equal(response.headers['Cache-Control'], 'public, max-age=15');
     const body = JSON.parse(response.body);
     assert.equal(body.found, true);
     assert.equal(body.distance, 20);
@@ -165,7 +165,7 @@ describe('GetRouteFunction Lambda Handler', () => {
     });
 
     assert.equal(response.statusCode, 200);
-    assert.equal(response.headers['Cache-Control'], 'public, max-age=15, stale-while-revalidate=15');
+    assert.equal(response.headers['Cache-Control'], 'public, max-age=15');
     const body = JSON.parse(response.body);
     assert.equal(body.found, false);
     assert.equal(body.reason, 'UNKNOWN_LOCATION');
@@ -196,7 +196,7 @@ describe('GetRouteFunction Lambda Handler', () => {
     });
 
     assert.equal(response.statusCode, 200);
-    assert.equal(response.headers['Cache-Control'], 'public, max-age=15, stale-while-revalidate=15');
+    assert.equal(response.headers['Cache-Control'], 'public, max-age=15');
     assert.equal(capture.commands.length, 2);
     assert.equal(capture.commands[0].input.TableName, 'TestGraph');
     assert.equal(capture.commands[0].input.KeyConditionExpression, 'graph_id = :graphId');

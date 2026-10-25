@@ -43,11 +43,13 @@ const ROOMS_CACHE_TTL_MS = 60 * 1000 // 60 seconds TTL
 let inFlightRoomsPromise: Promise<Room[]> | null = null
 let inMemoryRooms: Room[] | null = null
 let inMemoryRoomsFetchedAt = 0
+let roomsRequestId = 0
 
 export function _resetRoomsCacheForTesting(): void {
   inFlightRoomsPromise = null
   inMemoryRooms = null
   inMemoryRoomsFetchedAt = 0
+  roomsRequestId = 0
 }
 
 function fetchRoomsDeduplicated(force = false): Promise<Room[]> {
@@ -59,18 +61,24 @@ function fetchRoomsDeduplicated(force = false): Promise<Room[]> {
     return inFlightRoomsPromise
   }
 
-  inFlightRoomsPromise = getRooms()
+  const currentId = ++roomsRequestId
+  const promise = getRooms({ bypassCache: force })
     .then((data) => {
-      inMemoryRooms = data
-      inMemoryRoomsFetchedAt = Date.now()
-      writeCachedRooms(data)
+      if (currentId === roomsRequestId) {
+        inMemoryRooms = data
+        inMemoryRoomsFetchedAt = Date.now()
+        writeCachedRooms(data)
+      }
       return data
     })
     .finally(() => {
-      inFlightRoomsPromise = null
+      if (inFlightRoomsPromise === promise) {
+        inFlightRoomsPromise = null
+      }
     })
 
-  return inFlightRoomsPromise
+  inFlightRoomsPromise = promise
+  return promise
 }
 
 export function useRooms(): UseRoomsResult {
@@ -83,11 +91,13 @@ export function useRooms(): UseRoomsResult {
 
   useEffect(() => {
     let isMounted = true
+    let hookRequestId = 0
 
     const fetchRooms = (force = false) => {
+      const currentHookId = ++hookRequestId
       fetchRoomsDeduplicated(force)
         .then((data) => {
-          if (isMounted) {
+          if (isMounted && currentHookId === hookRequestId) {
             hasRoomsRef.current = true
             setRooms(data)
             setError(null)
@@ -95,7 +105,7 @@ export function useRooms(): UseRoomsResult {
           }
         })
         .catch((err) => {
-          if (!isMounted) return
+          if (!isMounted || currentHookId !== hookRequestId) return
           setLoading(false)
           // With a cached copy on screen, a failed refresh is not worth interrupting the user.
           if (!hasRoomsRef.current) setError(err instanceof Error ? err : new Error(String(err)))

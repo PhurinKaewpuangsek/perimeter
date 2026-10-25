@@ -3,7 +3,7 @@ import { renderHook, waitFor, act } from '@testing-library/react'
 import { useSchedules, _resetSchedulesCacheForTesting } from '../useSchedules'
 import type { ScheduleSlot } from '../../types/schedule'
 
-const getSchedulesMock = vi.hoisted(() => vi.fn<() => Promise<ScheduleSlot[]>>())
+const getSchedulesMock = vi.hoisted(() => vi.fn<(options?: { bypassCache?: boolean }) => Promise<ScheduleSlot[]>>())
 vi.mock('../../services/schedulesService.ts', () => ({ getSchedules: getSchedulesMock }))
 
 const slot = (eventCode: string): ScheduleSlot => ({
@@ -71,5 +71,17 @@ describe('useSchedules reload()', () => {
     await waitFor(() => expect(hook2.current.schedules).toHaveLength(1))
 
     expect(getSchedulesMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('passes bypassCache: true on reload', async () => {
+    getSchedulesMock.mockResolvedValueOnce([slot('EVENT1')]).mockResolvedValueOnce([slot('EVENT2')])
+    const { result } = renderHook(() => useSchedules())
+    await waitFor(() => expect(result.current.schedules).toHaveLength(1))
+    expect(getSchedulesMock).toHaveBeenLastCalledWith({ bypassCache: false })
+
+    let done!: Promise<void>
+    act(() => { done = result.current.reload(true) })
+    await act(() => done)
+    expect(getSchedulesMock).toHaveBeenLastCalledWith({ bypassCache: true })
   })
 })

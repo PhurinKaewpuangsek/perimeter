@@ -269,5 +269,58 @@ describe('useRooms()', () => {
         secondRenderer?.unmount()
       })
     }
+
+  })
+
+  it('prevents an older slower in-flight fetch from overwriting a newer reload fetch', async () => {
+    let resolveFirst: (res: Response) => void = () => undefined
+    let resolveSecond: (res: Response) => void = () => undefined
+    let callIndex = 0
+
+    globalThis.fetch = (() => {
+      callIndex++
+      if (callIndex === 1) {
+        return new Promise<Response>((resolve) => {
+          resolveFirst = resolve
+        })
+      }
+      return new Promise<Response>((resolve) => {
+        resolveSecond = resolve
+      })
+    }) as typeof fetch
+
+    const readResult = await renderUseRooms()
+
+    // Trigger reload (second fetch)
+    await act(async () => {
+      readResult().reload()
+      await flushUpdates()
+    })
+
+    assert.strictEqual(callIndex, 2)
+
+    // Complete second fetch first (with newer data)
+    await act(async () => {
+      resolveSecond(
+        createResponse({
+          records: [{ location_id: 'NEW-1', room_code: 'NEW-1' }],
+        })
+      )
+      await flushUpdates()
+    })
+
+    assert.strictEqual(readResult().rooms[0]?.code, 'NEW-1')
+
+    // Now complete the older first fetch (with older data)
+    await act(async () => {
+      resolveFirst(
+        createResponse({
+          records: [{ location_id: 'OLD-1', room_code: 'OLD-1' }],
+        })
+      )
+      await flushUpdates()
+    })
+
+    assert.strictEqual(readResult().rooms[0]?.code, 'NEW-1')
   })
 })
