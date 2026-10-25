@@ -38,7 +38,7 @@ export function isPathAllowedForRole(path: string, role: UserRole): boolean {
   const normalized = path.split('?')[0].split('#')[0]
 
   // Landing page and map are public to all roles
-  if (normalized === '/' || normalized === '/map' || normalized === '/prototype/map') {
+  if (normalized === '/' || normalized === '/map') {
     return true
   }
 

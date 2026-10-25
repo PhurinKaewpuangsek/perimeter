@@ -26,7 +26,7 @@ export interface RoomSearchPanelProps {
 
 /**
  * Search & Filter Component — floating overlay บนแผนที่
- * รับข้อมูล rooms, loading, error จาก App.tsx
+ * รับข้อมูล rooms, loading, error จาก its parent component
  * ควบคุมการเปิด/ปิด dropdown ผลลัพธ์ และซ่อน dropdown อัตโนมัติเมื่อเลือกห้อง
  */
 export default function RoomSearchPanel({
