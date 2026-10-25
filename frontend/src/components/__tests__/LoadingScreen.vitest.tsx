@@ -23,4 +23,10 @@ describe('LoadingScreen', () => {
     await user.click(screen.getByRole('button', { name: /ลองใหม่/ }))
     expect(onRetry).toHaveBeenCalledTimes(1)
   })
+
+  it('displays friendly message when receiving a 429 throttling error', () => {
+    render(<LoadingScreen error={new Error('ระบบกำลังคนใช้งานมาก ลองใหม่')} />)
+
+    expect(screen.getByRole('alert')).toHaveTextContent('ระบบกำลังคนใช้งานมาก ลองใหม่')
+  })
 })

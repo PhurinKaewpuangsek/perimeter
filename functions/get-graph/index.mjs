@@ -6,12 +6,23 @@ const defaultDocClient = DynamoDBDocumentClient.from(client);
 
 const TABLE_NAME = process.env.TABLE_NAME || 'SmartFacultyGraph';
 const GRAPH_ID = 'LC3';
+const DEFAULT_CACHE_TTL_MS = 30 * 1000; // 30 seconds TTL: closure updates reflect within <= 30 seconds
 
 const CORS_HEADERS = {
   'Content-Type': 'application/json',
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET,OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
+};
+
+const SUCCESS_HEADERS = {
+  ...CORS_HEADERS,
+  'Cache-Control': 'public, max-age=30, stale-while-revalidate=10',
+};
+
+const ERROR_HEADERS = {
+  ...CORS_HEADERS,
+  'Cache-Control': 'no-store',
 };
 
 /**
@@ -57,23 +68,38 @@ async function queryWholeGraph(docClient, tableName, graphId) {
  * Builds the Lambda handler around an injectable document client so the response
  * contract can be unit tested without reaching AWS.
  */
-export function createHandler({ docClient = defaultDocClient, tableName = TABLE_NAME, graphId = GRAPH_ID } = {}) {
+export function createHandler({
+  docClient = defaultDocClient,
+  tableName = TABLE_NAME,
+  graphId = GRAPH_ID,
+  cacheTtlMs = DEFAULT_CACHE_TTL_MS,
+  now = () => new Date(),
+} = {}) {
+  let cachedPayload = null;
+  let cachedAt = 0;
+
   return async function getGraph() {
     try {
-      const items = await queryWholeGraph(docClient, tableName, graphId);
+      const currentTime = typeof now === 'function' ? now().getTime() : Date.now();
+      if (!cachedPayload || currentTime - cachedAt >= cacheTtlMs) {
+        const items = await queryWholeGraph(docClient, tableName, graphId);
 
-      // Closure fields are included because the map and the route API read closures from here.
-      const nodes = items
-        .filter((item) => item.element_id?.startsWith('NODE#'))
-        .map((item) => pick(item, [...NODE_FIELDS, ...CLOSURE_FIELDS]));
-      const edges = items
-        .filter((item) => item.element_id?.startsWith('EDGE#'))
-        .map((item) => pick(item, [...EDGE_FIELDS, ...CLOSURE_FIELDS]));
+        // Closure fields are included because the map and the route API read closures from here.
+        const nodes = items
+          .filter((item) => item.element_id?.startsWith('NODE#'))
+          .map((item) => pick(item, [...NODE_FIELDS, ...CLOSURE_FIELDS]));
+        const edges = items
+          .filter((item) => item.element_id?.startsWith('EDGE#'))
+          .map((item) => pick(item, [...EDGE_FIELDS, ...CLOSURE_FIELDS]));
+
+        cachedPayload = { graph_id: graphId, nodes, edges };
+        cachedAt = currentTime;
+      }
 
       return {
         statusCode: 200,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({ graph_id: graphId, nodes, edges }),
+        headers: SUCCESS_HEADERS,
+        body: JSON.stringify(cachedPayload),
       };
     } catch (error) {
       // Details stay in the logs: on this public route an SDK message such as AccessDenied
@@ -81,7 +107,7 @@ export function createHandler({ docClient = defaultDocClient, tableName = TABLE_
       console.error('Error querying graph:', error);
       return {
         statusCode: 500,
-        headers: CORS_HEADERS,
+        headers: ERROR_HEADERS,
         body: JSON.stringify({ error: 'Failed to fetch graph' }),
       };
     }

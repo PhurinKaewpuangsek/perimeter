@@ -2,12 +2,13 @@ import { createElement } from 'react'
 import { afterEach, beforeEach, describe, it } from 'node:test'
 import assert from 'node:assert'
 import { act, create, type ReactTestRenderer } from 'react-test-renderer'
-import { ROOMS_CACHE_KEY, useRooms, type UseRoomsResult } from '../useRooms.ts'
+import { ROOMS_CACHE_KEY, useRooms, type UseRoomsResult, _resetRoomsCacheForTesting } from '../useRooms.ts'
 
 /** In-memory stand-in for window.localStorage, fresh for every test. */
 let storage: Map<string, string>
 
 beforeEach(() => {
+  _resetRoomsCacheForTesting()
   storage = new Map()
   Object.defineProperty(globalThis, 'localStorage', {
     configurable: true,
@@ -235,5 +236,38 @@ describe('useRooms()', () => {
 
     assert.strictEqual(readResult().loading, true)
     assert.deepStrictEqual(readResult().rooms, [])
+  })
+
+  it('deduplicates in-flight fetches so multiple callers share a single network request', async () => {
+    let fetchCount = 0
+    globalThis.fetch = (() => {
+      fetchCount++
+      return Promise.resolve(createResponse({ records: [{ location_id: 'LC3-101', room_code: 'LC3-101' }] }))
+    }) as typeof fetch
+
+    const read1 = await renderUseRooms()
+    assert.strictEqual(fetchCount, 1)
+    assert.strictEqual(read1().rooms.length, 1)
+
+    let secondResult: UseRoomsResult | undefined
+    function SecondHookProbe() {
+      secondResult = useRooms()
+      return null
+    }
+
+    let secondRenderer: ReactTestRenderer | undefined
+    await act(async () => {
+      secondRenderer = create(createElement(SecondHookProbe))
+      await flushUpdates()
+    })
+
+    assert.strictEqual(fetchCount, 1)
+    assert.strictEqual(secondResult?.rooms.length, 1)
+
+    if (secondRenderer) {
+      await act(async () => {
+        secondRenderer?.unmount()
+      })
+    }
   })
 })

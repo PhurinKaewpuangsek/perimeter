@@ -38,8 +38,43 @@ function writeCachedRooms(rooms: Room[]): void {
   }
 }
 
+const ROOMS_CACHE_TTL_MS = 60 * 1000 // 60 seconds TTL
+
+let inFlightRoomsPromise: Promise<Room[]> | null = null
+let inMemoryRooms: Room[] | null = null
+let inMemoryRoomsFetchedAt = 0
+
+export function _resetRoomsCacheForTesting(): void {
+  inFlightRoomsPromise = null
+  inMemoryRooms = null
+  inMemoryRoomsFetchedAt = 0
+}
+
+function fetchRoomsDeduplicated(force = false): Promise<Room[]> {
+  const now = Date.now()
+  if (!force && inMemoryRooms && now - inMemoryRoomsFetchedAt < ROOMS_CACHE_TTL_MS) {
+    return Promise.resolve(inMemoryRooms)
+  }
+  if (!force && inFlightRoomsPromise) {
+    return inFlightRoomsPromise
+  }
+
+  inFlightRoomsPromise = getRooms()
+    .then((data) => {
+      inMemoryRooms = data
+      inMemoryRoomsFetchedAt = Date.now()
+      writeCachedRooms(data)
+      return data
+    })
+    .finally(() => {
+      inFlightRoomsPromise = null
+    })
+
+  return inFlightRoomsPromise
+}
+
 export function useRooms(): UseRoomsResult {
-  const [cached] = useState<Room[] | null>(readCachedRooms)
+  const [cached] = useState<Room[] | null>(() => inMemoryRooms ?? readCachedRooms())
   const [rooms, setRooms] = useState<Room[]>(cached ?? [])
   const [loading, setLoading] = useState<boolean>(cached === null)
   const [error, setError] = useState<Error | null>(null)
@@ -49,10 +84,9 @@ export function useRooms(): UseRoomsResult {
   useEffect(() => {
     let isMounted = true
 
-    const fetchRooms = () => {
-      getRooms()
+    const fetchRooms = (force = false) => {
+      fetchRoomsDeduplicated(force)
         .then((data) => {
-          writeCachedRooms(data)
           if (isMounted) {
             hasRoomsRef.current = true
             setRooms(data)
@@ -68,9 +102,13 @@ export function useRooms(): UseRoomsResult {
         })
     }
 
-    fetchRooms()
+    fetchRooms(attempt > 0)
 
-    const onFocus = () => fetchRooms()
+    const onFocus = () => {
+      if (Date.now() - inMemoryRoomsFetchedAt >= ROOMS_CACHE_TTL_MS) {
+        fetchRooms(false)
+      }
+    }
     if (typeof window !== 'undefined') {
       window.addEventListener('focus', onFocus)
     }

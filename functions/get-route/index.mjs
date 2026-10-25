@@ -16,6 +16,16 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Headers': 'Content-Type,Authorization',
 };
 
+const SUCCESS_HEADERS = {
+  ...CORS_HEADERS,
+  'Cache-Control': 'public, max-age=15, stale-while-revalidate=15',
+};
+
+const ERROR_HEADERS = {
+  ...CORS_HEADERS,
+  'Cache-Control': 'no-store',
+};
+
 /**
  * Loads all graph elements (nodes and edges) for a building using a single Query loop.
  *
@@ -88,7 +98,7 @@ export function createHandler({
       if (!from || !to) {
         return {
           statusCode: 400,
-          headers: CORS_HEADERS,
+          headers: ERROR_HEADERS,
           body: JSON.stringify({
             error: 'Missing required query parameters',
             message: 'Both "from" and "to" query parameters are required',
@@ -102,7 +112,7 @@ export function createHandler({
         if (isNaN(atDate.getTime())) {
           return {
             statusCode: 400,
-            headers: CORS_HEADERS,
+            headers: ERROR_HEADERS,
             body: JSON.stringify({
               error: 'Invalid timestamp',
               message: 'Parameter "at" must be a valid ISO-8601 string',
@@ -114,7 +124,7 @@ export function createHandler({
       }
 
       // In-memory caching: reuse graph topology and closures for cacheTtlMs
-      const currentTime = now().getTime();
+      const currentTime = typeof now === 'function' ? now().getTime() : Date.now();
       if (!cachedGraph || currentTime - cachedAt >= cacheTtlMs) {
         cachedGraph = await loadGraph(docClient, tableName);
         cachedAt = currentTime;
@@ -130,14 +140,14 @@ export function createHandler({
 
       return {
         statusCode: 200,
-        headers: CORS_HEADERS,
+        headers: SUCCESS_HEADERS,
         body: JSON.stringify(result),
       };
     } catch (error) {
       console.error('Error calculating route:', error);
       return {
         statusCode: 500,
-        headers: CORS_HEADERS,
+        headers: ERROR_HEADERS,
         body: JSON.stringify({
           error: 'Failed to calculate route',
           message: 'An internal error occurred. Please try again later.',

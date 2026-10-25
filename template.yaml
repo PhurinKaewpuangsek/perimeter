@@ -92,6 +92,26 @@ Globals:
             Access-Control-Allow-Origin: "'*'"
             Access-Control-Allow-Headers: "'Content-Type,Authorization'"
             Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
+    # Throttling settings to protect against traffic spikes and runaway clients (issue #149)
+    MethodSettings:
+      # Read routes: high capacity for surge traffic before classes / exams
+      - ResourcePath: "/*"
+        HttpMethod: "GET"
+        ThrottlingRateLimit: 100
+        ThrottlingBurstLimit: 200
+      # Write routes: strict limits to protect database from rapid writes
+      - ResourcePath: "/*"
+        HttpMethod: "POST"
+        ThrottlingRateLimit: 20
+        ThrottlingBurstLimit: 40
+      - ResourcePath: "/*"
+        HttpMethod: "PUT"
+        ThrottlingRateLimit: 20
+        ThrottlingBurstLimit: 40
+      - ResourcePath: "/*"
+        HttpMethod: "DELETE"
+        ThrottlingRateLimit: 20
+        ThrottlingBurstLimit: 40
 
 # ---------------------------------------------------------------------------
 # Resources
@@ -191,6 +211,7 @@ Resources:
     Properties:
       CodeUri: functions/get-locations/
       Handler: index.handler
+      ReservedConcurrentExecutions: 10
       # Lambda CPU scales with memory. At the 128 MB default, loading the AWS SDK and
       # serialising 131 records took 0.5 E.4 s before the first byte; this is still well
       # inside the free tier for one read on page load.
@@ -265,6 +286,7 @@ Resources:
       CodeUri: functions/get-schedules/
       Handler: index.handler
       MemorySize: 1024
+      ReservedConcurrentExecutions: 10
       Role: !If
         - UseExistingLambdaRole
         - !Sub "arn:aws:iam::${AWS::AccountId}:role/${ExistingLambdaRoleName}"
@@ -868,6 +890,7 @@ Resources:
     Properties:
       CodeUri: functions/get-graph/
       Handler: index.handler
+      ReservedConcurrentExecutions: 10
       # Same reasoning as GetLocationsFunction: more memory is more CPU for the SDK cold start.
       MemorySize: 1024
       Role: !If
@@ -929,6 +952,7 @@ Resources:
       CodeUri: functions/get-route/
       Handler: index.handler
       MemorySize: 1024
+      ReservedConcurrentExecutions: 15
       Role: !If
         - UseExistingLambdaRole
         - !Sub "arn:aws:iam::${AWS::AccountId}:role/${ExistingLambdaRoleName}"

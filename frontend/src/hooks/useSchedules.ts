@@ -14,9 +14,43 @@ export interface UseSchedulesResult {
   reload: (background?: boolean) => Promise<void>
 }
 
+const SCHEDULES_CACHE_TTL_MS = 60 * 1000 // 60 seconds TTL
+
+let inFlightSchedulesPromise: Promise<ScheduleSlot[]> | null = null
+let inMemorySchedules: ScheduleSlot[] | null = null
+let inMemorySchedulesFetchedAt = 0
+
+export function _resetSchedulesCacheForTesting(): void {
+  inFlightSchedulesPromise = null
+  inMemorySchedules = null
+  inMemorySchedulesFetchedAt = 0
+}
+
+function fetchSchedulesDeduplicated(force = false): Promise<ScheduleSlot[]> {
+  const now = Date.now()
+  if (!force && inMemorySchedules && now - inMemorySchedulesFetchedAt < SCHEDULES_CACHE_TTL_MS) {
+    return Promise.resolve(inMemorySchedules)
+  }
+  if (!force && inFlightSchedulesPromise) {
+    return inFlightSchedulesPromise
+  }
+
+  inFlightSchedulesPromise = getSchedules()
+    .then((data) => {
+      inMemorySchedules = data
+      inMemorySchedulesFetchedAt = Date.now()
+      return data
+    })
+    .finally(() => {
+      inFlightSchedulesPromise = null
+    })
+
+  return inFlightSchedulesPromise
+}
+
 export function useSchedules(): UseSchedulesResult {
-  const [schedules, setSchedules] = useState<ScheduleSlot[]>([])
-  const [loading, setLoading] = useState<boolean>(true)
+  const [schedules, setSchedules] = useState<ScheduleSlot[]>(() => inMemorySchedules ?? [])
+  const [loading, setLoading] = useState<boolean>(() => inMemorySchedules === null)
   const [error, setError] = useState<Error | null>(null)
   const [attempt, setAttempt] = useState(0)
   // Callers of reload() waiting for the next fetch started by it.
@@ -25,8 +59,8 @@ export function useSchedules(): UseSchedulesResult {
   useEffect(() => {
     let isMounted = true
 
-    const fetchSchedules = (waiters: typeof waitersRef.current = []) => {
-      getSchedules()
+    const fetchSchedules = (force = false, waiters: typeof waitersRef.current = []) => {
+      fetchSchedulesDeduplicated(force)
         .then((data) => {
           if (isMounted) {
             setSchedules(data)
@@ -40,16 +74,22 @@ export function useSchedules(): UseSchedulesResult {
           waiters.forEach((w) => w.reject(error))
           if (!isMounted) return
           setLoading(false)
-          setSchedules((prev) => { if (prev.length === 0) setError(error); return prev })
+          setSchedules((prev) => {
+            if (prev.length === 0) setError(error)
+            return prev
+          })
         })
     }
 
-    // Only the fetch started by this attempt settles the reload() calls that requested it.
     const waiters = waitersRef.current
     waitersRef.current = []
-    fetchSchedules(waiters)
+    fetchSchedules(attempt > 0, waiters)
 
-    const onFocus = () => fetchSchedules()
+    const onFocus = () => {
+      if (Date.now() - inMemorySchedulesFetchedAt >= SCHEDULES_CACHE_TTL_MS) {
+        fetchSchedules(false)
+      }
+    }
     if (typeof window !== 'undefined') {
       window.addEventListener('focus', onFocus)
     }

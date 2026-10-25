@@ -38,7 +38,7 @@ const edge = (from, to, extra = {}) => ({
 });
 
 describe('GetGraphFunction Lambda Handler', () => {
-  test('returns 200 with nodes and edges split by element_id, closures included', async () => {
+  test('returns 200 with nodes and edges split by element_id, closures included, and cache headers', async () => {
     const room = node('LC3_103', { node_type: 'room', location_id: 'LC3-F1-R103' });
     const corridor = node('LC3_entry_103', { node_type: 'entrance' });
     const closed = edge('LC3_103', 'LC3_entry_103', {
@@ -53,6 +53,7 @@ describe('GetGraphFunction Lambda Handler', () => {
     assert.equal(response.statusCode, 200);
     assert.equal(response.headers['Access-Control-Allow-Origin'], '*');
     assert.equal(response.headers['Content-Type'], 'application/json');
+    assert.equal(response.headers['Cache-Control'], 'public, max-age=30, stale-while-revalidate=10');
     assert.deepEqual(JSON.parse(response.body), { graph_id: 'LC3', nodes: [room, corridor], edges: [closed] });
   });
 
@@ -111,10 +112,39 @@ describe('GetGraphFunction Lambda Handler', () => {
 
     assert.equal(response.statusCode, 200);
     assert.equal(response.headers['Access-Control-Allow-Origin'], '*');
+    assert.equal(response.headers['Cache-Control'], 'public, max-age=30, stale-while-revalidate=10');
     assert.deepEqual(JSON.parse(response.body), { graph_id: 'LC3', nodes: [], edges: [] });
   });
 
-  test('returns 500 with CORS headers and no AWS details when the query fails', async () => {
+  test('caches graph in memory within cacheTtlMs (<= 30s) avoiding redundant queries', async () => {
+    const items = [node('LC3_101')];
+    const docClient = fakeDocClient([{ Items: items }, { Items: items }]);
+    let currentTime = 1000;
+    const handler = createHandler({
+      docClient,
+      tableName: 'TestGraph',
+      cacheTtlMs: 30 * 1000,
+      now: () => new Date(currentTime),
+    });
+
+    const res1 = await handler();
+    assert.equal(res1.statusCode, 200);
+    assert.equal(docClient.calls.length, 1);
+
+    // Call within 30s TTL
+    currentTime += 15 * 1000;
+    const res2 = await handler();
+    assert.equal(res2.statusCode, 200);
+    assert.equal(docClient.calls.length, 1);
+
+    // Advance past TTL (31s later)
+    currentTime += 16 * 1000;
+    const res3 = await handler();
+    assert.equal(res3.statusCode, 200);
+    assert.equal(docClient.calls.length, 2);
+  });
+
+  test('returns 500 with CORS headers, no-store and no AWS details when the query fails', async () => {
     const denied = new Error(
       'User: arn:aws:sts::123456789012:assumed-role/GetGraphRole/fn is not authorized to perform: dynamodb:Query'
     );
@@ -124,6 +154,7 @@ describe('GetGraphFunction Lambda Handler', () => {
 
     assert.equal(response.statusCode, 500);
     assert.equal(response.headers['Access-Control-Allow-Origin'], '*');
+    assert.equal(response.headers['Cache-Control'], 'no-store');
     assert.deepEqual(JSON.parse(response.body), { error: 'Failed to fetch graph' });
     assert.doesNotMatch(response.body, /arn:aws|123456789012/);
   });

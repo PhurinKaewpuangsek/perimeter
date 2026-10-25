@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, waitFor, act } from '@testing-library/react'
-import { useSchedules } from '../useSchedules'
+import { useSchedules, _resetSchedulesCacheForTesting } from '../useSchedules'
 import type { ScheduleSlot } from '../../types/schedule'
 
 const getSchedulesMock = vi.hoisted(() => vi.fn<() => Promise<ScheduleSlot[]>>())
@@ -17,7 +17,10 @@ const slot = (eventCode: string): ScheduleSlot => ({
 })
 
 describe('useSchedules reload()', () => {
-  beforeEach(() => getSchedulesMock.mockReset())
+  beforeEach(() => {
+    _resetSchedulesCacheForTesting()
+    getSchedulesMock.mockReset()
+  })
 
   it('resolves after the refreshed list is in state', async () => {
     getSchedulesMock.mockResolvedValueOnce([slot('OLD')]).mockResolvedValueOnce([slot('NEW')])
@@ -57,5 +60,16 @@ describe('useSchedules reload()', () => {
     await new Promise((r) => setTimeout(r, 20))
     process.off('unhandledRejection', unhandled)
     expect(unhandled).not.toHaveBeenCalled()
+  })
+
+  it('deduplicates concurrent fetches so only one request goes to the network', async () => {
+    getSchedulesMock.mockResolvedValue([slot('EVENT1')])
+    const { result: hook1 } = renderHook(() => useSchedules())
+    const { result: hook2 } = renderHook(() => useSchedules())
+
+    await waitFor(() => expect(hook1.current.schedules).toHaveLength(1))
+    await waitFor(() => expect(hook2.current.schedules).toHaveLength(1))
+
+    expect(getSchedulesMock).toHaveBeenCalledTimes(1)
   })
 })

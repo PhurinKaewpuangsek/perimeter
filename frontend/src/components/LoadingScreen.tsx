@@ -22,7 +22,7 @@ function LoadingScreen({ error = null, onRetry }: LoadingScreenProps) {
         <div role="alert" className="flex flex-col items-center gap-3 text-center">
           <WarningCircle size={40} weight="bold" className="text-ink" aria-hidden="true" />
           <p className="text-body font-medium text-ink">โหลดข้อมูลแผนที่ไม่สำเร็จ</p>
-          <p className="text-button text-ink-2">ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่อีกครั้ง</p>
+          <p className="text-button text-ink-2">{error.message || 'ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่อีกครั้ง'}</p>
           {onRetry && (
             <button type="button" onClick={onRetry} className="btn btn-primary mt-2">
               <ArrowClockwise size={16} weight="bold" aria-hidden="true" />
