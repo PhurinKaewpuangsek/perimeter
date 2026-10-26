@@ -52,8 +52,13 @@ export interface GetRoomsOptions {
 }
 
 export async function getRooms({ bypassCache }: GetRoomsOptions = {}): Promise<Room[]> {
-  const init: RequestInit = bypassCache ? { cache: 'no-cache' } : {}
-  const response = await fetchWithRetry(ROOMS_ENDPOINT, init)
+  const url = new URL(ROOMS_ENDPOINT || '/api/locations', globalThis.location?.origin ?? 'http://localhost')
+  if (bypassCache) {
+    url.searchParams.set('fresh', '1')
+  }
+  const endpoint = API_BASE_URL ? url.toString() : `${url.pathname}${url.search}`
+  const init: RequestInit = bypassCache ? { cache: 'no-store' } : {}
+  const response = await fetchWithRetry(endpoint, init)
 
   if (!response.ok) {
     throw new Error(`Failed to fetch rooms: ${response.status} ${response.statusText}`)

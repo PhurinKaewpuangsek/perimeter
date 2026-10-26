@@ -210,7 +210,7 @@ export default function TopBar({
                 onClick={onToggleSidebar}
                 aria-label={isSidebarCollapsed ? 'ขยายแผงด้านซ้าย' : 'ซ่อนแผงด้านซ้าย'}
                 title={isSidebarCollapsed ? 'ขยายแผงด้านซ้าย' : 'ซ่อนแผงด้านซ้าย'}
-                className="btn btn-nav btn-icon-sm hidden sm:inline-flex"
+                className="btn btn-nav btn-icon-sm inline-flex"
               >
                 <SidebarSimple size={18} weight="bold" />
               </button>

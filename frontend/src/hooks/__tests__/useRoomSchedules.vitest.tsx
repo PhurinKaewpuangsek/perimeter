@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ScheduleSlot } from '../../types/schedule'
 
 const { getSchedules } = vi.hoisted(() => ({
-  getSchedules: vi.fn<(options?: { roomCode?: string }) => Promise<ScheduleSlot[]>>(),
+  getSchedules: vi.fn<(options?: { roomCode?: string; bypassCache?: boolean }) => Promise<ScheduleSlot[]>>(),
 }))
 
 vi.mock('../../services/schedulesService.ts', () => ({ getSchedules }))
@@ -69,6 +69,7 @@ describe('useRoomSchedules', () => {
     expect(result.current.schedules).toEqual([roomSchedule])
     expect(result.current.error).toBeNull()
     expect(getSchedules).toHaveBeenCalledTimes(2)
+    expect(getSchedules).toHaveBeenLastCalledWith({ roomCode: 'LC3-103', bypassCache: true })
   })
 
   it('keeps the loaded timetable when a focus refresh fails', async () => {
@@ -86,5 +87,42 @@ describe('useRoomSchedules', () => {
 
     expect(result.current.schedules).toEqual([roomSchedule])
     expect(result.current.error).toBeNull()
+  })
+
+  it('prevents a focus event or older request from replacing a fresh reload()', async () => {
+    let resolveFocus!: (schedules: ScheduleSlot[]) => void
+    let resolveReload!: (schedules: ScheduleSlot[]) => void
+    const freshSchedule: ScheduleSlot = { ...roomSchedule, eventCode: 'FRESH101' }
+    const staleSchedule: ScheduleSlot = { ...roomSchedule, eventCode: 'STALE101' }
+
+    getSchedules
+      .mockResolvedValueOnce([roomSchedule])
+      .mockImplementationOnce(() => new Promise((resolve) => { resolveFocus = resolve }))
+      .mockImplementationOnce(() => new Promise((resolve) => { resolveReload = resolve }))
+
+    const { result } = renderHook(() => useRoomSchedules('LC3-103'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    act(() => {
+      window.dispatchEvent(new Event('focus'))
+    })
+    act(() => {
+      result.current.reload()
+    })
+    // A focus event firing while reload() is in-flight is ignored so it cannot overwrite the fresh reload
+    act(() => {
+      window.dispatchEvent(new Event('focus'))
+    })
+    expect(getSchedules).toHaveBeenCalledTimes(3)
+
+    await act(async () => {
+      resolveReload([freshSchedule])
+    })
+    await waitFor(() => expect(result.current.schedules).toEqual([freshSchedule]))
+
+    await act(async () => {
+      resolveFocus([staleSchedule])
+    })
+    expect(result.current.schedules).toEqual([freshSchedule])
   })
 })

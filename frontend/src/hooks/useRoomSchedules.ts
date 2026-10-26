@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { getSchedules } from '../services/schedulesService.ts'
 import type { ScheduleSlot } from '../types/schedule.ts'
 
@@ -22,20 +22,27 @@ export function useRoomSchedules(roomCode: string | null | undefined): UseRoomSc
     error: null,
   }))
   const [attempt, setAttempt] = useState(0)
+  const latestRequestIdRef = useRef(0)
 
   useEffect(() => {
     let isMounted = true
+    let bypassInFlight = false
 
     if (!roomCode) return
 
-    const fetchRoomSchedules = () => {
-      getSchedules({ roomCode })
+    const fetchRoomSchedules = (bypassCache = false) => {
+      if (!bypassCache && bypassInFlight) return
+      const requestId = ++latestRequestIdRef.current
+      if (bypassCache) {
+        bypassInFlight = true
+      }
+      getSchedules({ roomCode, ...(bypassCache ? { bypassCache: true } : {}) })
         .then((data) => {
-          if (!isMounted) return
+          if (!isMounted || requestId !== latestRequestIdRef.current) return
           setResult({ roomCode, schedules: data, loading: false, error: null })
         })
         .catch((err) => {
-          if (!isMounted) return
+          if (!isMounted || requestId !== latestRequestIdRef.current) return
           const fetchError = err instanceof Error ? err : new Error(String(err))
           setResult((current) => {
             if (current.roomCode !== roomCode) return current
@@ -45,11 +52,16 @@ export function useRoomSchedules(roomCode: string | null | undefined): UseRoomSc
             return { ...current, loading: false, error: fetchError }
           })
         })
+        .finally(() => {
+          if (bypassCache) {
+            bypassInFlight = false
+          }
+        })
     }
 
-    fetchRoomSchedules()
+    fetchRoomSchedules(attempt > 0)
 
-    const onFocus = () => fetchRoomSchedules()
+    const onFocus = () => fetchRoomSchedules(false)
     if (typeof window !== 'undefined') {
       window.addEventListener('focus', onFocus)
     }

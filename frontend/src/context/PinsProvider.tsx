@@ -21,6 +21,7 @@ export function PinsProvider({ children }: { children: ReactNode }) {
     if (!session || !sub) {
       lastSubRef.current = null
       setPins([])
+      setIsDrawerOpen(false)
       setError(null)
       setLoading(false)
       return
@@ -29,6 +30,7 @@ export function PinsProvider({ children }: { children: ReactNode }) {
     if (lastSubRef.current !== sub) {
       lastSubRef.current = sub
       setPins([])
+      setIsDrawerOpen(false)
     }
 
     setLoading(true)
@@ -52,8 +54,6 @@ export function PinsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const sub = getSession()?.user?.sub ?? null
     if (sub !== lastSubRef.current) {
-      lastSubRef.current = sub
-      setPins([])
       void reloadPins()
     }
 

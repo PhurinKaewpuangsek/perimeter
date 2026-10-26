@@ -424,7 +424,7 @@ export default function MapPage() {
 
   // Split schedules into class and exam
   const classSchedules = useMemo(
-    () => roomSchedules.filter((s) => s.eventType.toLowerCase() === 'class' || !s.eventType),
+    () => roomSchedules.filter((s) => !isExamSchedule(s)),
     [roomSchedules]
   )
   const examSchedules = useMemo(

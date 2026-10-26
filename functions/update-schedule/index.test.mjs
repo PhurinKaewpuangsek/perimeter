@@ -326,7 +326,7 @@ describe('UpdateScheduleFunction Lambda Handler', () => {
 
     test('class row without a date can still be edited without extra conditions', async () => {
       const docClient = scriptedDocClient();
-      const response = await update({ event_type: 'class', end_time: '12:30' }, docClient);
+      const response = await update({ event_type: 'class', end_time: '14:30' }, docClient);
       assert.equal(response.statusCode, 200);
       assert.equal(docClient.commands[0].input.ConditionExpression, 'attribute_exists(schedule_slot)');
     });
@@ -360,6 +360,45 @@ describe('UpdateScheduleFunction Lambda Handler', () => {
       assert.equal(response.statusCode, 200);
       const put = docClient.commands[1].input.TransactItems[1].Put.Item;
       assert.equal('event_date' in put, false);
+    });
+
+    test('rejects invalid time formats or start_time >= end_time (BUG-06)', async () => {
+      const docClient = scriptedDocClient({
+        storedItem: { ...storedSlot, end_time: '16:00' },
+      });
+      for (const badBody of [
+        { start_time: '25:99' },
+        { end_time: '9:00' },
+        { end_time: '12:00' }, // slot start_time in path is 13:00
+        { start_time: '16:00', end_time: '09:00' },
+        { start_time: '12:00', end_time: '12:00' },
+        { start_time: '17:00' }, // stored end_time is 16:00
+      ]) {
+        const res = await update(badBody, docClient);
+        assert.equal(res.statusCode, 400, `should reject ${JSON.stringify(badBody)}`);
+      }
+    });
+
+    test('allows clearing end_time with empty string or null', async () => {
+      const docClient = scriptedDocClient();
+      const response = await update({ end_time: '' }, docClient);
+      assert.equal(response.statusCode, 200);
+      const input = docClient.commands[0].input;
+      assert.match(input.UpdateExpression, /REMOVE #endTime/);
+      assert.equal(input.ExpressionAttributeNames['#endTime'], 'end_time');
+    });
+
+    test('syncs day_of_week and re-creates schedule_slot when event_date weekday differs (BUG-06)', async () => {
+      const docClient = scriptedDocClient({
+        storedItem: { ...storedSlot, end_time: '16:00', event_type: 'exam', event_date: '2026-05-18' },
+      });
+      // 2026-10-30 is Friday (FRI), storedSlot is MON
+      const response = await update({ event_date: '2026-10-30' }, docClient);
+      assert.equal(response.statusCode, 200);
+      const put = docClient.commands[1].input.TransactItems[1].Put.Item;
+      assert.equal(put.day_of_week, 'FRI');
+      assert.equal(put.schedule_slot, 'FRI#13:00#BAS350');
+      assert.equal(put.event_date, '2026-10-30');
     });
   });
   describe('moving a row to another room (room_code in body)', () => {

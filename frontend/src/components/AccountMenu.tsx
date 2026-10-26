@@ -1,16 +1,18 @@
 import { useState, useRef, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { User, CaretDown, SignOut } from '@phosphor-icons/react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { User, CaretDown, SignOut, MapTrifold, SquaresFour, Shield } from '@phosphor-icons/react'
 import { getSession, getUserRole, signOut } from '../services/authService'
 
 /** Account trigger for the black top bar and its dropdown (DesignMD "Dropdown Menu"). */
 export default function AccountMenu() {
   const navigate = useNavigate()
+  const location = useLocation()
   const [isOpen, setIsOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
   const session = getSession()
   const role = getUserRole(session)
+  const isStaffOrAdmin = role === 'staff' || role === 'admin'
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -78,6 +80,28 @@ export default function AccountMenu() {
               <p className="truncate text-button font-medium text-ink">{session.user.email}</p>
               <span className="chip mt-1.5 uppercase">{role}</span>
             </div>
+
+            {isStaffOrAdmin && (
+              <div className="sm:hidden mt-1 border-t border-line-soft py-1">
+                {[
+                  { to: '/map', label: 'แผนที่อาคารเรียนรวม 3', Icon: MapTrifold },
+                  { to: '/staff', label: 'Staff Console', Icon: SquaresFour },
+                  ...(role === 'admin' ? [{ to: '/admin', label: 'Admin Console', Icon: Shield }] : []),
+                ].map(({ to, label, Icon }) => (
+                  <Link
+                    key={to}
+                    to={to}
+                    onClick={() => setIsOpen(false)}
+                    className={`flex min-h-11 w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-button font-medium text-ink transition-colors duration-200 hover:bg-surface-2 ${
+                      location.pathname === to ? 'bg-surface-2' : ''
+                    }`}
+                  >
+                    <Icon size={16} weight="bold" />
+                    <span>{label}</span>
+                  </Link>
+                ))}
+              </div>
+            )}
 
             <div className="animate-gooey-item-2 mt-1 border-t border-line-soft pt-1">
               <button

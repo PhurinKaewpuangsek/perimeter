@@ -89,7 +89,7 @@ describe('DeleteScheduleFunction Lambda Handler', () => {
     assert.match(body.error, /Forbidden/);
   });
 
-  test('returns 403 when caller is in staff group (staff cannot delete schedules)', async () => {
+  test('returns 200 with success message when caller is in staff group (BUG-09)', async () => {
     const handler = createHandler({ docClient: fakeDocClient({}), tableName: 'TestTable' });
     const response = await handler({
       pathParameters: { room_code: 'LC3-101/1', schedule_slot: 'MON#09:00#CS333' },
@@ -103,9 +103,10 @@ describe('DeleteScheduleFunction Lambda Handler', () => {
       },
     });
 
-    assert.equal(response.statusCode, 403);
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.headers['Access-Control-Allow-Origin'], '*');
     const body = JSON.parse(response.body);
-    assert.match(body.error, /Forbidden/);
+    assert.equal(body.message, 'Schedule deleted successfully');
   });
 
   test('returns 200 with success message when caller is in admin group', async () => {
