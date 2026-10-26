@@ -9,6 +9,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Room } from '../types/room'
 import type { ClosureChange } from '../types/graph'
+import type { ClosureListItem } from '../services/closureModel'
 import { useGraph } from '../hooks/useGraph'
 import type { UseGraphResult } from '../hooks/useGraph'
 import type { MapOverlaySegment } from './map/MapContainer'
@@ -66,6 +67,9 @@ export function ClosurePanel({
   const [notice, setNotice] = useState<string | null>(null)
   const [reopening, setReopening] = useState<string | null>(null)
   const [listError, setListError] = useState<string | null>(null)
+  /** The closure being edited; saving overwrites its window and reason (same PUT). */
+  const [editing, setEditing] = useState<ClosureListItem | null>(null)
+  const formRef = useRef<HTMLFormElement>(null)
 
   // Only rooms with a node in the routing graph can be closed.
   const closableRooms = useMemo(
@@ -108,6 +112,40 @@ export function ClosurePanel({
   // Clear the map overlay when the tab closes.
   useEffect(() => () => onOverlayChange([]), [onOverlayChange])
 
+  /** Back to an empty form, as when the tab opens. */
+  function resetForm() {
+    setRoomCode('')
+    setWalkwayQuery('')
+    setSelectedWalkways(new Set())
+    setFromValue(toBangkokInputValue(now()))
+    setUntilValue('')
+    setReason('')
+    setEditing(null)
+    setFormError(null)
+  }
+
+  /** Loads a listed closure into the form so staff can change its time or reason. */
+  function startEdit(item: ClosureListItem) {
+    if (!graph) return
+    setNotice(null)
+    setFormError(null)
+    setEditing(item)
+    setTarget(item.kind)
+    if (item.kind === 'room') {
+      const node = graph.nodes.find((n) => n.elementId === item.elementId)
+      setRoomCode(rooms.find((r) => r.id === node?.locationId)?.code ?? '')
+    } else {
+      onFloorChange(item.floor)
+      setWalkwayQuery('')
+      setSelectedWalkways(new Set([item.elementId]))
+    }
+    const { closedFrom, closedUntil, closedReason } = item.closure
+    setFromValue(toBangkokInputValue(closedFrom ? new Date(closedFrom) : now()))
+    setUntilValue(closedUntil ? toBangkokInputValue(new Date(closedUntil)) : '')
+    setReason(closedReason ?? '')
+    formRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
+  }
+
   function toggleWalkway(id: string) {
     setSelectedWalkways((prev) => {
       const next = new Set(prev)
@@ -125,7 +163,10 @@ export function ClosurePanel({
 
     let elementIds: string[]
     let what: string
-    if (target === 'room') {
+    if (editing) {
+      elementIds = [editing.elementId]
+      what = editing.label
+    } else if (target === 'room') {
       const room = closableRooms.find((r) => r.code === roomCode)
       const node = room && roomNodeFor(graph, room)
       if (!room || !node) {
@@ -163,13 +204,13 @@ export function ClosurePanel({
     setSaving(true)
     try {
       await updateClosures(changes)
-      setSelectedWalkways(new Set())
-      setReason('')
+      const done = editing ? `แก้ไขการปิด ${what} แล้ว` : `ปิด${what}แล้ว`
+      resetForm()
       try {
         await reload()
-        setNotice(`ปิด${what}แล้ว`)
+        setNotice(done)
       } catch {
-        setNotice(`ปิด${what}แล้ว แต่โหลดรายการล่าสุดไม่สำเร็จ กรุณารีเฟรชหน้า`)
+        setNotice(`${done} แต่โหลดรายการล่าสุดไม่สำเร็จ กรุณารีเฟรชหน้า`)
       }
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'บันทึกไม่สำเร็จ')
@@ -184,6 +225,7 @@ export function ClosurePanel({
     setReopening(elementId)
     try {
       await updateClosures([{ element_id: elementId, closed: false }])
+      if (editing?.elementId === elementId) resetForm()
       try {
         await reload()
         setNotice(`ยกเลิกการปิด ${label} แล้ว`)
@@ -226,27 +268,36 @@ export function ClosurePanel({
       )}
 
       {/* ── Close form ─────────────────────────────────────────────── */}
-      <form onSubmit={handleClose} className="card p-4 space-y-3" aria-label="ปิดชั่วคราว">
-        <h3 className="font-display text-h3-sm font-bold text-ink">ปิดชั่วคราว</h3>
+      <form ref={formRef} onSubmit={handleClose} className="card p-4 space-y-3 scroll-mt-4" aria-label="ปิดชั่วคราว">
+        <h3 className="font-display text-h3-sm font-bold text-ink">
+          {editing ? 'แก้ไขการปิด' : 'ปิดชั่วคราว'}
+        </h3>
+        {editing && (
+          <p className="text-xs text-ink-2">
+            กำลังแก้ไข <span className="font-bold text-ink">{editing.label}</span> · บันทึกแล้วเวลาและเหตุผลเดิมจะถูกแทนที่
+          </p>
+        )}
 
-        <div className="flex w-full rounded-full bg-surface-2 p-1" role="group" aria-label="ประเภทที่จะปิด">
-          {(['room', 'walkway'] as const).map((t) => (
-            <button
-              key={t}
-              type="button"
-              aria-pressed={target === t}
-              onClick={() => {
-                setTarget(t)
-                setFormError(null)
-              }}
-              className={`btn btn-sm flex-1 ${target === t ? 'btn-primary' : 'btn-ghost'}`}
-            >
-              {t === 'room' ? 'ปิดห้อง' : 'ปิดทางเดิน'}
-            </button>
-          ))}
-        </div>
+        {!editing && (
+          <div className="flex w-full rounded-full bg-surface-2 p-1" role="group" aria-label="ประเภทที่จะปิด">
+            {(['room', 'walkway'] as const).map((t) => (
+              <button
+                key={t}
+                type="button"
+                aria-pressed={target === t}
+                onClick={() => {
+                  setTarget(t)
+                  setFormError(null)
+                }}
+                className={`btn btn-sm flex-1 ${target === t ? 'btn-primary' : 'btn-ghost'}`}
+              >
+                {t === 'room' ? 'ปิดห้อง' : 'ปิดทางเดิน'}
+              </button>
+            ))}
+          </div>
+        )}
 
-        {target === 'room' ? (
+        {editing ? null : target === 'room' ? (
           <div>
             <label className="label" htmlFor="closure-room">
               ห้อง
@@ -277,7 +328,12 @@ export function ClosurePanel({
               className="input-boxed"
             />
             <p className="text-xs text-ink-3">
-              เลือกแล้ว {selectedWalkways.size} ช่วง · ชี้ที่รายการเพื่อดูตำแหน่งบนแผนที่ · เส้นน้ำเงิน = ที่เลือก, เส้นประ = ปิดอยู่
+              เลือกแล้ว {selectedWalkways.size} ช่วง
+              {/* Phones show the panel full width over the map, so the map hint is for wider screens. */}
+              <span className="hidden sm:inline">
+                {' '}
+                · ชี้ที่รายการเพื่อดูตำแหน่งบนแผนที่ · เส้นน้ำเงิน = ที่เลือก, เส้นประ = ปิดอยู่
+              </span>
             </p>
             <ul className="max-h-56 overflow-y-auto thin-scrollbar border border-line-soft divide-y divide-line-soft" aria-label="รายการทางเดิน">
               {walkwayMatches.length === 0 ? (
@@ -307,7 +363,7 @@ export function ClosurePanel({
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-2.5">
+        <div className="grid grid-cols-1 gap-2.5">
           <div>
             <label className="label" htmlFor="closure-from">
               เริ่มปิด
@@ -332,8 +388,8 @@ export function ClosurePanel({
               className="input-boxed"
             />
           </div>
-          <p className="col-span-2 -mt-1 text-xs text-ink-3">เวลาประเทศไทย · ว่าง "เปิดอีกครั้ง" = ปิดจนกว่าจะยกเลิก</p>
-          <div className="col-span-2">
+          <p className="-mt-1 text-xs text-ink-3">เวลาประเทศไทย · ว่าง "เปิดอีกครั้ง" = ปิดจนกว่าจะยกเลิก</p>
+          <div>
             <label className="label" htmlFor="closure-reason">
               เหตุผล
             </label>
@@ -355,13 +411,20 @@ export function ClosurePanel({
           </p>
         )}
 
-        <div className="flex justify-end">
+        <div className="flex flex-wrap justify-end gap-2">
+          {editing && (
+            <button type="button" onClick={resetForm} disabled={saving} className="btn btn-secondary">
+              ยกเลิกการแก้ไข
+            </button>
+          )}
           <button type="submit" disabled={saving} className="btn btn-primary">
             {saving
               ? 'กำลังบันทึก...'
-              : target === 'room'
-                ? 'บันทึกการปิดห้อง'
-                : `ปิดทางเดินที่เลือก (${selectedWalkways.size})`}
+              : editing
+                ? 'บันทึกการแก้ไข'
+                : target === 'room'
+                  ? 'บันทึกการปิดห้อง'
+                  : `ปิดทางเดินที่เลือก (${selectedWalkways.size})`}
           </button>
         </div>
       </form>
@@ -379,7 +442,7 @@ export function ClosurePanel({
         ) : (
           <ul className="space-y-2">
             {closures.map((c) => (
-              <li key={c.elementId} className="card p-3 flex items-start justify-between gap-2">
+              <li key={c.elementId} className={`card p-3 ${editing?.elementId === c.elementId ? 'border-ink' : ''}`}>
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-1.5">
                     <span className="chip">{c.kind === 'room' ? 'ห้อง' : `ทางเดิน · ชั้น ${c.floor}`}</span>
@@ -387,16 +450,29 @@ export function ClosurePanel({
                   </div>
                   <p className="mt-1 text-button font-bold text-ink">{c.label}</p>
                   <p className="text-xs text-ink-2">{formatWindow(c.closure)}</p>
-                  {c.closure.closedReason && <p className="text-xs text-ink-2">เหตุผล: {c.closure.closedReason}</p>}
+                  {c.closure.closedReason && (
+                    <p className="text-xs text-ink-2 break-words">เหตุผล: {c.closure.closedReason}</p>
+                  )}
                 </div>
-                <button
-                  type="button"
-                  disabled={reopening === c.elementId}
-                  onClick={() => handleReopen(c.elementId, c.label)}
-                  className="btn btn-secondary btn-sm shrink-0"
-                >
-                  {reopening === c.elementId ? 'กำลังยกเลิก...' : 'ยกเลิกการปิด'}
-                </button>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    disabled={reopening === c.elementId}
+                    onClick={() => startEdit(c)}
+                    aria-label={`แก้ไขเวลา ${c.label}`}
+                    className="btn btn-secondary btn-sm"
+                  >
+                    แก้ไขเวลา/เหตุผล
+                  </button>
+                  <button
+                    type="button"
+                    disabled={reopening === c.elementId}
+                    onClick={() => handleReopen(c.elementId, c.label)}
+                    className="btn btn-secondary btn-sm"
+                  >
+                    {reopening === c.elementId ? 'กำลังยกเลิก...' : 'ยกเลิกการปิด'}
+                  </button>
+                </div>
               </li>
             ))}
           </ul>

@@ -85,6 +85,11 @@ describe('ClosurePanel', () => {
     ])
     expect(reload).toHaveBeenCalled()
     expect(await screen.findByText('ปิดห้อง 105แล้ว')).toBeInTheDocument()
+    // The form is empty again, ready for the next closure.
+    expect(form().getByRole('combobox')).toHaveValue('')
+    expect(form().getByLabelText('เปิดอีกครั้ง')).toHaveValue('')
+    expect(form().getByLabelText('เหตุผล')).toHaveValue('')
+    expect(form().getByLabelText('เริ่มปิด')).toHaveValue('2026-10-28T09:00')
   })
 
   it('asks for a room before saving', async () => {
@@ -142,6 +147,62 @@ describe('ClosurePanel', () => {
     await user.click(list.getByRole('button', { name: 'ยกเลิกการปิด' }))
     expect(updateClosures).toHaveBeenCalledWith([{ element_id: 'NODE#LC3_104', closed: false }])
     expect(reload).toHaveBeenCalled()
+  })
+
+  it('edits the window and reason of a listed closure in place', async () => {
+    const g = baseGraph()
+    g.edges[1] = {
+      ...g.edges[1],
+      closed: true,
+      closedFrom: '2026-10-28T08:00:00+07:00',
+      closedUntil: '2026-10-29T12:00:00+07:00',
+      closedReason: 'ซ่อมพื้น',
+    }
+    const { user, reload, onFloorChange } = setup(g)
+    const list = within(screen.getByRole('region', { name: 'ที่ปิดอยู่หรือกำหนดไว้' }))
+    await user.click(list.getByRole('button', { name: /แก้ไขเวลา/ }))
+
+    const editForm = form()
+    expect(screen.getByRole('heading', { name: 'แก้ไขการปิด' })).toBeInTheDocument()
+    expect(onFloorChange).toHaveBeenCalledWith(1)
+    expect(editForm.getByLabelText('เริ่มปิด')).toHaveValue('2026-10-28T08:00')
+    expect(editForm.getByLabelText('เปิดอีกครั้ง')).toHaveValue('2026-10-29T12:00')
+    expect(editForm.getByLabelText('เหตุผล')).toHaveValue('ซ่อมพื้น')
+    // Only this closure is edited: no room/walkway picker while editing.
+    expect(editForm.queryByRole('list', { name: 'รายการทางเดิน' })).not.toBeInTheDocument()
+
+    await user.clear(editForm.getByLabelText('เปิดอีกครั้ง'))
+    await user.type(editForm.getByLabelText('เปิดอีกครั้ง'), '2026-10-30T18:00')
+    await user.clear(editForm.getByLabelText('เหตุผล'))
+    await user.type(editForm.getByLabelText('เหตุผล'), 'ซ่อมพื้นเพิ่ม')
+    await user.click(editForm.getByRole('button', { name: 'บันทึกการแก้ไข' }))
+
+    expect(updateClosures).toHaveBeenCalledWith([
+      {
+        element_id: 'EDGE#LC3_104|J1',
+        closed: true,
+        closed_from: '2026-10-28T08:00:00+07:00',
+        closed_until: '2026-10-30T18:00:00+07:00',
+        closed_reason: 'ซ่อมพื้นเพิ่ม',
+      },
+    ])
+    expect(reload).toHaveBeenCalled()
+    expect(await screen.findByText('แก้ไขการปิด ทางเดินหน้าห้อง 104 แล้ว')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'ปิดชั่วคราว' })).toBeInTheDocument()
+  })
+
+  it('cancels an edit without saving', async () => {
+    const g = baseGraph()
+    g.nodes[0] = { ...g.nodes[0], closed: true, closedReason: 'ซ่อมแอร์' }
+    const { user } = setup(g)
+    const list = within(screen.getByRole('region', { name: 'ที่ปิดอยู่หรือกำหนดไว้' }))
+    await user.click(list.getByRole('button', { name: /แก้ไขเวลา/ }))
+    expect(form().getByLabelText('เหตุผล')).toHaveValue('ซ่อมแอร์')
+
+    await user.click(form().getByRole('button', { name: 'ยกเลิกการแก้ไข' }))
+    expect(updateClosures).not.toHaveBeenCalled()
+    expect(screen.getByRole('heading', { name: 'ปิดชั่วคราว' })).toBeInTheDocument()
+    expect(form().getByLabelText('เหตุผล')).toHaveValue('')
   })
 
   it('draws closed walkways dashed on the map even when not picked', () => {

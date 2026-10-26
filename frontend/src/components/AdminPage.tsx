@@ -1515,7 +1515,8 @@ export default function AdminPage() {
           <div className="relative pointer-events-auto flex flex-col h-full bg-white border-r border-line-soft">
             {/* View Tab Switcher: ห้องและพื้นที่ vs ตารางเวลาทั้งหมด */}
             <div className="shrink-0 p-3 border-b border-line-soft bg-white">
-              <div className="gooey-switch-group flex w-full rounded-full bg-surface-2 p-1">
+              {/* Three equal columns (#147); labels shrink instead of wrapping to a second row. */}
+              <div className="gooey-switch-group-3 w-full rounded-full bg-surface-2 p-1">
                 {(() => {
                   const activeTabIdx = LEFT_TABS.indexOf(leftTab)
                   const blobTransform = `translateX(${activeTabIdx * 100}%)`
@@ -1543,15 +1544,19 @@ export default function AdminPage() {
                     setPanelMode('list')
                     setSelectedRoomId(null)
                   }}
-                  className={`btn btn-sm gooey-switch-btn flex-1 ${
+                  title="ห้องและพื้นที่"
+                  className={`btn btn-sm gooey-switch-btn min-w-0 gap-1 px-1.5 text-xs sm:text-[13px] ${
                     leftTab === 'rooms'
                       ? 'text-white'
                       : 'text-ink-2 hover:text-ink'
                   }`}
                 >
-                  <Door size={14} weight="duotone" />
-                  <span>ห้องและพื้นที่</span>
-                  <span className="ml-0.5 rounded-full bg-white px-1.5 py-0.5 text-xs font-medium text-ink">
+                  <Door size={14} weight="duotone" className="shrink-0" />
+                  <span className="truncate">
+                    <span aria-hidden="true" className="sm:hidden">ห้อง</span>
+                    <span className="sr-only sm:not-sr-only">ห้องและพื้นที่</span>
+                  </span>
+                  <span className="shrink-0 rounded-full bg-white px-1.5 py-0.5 text-xs font-medium text-ink">
                     {rooms.length}
                   </span>
                 </button>
@@ -1559,15 +1564,20 @@ export default function AdminPage() {
                 <button
                   type="button"
                   onClick={() => setLeftTab('schedules')}
-                  className={`btn btn-sm gooey-switch-btn flex-1 ${
+                  title="ตารางเวลาทั้งหมด"
+                  className={`btn btn-sm gooey-switch-btn min-w-0 gap-1 px-1.5 text-xs sm:text-[13px] ${
                     leftTab === 'schedules'
                       ? 'text-white'
                       : 'text-ink-2 hover:text-ink'
                   }`}
                 >
-                  <Calendar size={14} weight="duotone" />
-                  <span>ตารางเวลาทั้งหมด</span>
-                  <span className="ml-0.5 rounded-full bg-white px-1.5 py-0.5 text-xs font-medium text-ink">
+                  <Calendar size={14} weight="duotone" className="shrink-0" />
+                  <span className="sr-only">ตารางเวลาทั้งหมด</span>
+                  <span aria-hidden="true" className="truncate">
+                    <span className="sm:hidden">ตาราง</span>
+                    <span className="hidden sm:inline">ตารางเวลา</span>
+                  </span>
+                  <span className="shrink-0 rounded-full bg-white px-1.5 py-0.5 text-xs font-medium text-ink">
                     {schedules.length}
                   </span>
                 </button>
@@ -1579,14 +1589,18 @@ export default function AdminPage() {
                     // Walkways are drawn on the 2D plan, so the tab opens on it.
                     setMapView('2d')
                   }}
-                  className={`btn btn-sm gooey-switch-btn flex-1 ${
+                  title="ทางปิดชั่วคราว"
+                  className={`btn btn-sm gooey-switch-btn min-w-0 gap-1 px-1.5 text-xs sm:text-[13px] ${
                     leftTab === 'closures'
                       ? 'text-white'
                       : 'text-ink-2 hover:text-ink'
                   }`}
                 >
-                  <Prohibit size={14} weight="duotone" />
-                  <span>ทางปิดชั่วคราว</span>
+                  <Prohibit size={14} weight="duotone" className="shrink-0" />
+                  <span className="truncate">
+                    <span aria-hidden="true" className="sm:hidden">ทางปิด</span>
+                    <span className="sr-only sm:not-sr-only">ทางปิดชั่วคราว</span>
+                  </span>
                 </button>
               </div>
             </div>
