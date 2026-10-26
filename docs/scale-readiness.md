@@ -47,45 +47,32 @@
 
 ## 3. การจำกัดอัตราการยิง (Throttling)
 
-กำหนดผ่าน `template.yaml` ในส่วน `Globals: Api: MethodSettings` เพื่อแยกโควตาระหว่างเส้นทางอ่านและเส้นทางเขียน:
+กำหนดผ่าน `template.yaml` ในส่วน `Globals: Api: MethodSettings` โดยใช้ Stage-wide wildcard (`ResourcePath: "/*"` คู่กับ `HttpMethod: "*"` ซึ่งแปลงเป็น `*/*` ตามข้อกำหนดของ AWS API Gateway ที่ไม่อนุญาตให้จับคู่ wildcard resource `/*` กับ HTTP Method เฉพาะเจาะจงอย่าง `*/GET`):
 
 ```yaml
 Globals:
   Api:
     MethodSettings:
-      # Read routes: รองรับโหลดอ่านพร้อมกันได้สูง
+      # Stage-wide baseline throttling: applies to all methods across all endpoints (*/*)
       - ResourcePath: "/*"
-        HttpMethod: "GET"
+        HttpMethod: "*"
         ThrottlingRateLimit: 100
         ThrottlingBurstLimit: 200
-      # Write routes: จำกัดอัตราเพื่อป้องกันการสแปมและการเขียนทับฐานข้อมูล
-      - ResourcePath: "/*"
-        HttpMethod: "POST"
-        ThrottlingRateLimit: 20
-        ThrottlingBurstLimit: 40
-      - ResourcePath: "/*"
-        HttpMethod: "PUT"
-        ThrottlingRateLimit: 20
-        ThrottlingBurstLimit: 40
-      - ResourcePath: "/*"
-        HttpMethod: "DELETE"
-        ThrottlingRateLimit: 20
-        ThrottlingBurstLimit: 40
 ```
 
 ---
 
 ## 4. การจัดการ Concurrency ของ Lambda และการปลด Reserved Concurrency (Hotfix #171)
 
-> **หมายเหตุการแก้ไขฉุกเฉิน (Hotfix #171):**
+> **หมายเหตุการแก้ไขฉุกเฉิน (Hotfix #171 & #173):**
 > เดิมมีการกำหนด `ReservedConcurrentExecutions` ให้กับ Lambda ฟังก์ชันอ่านหลัก 4 ตัว รวม 45 คอนเทนเนอร์ อย่างไรก็ตาม การกำหนด Reserved Concurrency ทำให้ CloudFormation ต้องเรียกใช้ AWS Lambda API `lambda:PutFunctionConcurrency` และ `lambda:DeleteFunctionConcurrency`
 > ตามหลัก **IAM Least Privilege** ของ Perimeter บทบาท OIDC (`GitHubActionsOIDCRole`) ที่ใช้ในการทำ Automated CD บน GitHub Actions ไม่ได้รับสิทธิ์ระดับ Account ในการตั้งค่าหรือลบ Concurrency ของ Lambda ส่งผลให้การ Deploy บน CD Pipeline ล้มเหลว (`AccessDenied`) และทำให้ CloudFormation Stack เข้าสู่สถานะ `UPDATE_ROLLBACK_FAILED`
 > 
 > เมื่อพิจารณาร่วมกับมาตรการป้องกันที่มีอยู่แล้ว:
-> 1. **API Gateway MethodSettings Throttling** (Read: 100 rps / 200 burst) สกัดกั้น Spike โหลดเกินขนาดตั้งแต่ขอบระบบก่อนถึง Lambda
+> 1. **API Gateway MethodSettings Throttling** (Stage-wide `*/*`: 100 rps / 200 burst) สกัดกั้น Spike โหลดเกินขนาดตั้งแต่ขอบระบบก่อนถึง Lambda
 > 2. **Multi-Tier Caching** (HTTP `Cache-Control` 15–60s + In-memory 15–60s + Frontend Deduplication) ช่วยให้ request ส่วนใหญ่ได้ cache ทันที ลด cold start และ invocation จริงลงมหาศาล
 >
-> จึงทำการ**ปลด `ReservedConcurrentExecutions` ออกจาก `template.yaml`** เพื่อให้สอดคล้องกับ Least-Privilege IAM Boundary ของระบบ CI/CD ส่งผลให้ฟังก์ชันอ่านและฟังก์ชันเขียนกลับมาแชร์ Unreserved Concurrency Pool ของบัญชีร่วมกัน แม้ว่าจะไม่มี Concurrency Isolation แยกขาดระหว่าง Read และ Write อีกต่อไป แต่ภาระโหลดจริงถูกควบคุมและสกัดกั้นไว้ด้วย **API Gateway MethodSettings Throttling** (Read 100 rps, Write 20 rps) และ **Multi-Tier Caching** (15–60s) ซึ่งช่วยลดความเสี่ยงจากการแย่ง Concurrency ลงอย่างมีนัยสำคัญ
+> จึงทำการ**ปลด `ReservedConcurrentExecutions` ออกจาก `template.yaml`** เพื่อให้สอดคล้องกับ Least-Privilege IAM Boundary ของระบบ CI/CD ส่งผลให้ฟังก์ชันอ่านและฟังก์ชันเขียนกลับมาแชร์ Unreserved Concurrency Pool ของบัญชีร่วมกัน แม้ว่าจะไม่มี Concurrency Isolation แยกขาดระหว่าง Read และ Write อีกต่อไป แต่ภาระโหลดจริงถูกควบคุมและสกัดกั้นไว้ด้วย **API Gateway MethodSettings Throttling** (Stage-wide `*/*`: 100 rps / 200 burst) และ **Multi-Tier Caching** (15–60s) ซึ่งช่วยลดความเสี่ยงจากการแย่ง Concurrency ลงอย่างมีนัยสำคัญ
 
 ### การเปรียบเทียบและการกำหนดค่าเดิม
 
