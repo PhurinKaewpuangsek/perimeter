@@ -62,6 +62,10 @@
   outline-offset: 1px;
   z-index: 2;
 }
+/* Room closed right now (#147): tertiary ink label; the pin colour is set in JS. */
+.map3d-marker[data-closed='true'] {
+  color: #757575;
+}
 /* Selected room: the accent blue, like the 2D selected pin. */
 .map3d-marker[aria-pressed='true'] {
   color: #ffffff;
