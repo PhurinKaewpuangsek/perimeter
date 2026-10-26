@@ -80,6 +80,18 @@ export function getMarkerLabel(room: Pick<Room, 'roomNumber' | 'nameThai' | 'cod
   return shortName || room.code
 }
 
+/** Status shown on the pin of a room staff have closed right now (#147). */
+export const CLOSED_MARKER_STATUS = 'ปิดชั่วคราว'
+
+/** Closed pins use the theme's tertiary ink (--color-ink-3) instead of the category colour. */
+export const CLOSED_PIN_COLOR = '#757575'
+
+/** Pin label with the closed status appended, e.g. "105 · ปิดชั่วคราว". */
+export function getMarkerText(room: Pick<Room, 'roomNumber' | 'nameThai' | 'code'>, closed = false): string {
+  const label = getMarkerLabel(room)
+  return closed ? `${label} · ${CLOSED_MARKER_STATUS}` : label
+}
+
 export function getMarkerPriority(room: Pick<Room, 'category'>): number {
   return CATEGORY_PRIORITY[(room.category ?? '').toLowerCase()] ?? DEFAULT_PRIORITY
 }
@@ -109,11 +121,14 @@ export interface LayoutInput {
   /** Current zoom scale of the map; screen px = map units × scale. */
   scale: number
   selectedRoomId: string | null
+  /** Rooms closed right now; their longer label is reserved so it overlaps nothing. */
+  closedRoomIds?: ReadonlySet<string>
 }
 
-export function layoutMarkers({ rooms, scale, selectedRoomId }: LayoutInput): Map<string, MarkerPlacement> {
+export function layoutMarkers({ rooms, scale, selectedRoomId, closedRoomIds }: LayoutInput): Map<string, MarkerPlacement> {
   const s = scale > 0 ? scale : 1
   const px = (n: number) => n / s // screen px → map units
+  const text = (room: Room) => getMarkerText(room, closedRoomIds?.has(room.id) ?? false)
 
   const rank = (room: Room) => (room.id === selectedRoomId ? Number.MAX_SAFE_INTEGER : getMarkerPriority(room))
   const ordered = [...rooms].sort((a, b) => rank(b) - rank(a) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
@@ -169,7 +184,7 @@ export function layoutMarkers({ rooms, scale, selectedRoomId }: LayoutInput): Ma
       x,
       isSelected ? y - px(SELECTED_PIN_HEAD_Y) : y,
       px((isSelected ? SELECTED_PIN_WIDTH / 2 : BADGE_RADIUS) + LABEL_GAP),
-      px(estimateLabelWidth(getMarkerLabel(room))),
+      px(estimateLabelWidth(text(room))),
       px(LABEL_HEIGHT)
     )
 
@@ -190,7 +205,7 @@ export function layoutMarkers({ rooms, scale, selectedRoomId }: LayoutInput): Ma
       x,
       y,
       px(DOT_RADIUS + LABEL_GAP),
-      px(estimateLabelWidth(getMarkerLabel(room), DOT_LABEL_FONT_SIZE)),
+      px(estimateLabelWidth(text(room), DOT_LABEL_FONT_SIZE)),
       px(DOT_LABEL_HEIGHT)
     )
 

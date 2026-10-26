@@ -4,7 +4,7 @@ import MapContainer2D from './MapContainer2D'
 import type { MapContainerProps } from './MapContainer2D'
 import { FLOOR_CONFIGS } from './floorConfig'
 import './Map3D.css'
-export type { MapContainerProps } from './MapContainer2D'
+export type { MapContainerProps, MapOverlaySegment } from './MapContainer2D'
 
 const MapContainer3D = lazy(() => import('./MapContainer3D'))
 class MapErrorBoundary extends Component<

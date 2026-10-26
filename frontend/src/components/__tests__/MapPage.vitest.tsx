@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
@@ -8,6 +8,7 @@ import type { Room } from '../../types/room'
 import type { ScheduleSlot } from '../../types/schedule'
 import type { UseRouteResult } from '../../hooks/useRoute'
 import type { FoundRoute } from '../../types/route'
+import type { Graph } from '../../types/graph'
 
 const room = (id: string, code: string, x: number, y: number, category = 'lecture_room'): Room => ({
   id,
@@ -61,6 +62,14 @@ vi.mock('../../hooks/useRoomSchedules', () => ({
     error: null,
     reload: vi.fn(),
   }),
+}))
+const graphState = vi.hoisted(() => ({
+  graph: null as Graph | null,
+  error: null as Error | null,
+  reload: vi.fn(async () => {}),
+}))
+vi.mock('../../hooks/useGraph', () => ({
+  useGraph: () => ({ graph: graphState.graph, loading: false, error: graphState.error, reload: graphState.reload }),
 }))
 vi.mock('../../hooks/usePreloadImages', () => ({
   usePreloadImages: () => true,
@@ -638,5 +647,99 @@ describe('MapPage navigation (issue #145)', () => {
     expect(document.querySelector('[data-sheet-handle="true"]')).toBeNull()
     expect(effectivePointerEvents(card)).toBe('auto')
     expect(rootZIndex(card)).toBeLessThan(rootZIndex(screen.getByTestId('map-top-bar')))
+  })
+})
+
+describe('MapPage room closures (issue #147)', () => {
+  const HOUR = 60 * 60 * 1000
+  const roomNode = (locationId: string, closure: Partial<Graph['nodes'][number]>) => ({
+    elementId: `NODE#${locationId}`,
+    nodeId: locationId,
+    floor: 1,
+    x: 0,
+    y: 0,
+    nodeType: 'room',
+    locationId,
+    closed: false,
+    ...closure,
+  })
+
+  afterEach(() => {
+    window.matchMedia = originalMatchMedia
+    graphState.graph = null
+    graphState.error = null
+    graphState.reload.mockClear()
+    vi.useRealTimers()
+  })
+
+  it('says the closure status is unavailable when the graph fails to load, and retries', async () => {
+    graphState.error = new Error('network')
+    mockViewport(true)
+    const user = userEvent.setup()
+    renderMap('/map?room=LC3-F1-R121')
+
+    expect(screen.getByText('ตรวจสอบสถานะปิดชั่วคราวไม่ได้ในขณะนี้')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'ลองใหม่' }))
+    expect(graphState.reload).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows no unavailable notice once closures have loaded', () => {
+    graphState.graph = { graphId: 'LC3', nodes: [], edges: [] }
+    mockViewport(true)
+    renderMap('/map?room=LC3-F1-R121')
+    expect(screen.queryByText('ตรวจสอบสถานะปิดชั่วคราวไม่ได้ในขณะนี้')).not.toBeInTheDocument()
+  })
+
+  it('refetches closures every minute so changes made by staff show without a reload', () => {
+    vi.useFakeTimers()
+    mockViewport(true)
+    renderMap()
+    expect(graphState.reload).not.toHaveBeenCalled()
+
+    act(() => {
+      vi.advanceTimersByTime(60_000)
+    })
+    expect(graphState.reload).toHaveBeenCalledTimes(1)
+
+    act(() => {
+      vi.advanceTimersByTime(60_000)
+    })
+    expect(graphState.reload).toHaveBeenCalledTimes(2)
+  })
+
+  it('shows "ปิดชั่วคราว" with the window and reason in the room panel while the room is closed', () => {
+    graphState.graph = {
+      graphId: 'LC3',
+      nodes: [
+        roomNode('LC3-F1-R121', {
+          closed: true,
+          closedFrom: new Date(Date.now() - HOUR).toISOString(),
+          closedUntil: new Date(Date.now() + HOUR).toISOString(),
+          closedReason: 'ซ่อมเครื่องปรับอากาศ',
+        }),
+      ],
+      edges: [],
+    }
+    mockViewport(true)
+    renderMap('/map?room=LC3-F1-R121')
+
+    const notice = screen.getByText('ปิดชั่วคราว', { selector: 'p' }).closest('[role="status"]')
+    expect(notice).not.toBeNull()
+    expect(notice).toHaveTextContent(/ช่วงเวลา: .+ – .+/)
+    expect(notice).toHaveTextContent('เหตุผล: ซ่อมเครื่องปรับอากาศ')
+  })
+
+  it('shows no notice for an open room, or for a closure that has not started yet', () => {
+    graphState.graph = {
+      graphId: 'LC3',
+      nodes: [
+        roomNode('LC3-F1-R121', { closed: true, closedFrom: new Date(Date.now() + HOUR).toISOString() }),
+      ],
+      edges: [],
+    }
+    mockViewport(true)
+    renderMap('/map?room=LC3-F1-R121')
+
+    expect(screen.queryByText('ปิดชั่วคราว')).not.toBeInTheDocument()
   })
 })

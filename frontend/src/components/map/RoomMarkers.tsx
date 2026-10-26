@@ -12,7 +12,9 @@ import {
   LABEL_GAP,
   SELECTED_PIN_HEAD_Y,
   SELECTED_PIN_WIDTH,
-  getMarkerLabel,
+  CLOSED_MARKER_STATUS,
+  CLOSED_PIN_COLOR,
+  getMarkerText,
   layoutMarkers,
 } from '../../services/markerLayout'
 import type { LabelSide } from '../../services/markerLayout'
@@ -23,7 +25,11 @@ export interface RoomMarkersProps {
   floorConfig: FloorConfig
   selectedRoomId: string | null
   onSelectRoom: (roomId: string) => void
+  /** Rooms staff have closed right now (#147): grey pin and "ปิดชั่วคราว" beside it. */
+  closedRoomIds?: ReadonlySet<string>
 }
+
+const NO_CLOSED_ROOMS: ReadonlySet<string> = new Set()
 
 /**
  * Hover growth has to scale about the marker itself. SVG elements default to
@@ -129,6 +135,7 @@ function RoomMarkers({
   floorConfig,
   selectedRoomId,
   onSelectRoom,
+  closedRoomIds = NO_CLOSED_ROOMS,
 }: RoomMarkersProps) {
   const scale = useTransformScale()
   const invScale = 1 / (scale || 1)
@@ -140,18 +147,25 @@ function RoomMarkers({
     [rooms, currentFloor]
   )
   const layout = useMemo(
-    () => layoutMarkers({ rooms: floorRooms, scale: layoutScale, selectedRoomId }),
-    [floorRooms, layoutScale, selectedRoomId]
+    () => layoutMarkers({ rooms: floorRooms, scale: layoutScale, selectedRoomId, closedRoomIds }),
+    [floorRooms, layoutScale, selectedRoomId, closedRoomIds]
   )
 
   const dots = floorRooms.filter((room) => room.id !== selectedRoomId && layout.get(room.id)?.mode === 'dot')
   const badges = floorRooms.filter((room) => room.id !== selectedRoomId && layout.get(room.id)?.mode === 'badge')
   const selected = floorRooms.filter((room) => room.id === selectedRoomId)
 
+  const isClosed = (room: Room) => closedRoomIds.has(room.id)
+  const pinColor = (room: Room) => (isClosed(room) ? CLOSED_PIN_COLOR : getCategoryPinColor(room.category))
+  const markerText = (room: Room) => getMarkerText(room, isClosed(room))
+
   const interactiveProps = (room: Room, isSelected: boolean) => ({
     role: 'button',
     tabIndex: 0,
-    'aria-label': room.nameThai || room.code || room.id,
+    'aria-label': isClosed(room)
+      ? `${room.nameThai || room.code || room.id} (${CLOSED_MARKER_STATUS})`
+      : room.nameThai || room.code || room.id,
+    'data-closed': isClosed(room) ? 'true' : undefined,
     'aria-pressed': isSelected,
     style: { cursor: 'pointer', pointerEvents: 'auto' as const },
     onClick: (event: MouseEvent) => {
@@ -177,7 +191,7 @@ function RoomMarkers({
       {/* Paint order: dots → badges (with labels) → selected. The layout guarantees no
           label overlaps another marker, so labels never end up under a later one. */}
       {dots.map((room) => {
-        const color = getCategoryPinColor(room.category)
+        const color = pinColor(room)
         const side = layout.get(room.id)?.label ?? null
         return (
           <g
@@ -198,7 +212,7 @@ function RoomMarkers({
             />
             {side && (
               <MarkerLabel
-                text={getMarkerLabel(room)}
+                text={markerText(room)}
                 side={side}
                 offset={DOT_RADIUS + LABEL_GAP}
                 y={0}
@@ -211,7 +225,7 @@ function RoomMarkers({
       })}
 
       {badges.map((room) => {
-        const color = getCategoryPinColor(room.category)
+        const color = pinColor(room)
         const side = layout.get(room.id)?.label ?? null
         return (
           <g
@@ -235,7 +249,7 @@ function RoomMarkers({
             </g>
             {side && (
               <MarkerLabel
-                text={getMarkerLabel(room)}
+                text={markerText(room)}
                 side={side}
                 offset={POI_PIN_HALF_WIDTH + LABEL_GAP}
                 y={0}
@@ -284,7 +298,7 @@ function RoomMarkers({
               />
             </g>
             <MarkerLabel
-              text={getMarkerLabel(room)}
+              text={markerText(room)}
               side={side}
               offset={SELECTED_PIN_WIDTH / 2 + LABEL_GAP}
               y={-SELECTED_PIN_HEAD_Y}

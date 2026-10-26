@@ -957,6 +957,58 @@ Resources:
             Auth:
               Authorizer: NONE
 
+  # ---------------------------------------------------------------------------
+  # Staff closures — issue #147
+  # PUT /api/graph/closures (Cognito; the handler also requires group staff or admin)
+  # ---------------------------------------------------------------------------
+
+  UpdateClosureRole:
+    Type: AWS::IAM::Role
+    Condition: CreateLambdaRoles
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: UpdateGraphClosuresOnly
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              # A closure edits fields on an existing node or edge, never creates or deletes one.
+              # One or many changes go through TransactWriteItems, which DynamoDB authorises
+              # per item as UpdateItem, so no other action is needed.
+              - Effect: Allow
+                Action:
+                  - dynamodb:UpdateItem
+                Resource: !GetAtt SmartFacultyGraph.Arn
+
+  UpdateClosureFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/update-closure/
+      Handler: index.handler
+      Role: !If
+        - UseExistingLambdaRole
+        - !Sub "arn:aws:iam::${AWS::AccountId}:role/${ExistingLambdaRoleName}"
+        - !GetAtt UpdateClosureRole.Arn
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref SmartFacultyGraph
+      Events:
+        UpdateClosure:
+          # No Auth block: the Globals DefaultAuthorizer (CognitoAuthorizer) applies, so an
+          # anonymous call gets 401 from API Gateway before the handler runs.
+          Type: Api
+          Properties:
+            Path: /api/graph/closures
+            Method: put
+
 
 
 # ---------------------------------------------------------------------------

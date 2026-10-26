@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import {
   estimateLabelWidth,
   getMarkerLabel,
+  getMarkerText,
   getMarkerPriority,
   layoutMarkers,
 } from '../markerLayout.ts'
@@ -36,6 +37,13 @@ describe('getMarkerLabel', () => {
 
   it('ไม่มีทั้งเลขห้องและชื่อ ใช้ code แทน', () => {
     assert.equal(getMarkerLabel({ roomNumber: '', nameThai: '', code: 'LC3-X' }), 'LC3-X')
+  })
+})
+
+describe('getMarkerText', () => {
+  it('ห้องที่ปิดอยู่ต่อท้ายป้ายด้วย "ปิดชั่วคราว" (#147)', () => {
+    assert.equal(getMarkerText(makeRoom('105', 0, 0)), '105')
+    assert.equal(getMarkerText(makeRoom('105', 0, 0), true), '105 · ปิดชั่วคราว')
   })
 })
 
@@ -165,5 +173,13 @@ describe('layoutMarkers', () => {
     const layout = layoutMarkers({ rooms, scale: 0.8, selectedRoomId: null })
 
     assert.equal(layout.size, rooms.length)
+  })
+
+  it('ป้ายห้องที่ปิดยาวขึ้น จึงจองพื้นที่กว้างขึ้น ไม่ทับห้องข้าง ๆ (#147)', () => {
+    const rooms = [makeRoom('A', 100, 100), makeRoom('B', 100 + 60, 100)]
+    const open = layoutMarkers({ rooms, scale: 1, selectedRoomId: null })
+    assert.equal(open.get('A')?.label, 'right')
+    const closed = layoutMarkers({ rooms, scale: 1, selectedRoomId: null, closedRoomIds: new Set(['A']) })
+    assert.notEqual(closed.get('A')?.label, 'right')
   })
 })

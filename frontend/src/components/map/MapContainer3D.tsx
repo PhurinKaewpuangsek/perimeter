@@ -58,6 +58,7 @@ export default function MapContainer3D(props: MapContainerProps & { onUnavailabl
     idleOrbit,
     demoInterrupted,
     route,
+    closedRoomIds,
   } = props
   useEffect(() => {
     scene?.update({
@@ -74,6 +75,7 @@ export default function MapContainer3D(props: MapContainerProps & { onUnavailabl
       idleOrbit,
       demoInterrupted,
       route,
+      closedRoomIds,
       icons: icons.current,
     })
   }, [
@@ -88,6 +90,7 @@ export default function MapContainer3D(props: MapContainerProps & { onUnavailabl
     idleOrbit,
     demoInterrupted,
     route,
+    closedRoomIds,
   ])
   const hintOffset = sidebarWidth ?? (mode === 'admin' ? 460 : 400)
   return (

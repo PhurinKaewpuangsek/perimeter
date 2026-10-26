@@ -327,3 +327,36 @@ describe('MapContainer2D route (#145)', () => {
   })
 })
 
+describe('MapContainer2D overlay segments (#147)', () => {
+  const segments = [
+    { id: 'EDGE#A|B', floor: 1, x1: 10, y1: 20, x2: 30, y2: 40, tone: 'selected' as const },
+    { id: 'EDGE#C|D', floor: 1, x1: 50, y1: 60, x2: 70, y2: 80, tone: 'closed' as const },
+    { id: 'EDGE#S1|S2', floor: 1, x1: 90, y1: 90, x2: 90, y2: 90, tone: 'closed' as const },
+    { id: 'EDGE#E|F', floor: 2, x1: 1, y1: 1, x2: 2, y2: 2, tone: 'closed' as const },
+  ]
+
+  it('draws only the current floor: lines for walkways, a dot for a stairwell', () => {
+    render(
+      <MapContainer
+        rooms={rooms}
+        currentFloor={1}
+        onFloorChange={vi.fn()}
+        selectedRoomId={null}
+        onSelectRoom={vi.fn()}
+        overlaySegments={segments}
+      />
+    )
+    const svg = screen.getByTestId('map-overlay-segments')
+    expect(svg.querySelectorAll('line')).toHaveLength(2)
+    expect(svg.querySelectorAll('circle')).toHaveLength(1)
+    expect(svg.querySelector('line[data-tone="closed"]')?.getAttribute('stroke-dasharray')).toBe('6 4')
+    expect(svg.querySelector('line[data-tone="selected"]')?.getAttribute('stroke-dasharray')).toBeNull()
+  })
+
+  it('draws nothing without segments', () => {
+    render(
+      <MapContainer rooms={rooms} currentFloor={1} onFloorChange={vi.fn()} selectedRoomId={null} onSelectRoom={vi.fn()} />
+    )
+    expect(screen.queryByTestId('map-overlay-segments')).not.toBeInTheDocument()
+  })
+})

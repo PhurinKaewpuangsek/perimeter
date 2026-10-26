@@ -68,6 +68,13 @@ describe('3D map integration', () => {
     await userEvent.click(screen.getByRole('button', { name: '1st Floor' }))
     expect(props.onFloorChange).toHaveBeenCalledWith(1)
   })
+  it('passes the rooms closed right now to the 3D markers (#147)', async () => {
+    const closed = new Set(['LC3-F2-R201'])
+    render(<MapContainer {...props} closedRoomIds={closed} />)
+    await waitFor(() =>
+      expect(mock.update).toHaveBeenCalledWith(expect.objectContaining({ closedRoomIds: closed })),
+    )
+  })
   it('updates the loaded scene when search switches floors', async () => {
     const { rerender } = render(<MapContainer {...props} currentFloor={1} selectedRoomId={null} />)
     await waitFor(() => expect(mock.update).toHaveBeenCalled())

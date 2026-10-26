@@ -244,4 +244,56 @@ describe('RoomMarkers', () => {
     expect(screen.getByTestId('icon-restroom-male')).toBeInTheDocument()
     expect(screen.getByTestId('icon-restroom-female')).toBeInTheDocument()
   })
+
+  it('shows "ปิดชั่วคราว" on a room staff closed, in grey, and names it for screen readers (#147)', () => {
+    render(
+      <RoomMarkers
+        rooms={rooms}
+        currentFloor={1}
+        floorConfig={getFloorConfig(1)}
+        selectedRoomId={null}
+        onSelectRoom={vi.fn()}
+        closedRoomIds={new Set(['LC3-F1-R101'])}
+      />
+    )
+
+    const marker = screen.getByRole('button', { name: 'ห้อง 101 (ปิดชั่วคราว)' })
+    expect(marker).toHaveAttribute('data-closed', 'true')
+    expect(marker).toHaveTextContent('101 · ปิดชั่วคราว')
+    expect(marker.querySelector('circle[fill="#757575"]')).not.toBeNull()
+  })
+
+  it('keeps the closed status on the selected pin', () => {
+    render(
+      <RoomMarkers
+        rooms={rooms}
+        currentFloor={1}
+        floorConfig={getFloorConfig(1)}
+        selectedRoomId="LC3-F1-R101"
+        onSelectRoom={vi.fn()}
+        closedRoomIds={new Set(['LC3-F1-R101'])}
+      />
+    )
+
+    expect(screen.getByRole('button', { name: 'ห้อง 101 (ปิดชั่วคราว)', pressed: true })).toHaveTextContent(
+      '101 · ปิดชั่วคราว',
+    )
+  })
+
+  it('shows open rooms as before', () => {
+    render(
+      <RoomMarkers
+        rooms={rooms}
+        currentFloor={1}
+        floorConfig={getFloorConfig(1)}
+        selectedRoomId={null}
+        onSelectRoom={vi.fn()}
+        closedRoomIds={new Set(['LC3-F2-R201'])}
+      />
+    )
+
+    const marker = screen.getByRole('button', { name: 'ห้อง 101' })
+    expect(marker).not.toHaveAttribute('data-closed')
+    expect(marker).not.toHaveTextContent('ปิดชั่วคราว')
+  })
 })
