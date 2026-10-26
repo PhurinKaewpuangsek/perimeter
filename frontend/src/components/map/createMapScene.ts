@@ -11,13 +11,23 @@ import { ROOM_AREAS } from "./roomAreaGeometry";
 import { findRoomAt, isMapTap, modelToSvg, svgToModel } from "./modelCoordinates";
 import { getMarkerLabel } from "../../services/markerLayout";
 import { getCategoryPinColor } from "../../services/roomDisplay";
+import {
+  getFloorChangeLabel,
+  splitRouteByFloor,
+} from "../../services/routeDisplay";
 // Vite fingerprints the file name, so the model can be cached as immutable.
 import modelUrl from "../../assets/maps/lc3-campus.glb?url";
 
 // icons: rendered category icons keyed by data-room-id (see MapContainer3D).
+// onFloorChange: the route's "ขึ้นบันไดไปชั้น N" label switches floors.
 type MapState = Omit<MapContainerProps, "onFloorChange"> & {
   icons?: HTMLElement | null;
+  onFloorChange?: (floor: number) => void;
 };
+// Route tube height above the floor, just over the selected-room highlight (0.49).
+const ROUTE_HEIGHT = 0.62;
+// Route draw-in length; matches the 2D .animate-route-draw in index.css.
+const ROUTE_DRAW_MS = 800;
 export const CONTEXT_RESTORE_TIMEOUT = 3000;
 export interface MapScene {
   ready: Promise<void>;
@@ -184,6 +194,28 @@ function buildMapScene(
   highlight.rotation.x = -Math.PI / 2;
   highlight.visible = false;
   scene.add(highlight);
+  // Route: rebuilt only when the route or floor changes. Geometries are per build and
+  // disposed on every rebuild; the two materials live as long as the scene.
+  const routeGroup = new THREE.Group();
+  routeGroup.name = "Route";
+  scene.add(routeGroup);
+  const routeLineMaterial = new THREE.MeshBasicMaterial({ color: "#000000" });
+  const routeCapMaterial = new THREE.MeshBasicMaterial({ color: "#ffffff" });
+  let routeKey = "";
+  let routeFocusKey = "";
+  // The line drawing in from the start: each part shows once the line reaches `at`
+  // (its distance along the route); segments also grow up to their `length`.
+  let routeDraw:
+    | {
+        startTime: number;
+        length: number;
+        parts: { mesh: THREE.Mesh; at: number; length?: number }[];
+      }
+    | undefined;
+  let routeLabels: {
+    button: HTMLElement;
+    point: THREE.Vector3;
+  }[] = [];
 
   function stopIdleDemo() {
     if (!demoStopped) {
@@ -276,6 +308,7 @@ function buildMapScene(
       controls.update();
       if (t >= 1) glide = undefined;
     }
+    drawRouteIn(now);
     isDrawing = false;
 
     contactPass.ssaoMaterial.uniforms.cameraProjectionMatrix.value.copy(
@@ -315,7 +348,23 @@ function buildMapScene(
         occupied.push({ x, y, width: labelWidth });
       marker.button.style.transform = `translate(${x}px,${y}px) translate(-50%,-100%)`;
     }
-    if (!disposed && !contextLost && (idleOrbiting || glide)) {
+    for (const label of routeLabels) {
+      const screen = label.point.clone().project(camera);
+      const x = ((screen.x + 1) * width) / 2,
+        y = ((1 - screen.y) * height) / 2;
+      // Stairs labels wait until the line has drawn in to them.
+      label.button.hidden = !(
+        !routeDraw &&
+        screen.z > -1 &&
+        screen.z < 1 &&
+        x > 0 &&
+        x < width &&
+        y > 0 &&
+        y < height
+      );
+      label.button.style.transform = `translate(${x}px,${y}px) translate(-50%,-100%)`;
+    }
+    if (!disposed && !contextLost && (idleOrbiting || glide || routeDraw)) {
       frame = requestAnimationFrame(draw);
     }
   }
@@ -339,11 +388,21 @@ function buildMapScene(
     camera.right = -camera.left;
     camera.top = span / 2;
     camera.bottom = -span / 2;
+    // Phones: lift the view above the room sheet, or drop it below the
+    // navigation card that sits under the top bar while a route is shown.
+    const phoneOffset =
+      width >= 640
+        ? 0
+        : state?.isDetailOpen
+          ? height * 0.22
+          : state?.route
+            ? -height * 0.2
+            : 0;
     camera.setViewOffset(
       width,
       height,
       -sidebar / 2,
-      width < 640 && state?.isDetailOpen ? height * 0.22 : 0,
+      phoneOffset,
       width,
       height,
     );
@@ -386,6 +445,7 @@ function buildMapScene(
   let moved = false;
   let multiTouch = false;
   let pointerRoom: string | undefined;
+  let pointerRouteFloor: string | undefined;
   const pointers = new Set<number>();
   function pointerDown(event: PointerEvent) {
     stopIdleDemo();
@@ -399,6 +459,11 @@ function buildMapScene(
         event.target instanceof Element
           ? event.target.closest<HTMLButtonElement>("[data-room-id]")?.dataset
               .roomId
+          : undefined;
+      pointerRouteFloor =
+        event.target instanceof Element
+          ? event.target.closest<HTMLButtonElement>("[data-route-floor]")
+              ?.dataset.routeFloor
           : undefined;
     } else multiTouch = true;
   }
@@ -424,7 +489,8 @@ function buildMapScene(
       return;
     // OrbitControls captures pointers on the host, so click's target can no
     // longer be the original room button. Retain the down target for a tap.
-    if (pointerRoom) state?.onSelectRoom(pointerRoom);
+    if (pointerRouteFloor) state?.onFloorChange?.(Number(pointerRouteFloor));
+    else if (pointerRoom) state?.onSelectRoom(pointerRoom);
     else pick(event);
   }
   function pointerCancel(event: PointerEvent) {
@@ -559,6 +625,162 @@ function buildMapScene(
       invalidate();
     });
 
+  function clearRoute() {
+    routeDraw = undefined;
+    const geometries = new Set<THREE.BufferGeometry>();
+    routeGroup.traverse((object) => {
+      if (object instanceof THREE.Mesh) geometries.add(object.geometry);
+    });
+    geometries.forEach((geometry) => geometry.dispose());
+    routeGroup.clear();
+  }
+  function routePoint(point: { floor: number; x: number; y: number }) {
+    const model = svgToModel(point.floor, point, ROUTE_HEIGHT);
+    return new THREE.Vector3(model.x, model.y, model.z);
+  }
+  // The route's part on the shown floor: a tube per segment with round joints,
+  // a disc at the start and a square at the end (the 2D markers' shapes).
+  // Unless motion is reduced, the line then draws in from the start (drawRouteIn).
+  function buildRoute(next: MapState) {
+    clearRoute();
+    const route = next.route;
+    if (!route) return;
+    const radius = 0.16;
+    let joint: THREE.SphereGeometry | undefined;
+    // One unit-long open tube along +z from the origin, stretched to each segment's
+    // length, so the draw-in can grow a segment without new geometry.
+    let segment: THREE.CylinderGeometry | undefined;
+    const parts: { mesh: THREE.Mesh; at: number; length?: number }[] = [];
+    let distance = 0;
+    for (const leg of splitRouteByFloor(route.path)) {
+      if (leg.floor !== next.currentFloor) continue;
+      joint ??= new THREE.SphereGeometry(radius, 12, 8);
+      segment ??= new THREE.CylinderGeometry(radius, radius, 1, 8, 1, true)
+        .rotateX(Math.PI / 2)
+        .translate(0, 0, 0.5);
+      const points = leg.points.map(routePoint);
+      points.forEach((point, i) => {
+        const length = i > 0 ? point.distanceTo(points[i - 1]) : 0;
+        if (length >= 1e-3) {
+          const tube = new THREE.Mesh(segment, routeLineMaterial);
+          tube.position.copy(points[i - 1]);
+          tube.lookAt(point);
+          tube.scale.z = length;
+          routeGroup.add(tube);
+          parts.push({ mesh: tube, at: distance, length });
+          distance += length;
+        }
+        const sphere = new THREE.Mesh(joint, routeLineMaterial);
+        sphere.position.copy(point);
+        routeGroup.add(sphere);
+        parts.push({ mesh: sphere, at: distance });
+      });
+    }
+    const start = route.path[0];
+    if (start?.floor === next.currentFloor) {
+      const at = routePoint(start);
+      const disc = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.6, 0.6, 0.14, 24),
+        routeLineMaterial,
+      );
+      const dot = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.24, 0.24, 0.16, 16),
+        routeCapMaterial,
+      );
+      disc.position.copy(at);
+      dot.position.copy(at);
+      routeGroup.add(disc, dot);
+    }
+    const end = route.path[route.path.length - 1];
+    if (route.path.length > 1 && end.floor === next.currentFloor) {
+      const at = routePoint(end);
+      const square = new THREE.Mesh(
+        new THREE.BoxGeometry(1.1, 0.14, 1.1),
+        routeLineMaterial,
+      );
+      const dot = new THREE.Mesh(
+        new THREE.BoxGeometry(0.42, 0.16, 0.42),
+        routeCapMaterial,
+      );
+      square.position.copy(at);
+      dot.position.copy(at);
+      routeGroup.add(square, dot);
+      parts.push({ mesh: square, at: distance }, { mesh: dot, at: distance });
+    }
+    if (reduceMotion || parts.length === 0) return;
+    routeDraw = { startTime: performance.now(), length: distance, parts };
+    drawRouteIn(routeDraw.startTime);
+    invalidate();
+  }
+  // Show as much of the route as has drawn in by `now`; the start disc is always shown.
+  function drawRouteIn(now: number) {
+    if (!routeDraw) return;
+    const t = Math.min(1, Math.max(0, (now - routeDraw.startTime) / ROUTE_DRAW_MS));
+    const eased = t < 0.5 ? 4 * t ** 3 : 1 - (-2 * t + 2) ** 3 / 2;
+    const reach = t >= 1 ? Infinity : eased * routeDraw.length;
+    for (const part of routeDraw.parts) {
+      part.mesh.visible = reach >= part.at;
+      if (part.length !== undefined)
+        part.mesh.scale.z = THREE.MathUtils.clamp(reach - part.at, 1e-3, part.length);
+    }
+    if (t >= 1) routeDraw = undefined;
+  }
+  // "ขึ้นบันไดไปชั้น N" buttons where the route leaves the shown floor. They live in
+  // the labels layer, which every update clears, so they are recreated each time.
+  function addRouteLabels(next: MapState) {
+    routeLabels = [];
+    if (!next.route) return;
+    const legs = splitRouteByFloor(next.route.path);
+    legs.forEach((leg, index) => {
+      const following = legs[index + 1];
+      if (!following || leg.floor !== next.currentFloor) return;
+      const stairs = svgToModel(
+        leg.floor,
+        leg.points[leg.points.length - 1],
+        1.4,
+      );
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "map3d-route-floor";
+      button.textContent = getFloorChangeLabel(leg.floor, following.floor);
+      button.dataset.routeFloor = String(following.floor);
+      button.addEventListener("click", (event) => {
+        event.stopPropagation();
+        if (event.detail === 0) state?.onFloorChange?.(following.floor);
+      });
+      labels.append(button);
+      routeLabels.push({
+        button,
+        point: new THREE.Vector3(stairs.x, stairs.y, stairs.z),
+      });
+    });
+  }
+  // Glide to show the whole part of the route on the shown floor.
+  function frameRoute(next: MapState) {
+    const points = (next.route?.path ?? [])
+      .filter((point) => point.floor === next.currentFloor)
+      .map(routePoint);
+    if (points.length === 0) return;
+    const box = new THREE.Box3().setFromPoints(points);
+    const center = box.getCenter(new THREE.Vector3());
+    const size = box.getSize(new THREE.Vector3());
+    const span = Math.max(size.x, size.z, 6) * 1.75;
+    const zoom = THREE.MathUtils.clamp(
+      Math.min(
+        (camera.right - camera.left) / span,
+        (camera.top - camera.bottom) / span,
+      ),
+      controls.minZoom,
+      2.4,
+    );
+    stopIdleDemo();
+    startCameraGlide(
+      center,
+      camera.position.clone().add(center.clone().sub(controls.target)),
+      zoom,
+    );
+  }
+
   function update(next: MapState) {
     state = next;
     if (next.demoInterrupted || next.selectedRoomId) {
@@ -662,6 +884,17 @@ function buildMapScene(
       }
       focusKey = nextFocus;
     }
+    const nextRoute = state.route
+      ? `${state.route.path.map((point) => point.nodeId).join(">")}@${state.currentFloor}`
+      : "";
+    if (nextRoute !== routeKey) {
+      buildRoute(state);
+      routeKey = nextRoute;
+    }
+    addRouteLabels(state);
+    // After the room focus above, so a new route (or a floor of it) wins the camera.
+    if (nextRoute && nextRoute !== routeFocusKey) frameRoute(state);
+    routeFocusKey = nextRoute;
     maybeStartIdleDemo();
     resize();
   }
@@ -702,6 +935,9 @@ function buildMapScene(
         handleContextRestored,
       );
       if (root) disposeModel(root);
+      clearRoute();
+      routeLineMaterial.dispose();
+      routeCapMaterial.dispose();
       highlight.geometry.dispose();
       highlight.material.dispose();
       beautyPass.dispose();

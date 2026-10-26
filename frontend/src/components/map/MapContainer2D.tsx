@@ -3,10 +3,12 @@ import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch'
 import type { ReactZoomPanPinchRef } from 'react-zoom-pan-pinch'
 import { Crosshair, Plus, Minus } from '@phosphor-icons/react'
 import type { Room } from '../../types/room'
+import type { FoundRoute } from '../../types/route'
 
 import { FLOOR_CONFIGS, getFloorConfig } from './floorConfig'
 import FloorPlanSvg from './FloorPlanSvg'
 import RoomMarkers from './RoomMarkers'
+import RouteOverlay from './RouteOverlay'
 import './MapContainer.css'
 
 export interface MapContainerProps {
@@ -37,6 +39,8 @@ export interface MapContainerProps {
   hideBottomControls?: boolean
   /** Suppress internal floor switcher when parent (MapContainer) renders unified dock */
   hideFloorSwitcher?: boolean
+  /** Route to draw; only the part on `currentFloor` is shown. */
+  route?: FoundRoute | null
 }
 
 const PADDING_X = 300
@@ -53,6 +57,8 @@ function MapContainer({
   isDetailOpen = false,
   hideBottomControls = false,
   hideFloorSwitcher = false,
+  sidebarWidth = 0,
+  route = null,
 }: MapContainerProps) {
   const floorConfig = getFloorConfig(currentFloor)
   const transformRef = useRef<ReactZoomPanPinchRef | null>(null)
@@ -66,7 +72,8 @@ function MapContainer({
   const motion = (ms: number) => (reduceMotion ? 0 : ms)
 
   useEffect(() => {
-    if (!selectedRoomId) return
+    // While navigating, the route framing below decides the view.
+    if (!selectedRoomId || route) return
     const room = rooms.find((r) => r.id === selectedRoomId)
     if (!room || room.floor !== currentFloor) return
 
@@ -94,7 +101,50 @@ function MapContainer({
     }, 50)
 
     return () => clearTimeout(timer)
-  }, [selectedRoomId, currentFloor, rooms, reduceMotion])
+  }, [selectedRoomId, currentFloor, rooms, reduceMotion, route])
+
+  // centerOnInit re-centres the plan when its ResizeObserver first reports the content
+  // size, which can land after a mount-time framing; count those passes to frame again.
+  const [layoutPass, setLayoutPass] = useState(0)
+  useEffect(() => transformRef.current?.instance.onInit(() => setLayoutPass((n) => n + 1)), [])
+
+  // Frame the route's part on this floor whenever a new route arrives or the floor changes.
+  useEffect(() => {
+    const points = route?.path.filter((point) => point.floor === currentFloor) ?? []
+    if (points.length === 0) return
+
+    const timer = setTimeout(() => {
+      if (!transformRef.current) return
+      const wrapper = transformRef.current.instance?.wrapperComponent
+      const wrapperWidth = wrapper?.clientWidth ?? window.innerWidth
+      const wrapperHeight = wrapper?.clientHeight ?? window.innerHeight
+      const isMobile = wrapperWidth < 640
+
+      // Open map area: right of the desktop sidebar; below the navigation card on phones.
+      const left = isMobile ? 0 : sidebarWidth
+      const top = isMobile ? wrapperHeight * 0.45 : 0
+      const areaWidth = Math.max(160, wrapperWidth - left)
+      const areaHeight = Math.max(160, wrapperHeight - top)
+
+      const xs = points.map((point) => point.x)
+      const ys = points.map((point) => point.y)
+      const minX = Math.min(...xs)
+      const maxX = Math.max(...xs)
+      const minY = Math.min(...ys)
+      const maxY = Math.max(...ys)
+      const fit = Math.min(
+        (areaWidth * 0.7) / Math.max(maxX - minX, 1),
+        (areaHeight * 0.6) / Math.max(maxY - minY, 1),
+      )
+      const targetScale = Math.min(2.2, Math.max(0.8, fit))
+      const posX = left + areaWidth / 2 - ((minX + maxX) / 2 + PADDING_X) * targetScale
+      const posY = top + areaHeight / 2 - ((minY + maxY) / 2 + PADDING_Y) * targetScale
+
+      transformRef.current.setTransform(posX, posY, targetScale, reduceMotion ? 0 : 650, 'easeOutCubic')
+    }, 60)
+
+    return () => clearTimeout(timer)
+  }, [route, currentFloor, sidebarWidth, reduceMotion, layoutPass])
 
   return (
     <div className="map2d relative h-full w-full overflow-hidden">
@@ -254,6 +304,15 @@ function MapContainer({
             }}
           >
             <FloorPlanSvg floorConfig={floorConfig} />
+            {route && (
+              <RouteOverlay
+                route={route}
+                currentFloor={currentFloor}
+                floorConfig={floorConfig}
+                onFloorChange={onFloorChange}
+                animate={!reduceMotion}
+              />
+            )}
             <RoomMarkers
               rooms={rooms}
               currentFloor={currentFloor}

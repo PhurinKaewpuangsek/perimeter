@@ -73,8 +73,31 @@ vi.mock('three/addons/controls/OrbitControls.js', async () => {
   }
 })
 
+// A model with just the two floor groups the scene requires.
+vi.mock('three/addons/loaders/GLTFLoader.js', async () => {
+  const { Group } = await import('three')
+  return {
+    GLTFLoader: class {
+      setMeshoptDecoder() {
+        return this
+      }
+      parseAsync() {
+        const scene = new Group()
+        for (const name of ['LC3_Floor_1', 'LC3_Floor_2']) {
+          const floor = new Group()
+          floor.name = name
+          scene.add(floor)
+        }
+        return Promise.resolve({ scene })
+      }
+    },
+  }
+})
+
+import * as THREE from 'three'
 import { SSAOPass } from 'three/addons/postprocessing/SSAOPass.js'
 import { CONTEXT_RESTORE_TIMEOUT, createMapScene } from '../createMapScene'
+import type { FoundRoute } from '../../../types/route'
 
 beforeEach(() => {
   gpu.composerThrows = false
@@ -150,5 +173,98 @@ describe('createMapScene lifecycle', () => {
     }
     expect(passesFor(false)).toBe(true)
     expect(passesFor(true)).toBe(false)
+  })
+})
+
+describe('createMapScene route (#145)', () => {
+  const route: FoundRoute = {
+    found: true,
+    distance: 300,
+    floors: [1, 2],
+    path: [
+      { nodeId: 'LC3_Junction_SM', floor: 1, x: 632, y: 484 },
+      { nodeId: 'LC3_Junction_MStair', floor: 1, x: 620, y: 300 },
+      { nodeId: 'LC3_stair-2', floor: 1, x: 622, y: 270 },
+      { nodeId: 'LC3_F2_stair-2', floor: 2, x: 529, y: 228 },
+      { nodeId: 'LC3_F2_201', floor: 2, x: 424, y: 280 },
+    ],
+    closuresAvoided: [],
+  }
+
+  it('draws the shown floor of the route, labels the stairs and frees the geometry when cleared', async () => {
+    vi.stubGlobal('fetch', () =>
+      Promise.resolve({ ok: true, headers: new Headers(), body: null, arrayBuffer: () => Promise.resolve(new ArrayBuffer(8)) }),
+    )
+    const host = document.createElement('div')
+    const map = createMapScene(host, vi.fn())
+    await map.ready
+    const disposeGeometry = vi.spyOn(THREE.BufferGeometry.prototype, 'dispose')
+    const onFloorChange = vi.fn()
+    const state = { rooms: [], currentFloor: 1, selectedRoomId: null, onSelectRoom: vi.fn(), onFloorChange, route }
+
+    map.update(state)
+    const label = host.querySelector<HTMLButtonElement>('.map3d-route-floor')
+    expect(label?.textContent).toBe('ขึ้นบันไดไปชั้น 2')
+    label!.click() // keyboard activation (detail 0)
+    expect(onFloorChange).toHaveBeenCalledWith(2)
+    expect(disposeGeometry).not.toHaveBeenCalled()
+
+    // Same route and floor again: nothing is rebuilt.
+    map.update({ ...state })
+    expect(disposeGeometry).not.toHaveBeenCalled()
+
+    map.update({ ...state, route: null })
+    expect(disposeGeometry.mock.contexts.some((geometry) => geometry instanceof THREE.CylinderGeometry)).toBe(true)
+    expect(host.querySelector('.map3d-route-floor')).toBeNull()
+
+    disposeGeometry.mockRestore()
+    map.dispose()
+  })
+
+  async function sceneWithRoute(currentFloor: number) {
+    vi.stubGlobal('fetch', () =>
+      Promise.resolve({ ok: true, headers: new Headers(), body: null, arrayBuffer: () => Promise.resolve(new ArrayBuffer(8)) }),
+    )
+    const addToScene = vi.spyOn(THREE.Scene.prototype, 'add')
+    const map = createMapScene(document.createElement('div'), vi.fn())
+    await map.ready
+    const routeGroup = addToScene.mock.calls.flat().find((object) => object.name === 'Route')!
+    addToScene.mockRestore()
+    map.update({ rooms: [], currentFloor, selectedRoomId: null, onSelectRoom: vi.fn(), route })
+    return { map, routeGroup }
+  }
+
+  it('draws the line in from the start, then stops rendering', async () => {
+    const { map, routeGroup } = await sceneWithRoute(2)
+    const endMarker = routeGroup.children.at(-1)!
+    expect(endMarker.visible).toBe(false)
+
+    vi.advanceTimersByTime(1000)
+    expect(routeGroup.children.every((child) => child.visible)).toBe(true)
+    const frames = vi.spyOn(window, 'requestAnimationFrame')
+    vi.advanceTimersByTime(500)
+    expect(frames).not.toHaveBeenCalled()
+    map.dispose()
+  })
+
+  it('shows the whole line at once when motion is reduced', async () => {
+    vi.stubGlobal('matchMedia', (query: string) => ({ matches: query === '(prefers-reduced-motion: reduce)' }))
+    const { map, routeGroup } = await sceneWithRoute(2)
+    expect(routeGroup.children.every((child) => child.visible)).toBe(true)
+    const tube = routeGroup.children.find((child) => child instanceof THREE.Mesh && child.geometry instanceof THREE.CylinderGeometry)!
+    expect(tube.scale.z).toBeGreaterThan(1)
+    map.dispose()
+  })
+
+  it('has no stairs label on the last floor of the route', async () => {
+    vi.stubGlobal('fetch', () =>
+      Promise.resolve({ ok: true, headers: new Headers(), body: null, arrayBuffer: () => Promise.resolve(new ArrayBuffer(8)) }),
+    )
+    const host = document.createElement('div')
+    const map = createMapScene(host, vi.fn())
+    await map.ready
+    map.update({ rooms: [], currentFloor: 2, selectedRoomId: null, onSelectRoom: vi.fn(), route })
+    expect(host.querySelector('.map3d-route-floor')).toBeNull()
+    map.dispose()
   })
 })

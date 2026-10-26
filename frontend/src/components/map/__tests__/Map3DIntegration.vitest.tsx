@@ -3,6 +3,7 @@ import { render, screen, waitFor, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import MapContainer from '../MapContainer'
 import type { MapContainerProps } from '../MapContainer'
+import type { FoundRoute } from '../../../types/route'
 
 const mock = vi.hoisted(() => ({
   update: vi.fn(),
@@ -90,6 +91,32 @@ describe('3D map integration', () => {
     // 2D is already showing, so the toggle offers 3D and one tap retries it.
     await userEvent.click(screen.getByRole('button', { name: 'แผนที่ 3D' }))
     expect(await screen.findByRole('region', { name: /แบบ 3D/ })).toBeInTheDocument()
+  })
+  it('hands the route to the scene and lets its stairs label switch floors', async () => {
+    const route: FoundRoute = {
+      found: true,
+      distance: 300,
+      floors: [1, 2],
+      path: [
+        { nodeId: 'LC3_Junction_SM', floor: 1, x: 632, y: 484 },
+        { nodeId: 'LC3_stair-2', floor: 1, x: 622, y: 270 },
+        { nodeId: 'LC3_F2_stair-2', floor: 2, x: 529, y: 228 },
+        { nodeId: 'LC3_F2_201', floor: 2, x: 424, y: 280 },
+      ],
+      closuresAvoided: [],
+    }
+    const { rerender } = render(<MapContainer {...props} currentFloor={1} route={route} />)
+    await waitFor(() =>
+      expect(mock.update).toHaveBeenLastCalledWith(expect.objectContaining({ currentFloor: 1, route })),
+    )
+    mock.update.mock.lastCall![0].onFloorChange(2)
+    expect(props.onFloorChange).toHaveBeenCalledWith(2)
+
+    // Clearing the route tells the scene to drop its geometry.
+    rerender(<MapContainer {...props} currentFloor={1} route={null} />)
+    await waitFor(() =>
+      expect(mock.update).toHaveBeenLastCalledWith(expect.objectContaining({ route: null })),
+    )
   })
   it('allows manual 2D fallback and releases the WebGL scene', async () => {
     render(<MapContainer {...props} />)

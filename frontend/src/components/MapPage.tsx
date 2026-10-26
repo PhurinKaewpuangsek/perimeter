@@ -18,6 +18,7 @@ import {
   ArrowCounterClockwise,
   BookOpen,
   GraduationCap,
+  NavigationArrow,
   Sparkle,
   Users,
 } from '@phosphor-icons/react'
@@ -25,11 +26,14 @@ import { useRooms } from '../hooks/useRooms'
 import { useIsDesktop } from '../hooks/useIsDesktop'
 import { useSchedules } from '../hooks/useSchedules'
 import { usePreloadImages } from '../hooks/usePreloadImages'
+import { useRoute } from '../hooks/useRoute'
+import { BUILDING_ENTRANCE_ID } from '../services/routeService'
 import MapContainer from './map/MapContainer'
 import { FLOOR_CONFIGS } from './map/floorConfig'
 import LoadingScreen from './LoadingScreen'
 import TopBar from './TopBar'
 import SearchBar from './SearchBar'
+import NavigationPanel from './NavigationPanel'
 import CategoryFilter from './CategoryFilter'
 import SearchResultList from './SearchResultList'
 import PinButton from './PinButton'
@@ -73,6 +77,7 @@ function RoomCategoryBadge({ category, nameThai }: { category: string; nameThai?
 interface RoomDetailContentProps {
   room: Room
   onClose: () => void
+  onNavigate: () => void
   activeScheduleTab: 'class' | 'exam'
   setActiveScheduleTab: (tab: 'class' | 'exam') => void
   classSchedules: ScheduleSlot[]
@@ -85,6 +90,7 @@ interface RoomDetailContentProps {
 function RoomDetailContent({
   room,
   onClose,
+  onNavigate,
   activeScheduleTab,
   setActiveScheduleTab,
   classSchedules,
@@ -203,6 +209,11 @@ function RoomDetailContent({
             </div>
           </div>
         )}
+
+        <button type="button" onClick={onNavigate} className="btn btn-primary mt-4 w-full">
+          <NavigationArrow size={16} weight="fill" aria-hidden="true" />
+          <span>นำทางมาที่นี่</span>
+        </button>
       </div>
 
       {/* SCHEDULE SECTION */}
@@ -317,6 +328,12 @@ export default function MapPage() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(Boolean(initialQuery && !initialRoomId))
   const [isFilterExpanded, setIsFilterExpanded] = useState(false)
   const [activeScheduleTab, setActiveScheduleTab] = useState<'class' | 'exam'>('class')
+  // Navigation (#145): active while a destination is set. Indoors there is no usable
+  // GPS, so the start is picked by hand and defaults to the building entrance.
+  const [routeFrom, setRouteFrom] = useState(BUILDING_ENTRANCE_ID)
+  const [routeTo, setRouteTo] = useState<string | null>(null)
+  const isNavigating = routeTo !== null
+  const routeState = useRoute(isNavigating ? routeFrom : null, routeTo)
 
   const inputRef = useRef<HTMLInputElement>(null)
   const sheetRef = useRef<HTMLDivElement>(null)
@@ -352,8 +369,8 @@ export default function MapPage() {
 
   const hasActiveFilter = categoryKey !== DEFAULT_CATEGORY_KEY
   const hasActiveQueryOrFilter = query.trim() !== '' || hasActiveFilter
-  const isShowingSearchResults = isDropdownOpen && hasActiveQueryOrFilter
-  const isDetailOpen = Boolean(selectedRoom) && !isShowingSearchResults
+  const isShowingSearchResults = isDropdownOpen && hasActiveQueryOrFilter && !isNavigating
+  const isDetailOpen = Boolean(selectedRoom) && !isShowingSearchResults && !isNavigating
 
   const searchResults = useMemo(
     () => (hasActiveQueryOrFilter ? filterRooms(rooms, query, categoryKey, schedules) : []),
@@ -377,6 +394,12 @@ export default function MapPage() {
   }
 
   function handleMapRoomSelect(roomId: string) {
+    // While navigating, tapping a room makes it the new destination.
+    if (isNavigating) {
+      setRouteTo(roomId)
+      setSelectedRoomId(roomId)
+      return
+    }
     if (selectedRoomId === roomId) {
       handleUnpinRoom()
       return
@@ -390,8 +413,33 @@ export default function MapPage() {
 
   function handleResetMap() {
     setSelectedRoomId(null)
+    setRouteTo(null)
     setQuery('')
     setIsDropdownOpen(false)
+  }
+
+  /** The floor a route starts on, so the map opens where the user is standing. */
+  function getStartFloor(fromId: string) {
+    if (fromId === BUILDING_ENTRANCE_ID) return 1
+    return rooms.find((r) => r.id === fromId)?.floor ?? currentFloor
+  }
+
+  function handleNavigate(roomId: string) {
+    setRouteTo(roomId)
+    setSelectedRoomId(roomId)
+    setIsDropdownOpen(false)
+    setIsSidebarCollapsed(false)
+    if (!isDesktop) setIsFilterExpanded(false)
+    setCurrentFloor(getStartFloor(routeFrom))
+  }
+
+  function handleChangeRouteFrom(fromId: string) {
+    setRouteFrom(fromId)
+    setCurrentFloor(getStartFloor(fromId))
+  }
+
+  function handleClearRoute() {
+    setRouteTo(null)
   }
 
   function handleMapBackgroundClick() {
@@ -536,6 +584,19 @@ export default function MapPage() {
   if (error) return <LoadingScreen error={error} onRetry={() => reload()} />
   if (loading || !floorPlansReady) return <LoadingScreen />
 
+  const navigationPanel = isNavigating && (
+    <NavigationPanel
+      rooms={rooms}
+      fromId={routeFrom}
+      onChangeFrom={handleChangeRouteFrom}
+      destination={rooms.find((r) => r.id === routeTo)}
+      route={routeState}
+      currentFloor={currentFloor}
+      onFloorChange={setCurrentFloor}
+      onClose={handleClearRoute}
+    />
+  )
+
   return (
     <main className="relative h-[100dvh] w-screen overflow-hidden bg-surface-2 select-none">
       {/* Fixed 64px top bar + desktop bottom dock */}
@@ -568,6 +629,7 @@ export default function MapPage() {
           viewMode={mapView}
           onViewModeChange={setMapView}
           hideBottomControls={isDesktop}
+          route={routeState.route}
         />
 
         {/* =========================================================================
@@ -581,8 +643,8 @@ export default function MapPage() {
               }`}
             >
               <div className="pointer-events-auto relative flex h-full flex-col border-r border-line-soft bg-white">
-                {/* Search Controls (Pinned at top of sidebar) */}
-                <div className="border-b border-line-soft p-4">
+                {/* Search Controls (Pinned at top of sidebar); the navigation panel replaces them */}
+                <div className="border-b border-line-soft p-4" hidden={isNavigating}>
                   <div className="flex items-center gap-2">
                     <div className="min-w-0 flex-1">
                       <SearchBar
@@ -638,11 +700,15 @@ export default function MapPage() {
 
                 {/* Content Area: Switches between Room Detail, Search Results, and Explore State */}
                 <div className="no-scrollbar flex-1 space-y-4 overflow-y-auto p-4">
-                  {/* STATE 1: ROOM DETAIL VIEW */}
-                  {selectedRoom && isDetailOpen ? (
+                  {/* STATE 0: NAVIGATION (start, destination and route) */}
+                  {navigationPanel ? (
+                    navigationPanel
+                  ) : /* STATE 1: ROOM DETAIL VIEW */
+                  selectedRoom && isDetailOpen ? (
                     <RoomDetailContent
                       room={selectedRoom}
                       onClose={handleUnpinRoom}
+                      onNavigate={() => handleNavigate(selectedRoom.id)}
                       activeScheduleTab={activeScheduleTab}
                       setActiveScheduleTab={setActiveScheduleTab}
                       classSchedules={classSchedules}
@@ -722,7 +788,7 @@ export default function MapPage() {
             {/* =========================================================================
                 MOBILE FLOATING SEARCH PANEL (Mobile only: < sm), just below the top bar
                 ========================================================================= */}
-            <div className="pointer-events-none absolute inset-x-3 top-3 z-101 sm:hidden">
+            <div className="pointer-events-none absolute inset-x-3 top-3 z-101 sm:hidden" hidden={isNavigating}>
               <div className="pointer-events-auto relative z-2 flex flex-col">
                 <div className="flex w-full items-center gap-2">
                   <div className="min-w-0 flex-1 shadow-floating">
@@ -821,6 +887,17 @@ export default function MapPage() {
               )}
             </div>
 
+            {/* MOBILE NAVIGATION CARD: takes the search panel's place below the top bar,
+                leaving the bottom of the map and its floor/view controls free. */}
+            {navigationPanel && (
+              <div
+                data-testid="mobile-navigation"
+                className="card no-scrollbar pointer-events-auto absolute inset-x-3 top-3 z-101 max-h-[45dvh] overflow-y-auto overscroll-contain p-4 shadow-floating animate-fade-in sm:hidden"
+              >
+                {navigationPanel}
+              </div>
+            )}
+
             {/* =========================================================================
                 MOBILE ROOM DETAIL BOTTOM SHEET (Mobile only: < sm)
                 ========================================================================= */}
@@ -859,6 +936,7 @@ export default function MapPage() {
                   <RoomDetailContent
                     room={selectedRoom}
                     onClose={handleDismissDetailMobile}
+                    onNavigate={() => handleNavigate(selectedRoom.id)}
                     activeScheduleTab={activeScheduleTab}
                     setActiveScheduleTab={setActiveScheduleTab}
                     classSchedules={classSchedules}
