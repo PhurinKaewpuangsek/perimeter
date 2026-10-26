@@ -239,7 +239,7 @@ describe('AdminPage', () => {
     expect(screen.getByRole('button', { name: 'ลบตาราง' })).toBeInTheDocument()
   })
 
-  it('hides Danger Zone and schedule delete buttons when logged in as staff', async () => {
+  it('hides Danger Zone when logged in as staff while allowing schedule deletion (BUG-09)', async () => {
     currentSession = {
       idToken: 'mock-token',
       accessToken: 'mock-access',
@@ -250,6 +250,7 @@ describe('AdminPage', () => {
         groups: ['staff'],
       },
     }
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValueOnce(true)
     const user = userEvent.setup()
     render(
       <MemoryRouter>
@@ -263,11 +264,15 @@ describe('AdminPage', () => {
     await user.click(roomButton)
 
     expect(screen.getByText('แก้ไขข้อมูลห้อง')).toBeInTheDocument()
-    // Staff can see edit controls but NOT delete controls
+    // Room deletion Danger Zone remains restricted to admin
     expect(screen.queryByText('Danger Zone')).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'ลบตาราง' })).not.toBeInTheDocument()
-    // But edit button is still available
+    // Staff can both edit and delete schedule rows (BUG-09)
     expect(screen.getByRole('button', { name: 'แก้ไขตาราง' })).toBeInTheDocument()
+    const deleteBtn = screen.getByRole('button', { name: 'ลบตาราง' })
+    expect(deleteBtn).toBeInTheDocument()
+    await user.click(deleteBtn)
+    expect(adminServiceMock.deleteSchedule).toHaveBeenCalledWith('LC3-101', 'MON#09:30#CS101')
+    confirmSpy.mockRestore()
   })
 
   it('opens the closure tab (#147) with its form and list', async () => {
@@ -344,6 +349,7 @@ describe('AdminPage exam date (event_date)', () => {
   async function fillRequired(user: ReturnType<typeof userEvent.setup>, form: ReturnType<typeof within>) {
     await user.type(form.getByPlaceholderText('CS333'), 'BAS350')
     await user.type(form.getByPlaceholderText('09:00'), '13:00')
+    await user.type(form.getByPlaceholderText('12:00'), '16:00')
   }
 
   it('shows the date picker only for exam and event rows', async () => {
@@ -463,6 +469,46 @@ describe('AdminPage exam date (event_date)', () => {
       'LC3-201',
       'MON#13:00#BAS350',
       expect.objectContaining({ event_type: 'lab', event_date: null }),
+    )
+  })
+
+  it('rejects out-of-range time format and end_time <= start_time (BUG-06)', async () => {
+    const { user, form } = await openCreateForm()
+    await user.type(form.getByPlaceholderText('CS333'), 'CS999')
+    await user.type(form.getByPlaceholderText('09:00'), '25:99')
+    await user.type(form.getByPlaceholderText('12:00'), '16:00')
+    await user.click(form.getByRole('button', { name: /บันทึกตารางสอน/ }))
+
+    expect(form.getByText(/กรุณาระบุเวลาเป็นรูปแบบ HH:MM/)).toBeInTheDocument()
+    expect(adminServiceMock.createSchedule).not.toHaveBeenCalled()
+
+    await user.clear(form.getByPlaceholderText('09:00'))
+    await user.type(form.getByPlaceholderText('09:00'), '16:00')
+    await user.clear(form.getByPlaceholderText('12:00'))
+    await user.type(form.getByPlaceholderText('12:00'), '09:00')
+    await user.click(form.getByRole('button', { name: /บันทึกตารางสอน/ }))
+
+    expect(form.getByText(/เวลาสิ้นสุดต้องมากกว่าเวลาเริ่ม/)).toBeInTheDocument()
+    expect(adminServiceMock.createSchedule).not.toHaveBeenCalled()
+  })
+
+  it('auto-syncs day_of_week when event_date is selected (BUG-06)', async () => {
+    const { user, form } = await openCreateForm()
+    await fillRequired(user, form)
+    await user.selectOptions(form.getByDisplayValue('บรรยาย (Lecture)'), 'exam')
+    // 2026-10-30 is a Friday (FRI), even though dayOfWeek defaulted to MON
+    await user.type(form.getByLabelText(/วันสอบ/), '2026-10-30')
+    expect(form.getByDisplayValue('วันศุกร์ (FRI)')).toBeInTheDocument()
+
+    await user.click(form.getByRole('button', { name: /บันทึกตารางสอน/ }))
+
+    expect(adminServiceMock.createSchedule).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event_code: 'BAS350',
+        event_type: 'exam',
+        event_date: '2026-10-30',
+        day_of_week: 'FRI',
+      }),
     )
   })
 })

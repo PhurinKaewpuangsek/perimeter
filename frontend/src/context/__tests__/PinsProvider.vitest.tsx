@@ -26,7 +26,7 @@ describe('PinsProvider', () => {
   })
 
   function TestConsumer() {
-    const { pins, loading, error, togglePin, addPin, removePin } = usePins()
+    const { pins, loading, error, togglePin, addPin, removePin, isDrawerOpen, setIsDrawerOpen } = usePins()
     const navigate = useNavigate()
 
     return (
@@ -35,7 +35,15 @@ describe('PinsProvider', () => {
         <span data-testid="pins-keys">{pins.map((p) => p.pinKey).join(',')}</span>
         <span data-testid="pins-users">{pins.map((p) => p.userId).join(',')}</span>
         <span data-testid="loading-state">{loading ? 'loading' : 'idle'}</span>
+        <span data-testid="drawer-open-state">{isDrawerOpen ? 'open' : 'closed'}</span>
         {error && <span data-testid="error-state">{error.message}</span>}
+        <button
+          type="button"
+          onClick={() => setIsDrawerOpen(true)}
+          data-testid="open-drawer-btn"
+        >
+          Open Drawer
+        </button>
         <button
           type="button"
           onClick={() => navigate('/other')}
@@ -120,6 +128,12 @@ describe('PinsProvider', () => {
       expect(screen.getByTestId('pins-keys')).not.toHaveTextContent('LC3-105#MON#09:00#CS333')
     })
 
+    // Open drawer before signing out
+    await act(async () => {
+      screen.getByTestId('open-drawer-btn').click()
+    })
+    expect(screen.getByTestId('drawer-open-state')).toHaveTextContent('open')
+
     // Simulate signing out (currentSub = null) and navigating
     currentSub = null
     await act(async () => {
@@ -128,6 +142,7 @@ describe('PinsProvider', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('pins-count')).toHaveTextContent('0')
+      expect(screen.getByTestId('drawer-open-state')).toHaveTextContent('closed')
     })
   })
 

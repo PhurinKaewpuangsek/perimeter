@@ -28,8 +28,8 @@ export function useRoomSchedules(roomCode: string | null | undefined): UseRoomSc
 
     if (!roomCode) return
 
-    const fetchRoomSchedules = () => {
-      getSchedules({ roomCode })
+    const fetchRoomSchedules = (bypassCache = false) => {
+      getSchedules({ roomCode, ...(bypassCache ? { bypassCache: true } : {}) })
         .then((data) => {
           if (!isMounted) return
           setResult({ roomCode, schedules: data, loading: false, error: null })
@@ -47,9 +47,9 @@ export function useRoomSchedules(roomCode: string | null | undefined): UseRoomSc
         })
     }
 
-    fetchRoomSchedules()
+    fetchRoomSchedules(attempt > 0)
 
-    const onFocus = () => fetchRoomSchedules()
+    const onFocus = () => fetchRoomSchedules(false)
     if (typeof window !== 'undefined') {
       window.addEventListener('focus', onFocus)
     }

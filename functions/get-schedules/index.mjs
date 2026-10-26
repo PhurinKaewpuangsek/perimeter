@@ -20,6 +20,11 @@ const SUCCESS_HEADERS = {
   'Cache-Control': 'public, max-age=60, stale-while-revalidate=30',
 };
 
+const FRESH_HEADERS = {
+  ...CORS_HEADERS,
+  'Cache-Control': 'no-store',
+};
+
 const ERROR_HEADERS = {
   ...CORS_HEADERS,
   'Cache-Control': 'no-store',
@@ -85,32 +90,40 @@ export function createHandler({
   return async function getSchedules(event = {}) {
     try {
       const roomCode = event.queryStringParameters?.room_code?.trim();
+      const forceFresh = event.queryStringParameters?.fresh === '1';
       const currentTime = typeof now === 'function' ? now().getTime() : Date.now();
       let records;
 
       if (roomCode) {
         const cached = roomCache.get(roomCode);
-        if (cached && currentTime - cached.cachedAt < cacheTtlMs) {
+        if (!forceFresh && cached && currentTime - cached.cachedAt < cacheTtlMs) {
           records = cached.records;
         } else {
           records = await queryRoomSchedules(docClient, tableName, roomCode);
-          if (roomCache.size >= MAX_ROOM_CACHE_SIZE) {
+          if (!roomCache.has(roomCode) && roomCache.size >= MAX_ROOM_CACHE_SIZE) {
             const oldestKey = roomCache.keys().next().value;
             roomCache.delete(oldestKey);
           }
           roomCache.set(roomCode, { records, cachedAt: currentTime });
+          if (forceFresh) {
+            cachedAllRecords = null;
+            cachedAllAt = 0;
+          }
         }
       } else {
-        if (!cachedAllRecords || currentTime - cachedAllAt >= cacheTtlMs) {
+        if (forceFresh || !cachedAllRecords || currentTime - cachedAllAt >= cacheTtlMs) {
           cachedAllRecords = await scanAllSchedules(docClient, tableName);
           cachedAllAt = currentTime;
+          if (forceFresh) {
+            roomCache.clear();
+          }
         }
         records = cachedAllRecords;
       }
 
       return {
         statusCode: 200,
-        headers: SUCCESS_HEADERS,
+        headers: forceFresh ? FRESH_HEADERS : SUCCESS_HEADERS,
         body: JSON.stringify({ count: records.length, records }),
       };
     } catch (error) {

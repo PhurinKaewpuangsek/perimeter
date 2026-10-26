@@ -36,7 +36,25 @@ function getCallerIdentity(event) {
 const UPDATABLE_FIELDS = ['end_time', 'event_name', 'event_type', 'day_of_week', 'start_time', 'event_code', 'event_date'];
 
 const EVENT_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const TIME_24H_PATTERN = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
+const WEEKDAYS_UTC = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 const EXAM_DATE_REQUIRED = 'event_date is required for exam rows (YYYY-MM-DD)';
+
+/** True when value is a 24-hour time string in HH:MM format (00:00..23:59). */
+export function isValidTime24h(value) {
+  return typeof value === 'string' && TIME_24H_PATTERN.test(value);
+}
+
+function parseMinutes(hhmm) {
+  const [h, m] = hhmm.split(':').map(Number);
+  return h * 60 + m;
+}
+
+/** Returns the 3-letter weekday ('SUN'..'SAT') for a valid YYYY-MM-DD date. */
+export function getWeekdayFromEventDate(value) {
+  const [year, month, day] = value.split('-').map(Number);
+  return WEEKDAYS_UTC[new Date(Date.UTC(year, month - 1, day)).getUTCDay()];
+}
 
 /** True when value is a real calendar date written as YYYY-MM-DD (e.g. rejects 2026-02-30). */
 export function isValidEventDate(value) {
@@ -145,6 +163,8 @@ export function createHandler({
       updateData.event_type = normalizeEventType(updateData.event_type);
     }
 
+    const [slotDayFromPath, slotStartFromPath] = scheduleSlot.split('#');
+
     // event_date: null or '' clears it; any other value must be a real YYYY-MM-DD date.
     let clearEventDate = false;
     if (updateData.event_date !== undefined) {
@@ -153,7 +173,27 @@ export function createHandler({
         delete updateData.event_date;
       } else if (!isValidEventDate(updateData.event_date)) {
         return badRequest('Invalid event_date: use a real calendar date in YYYY-MM-DD format');
+      } else {
+        const expectedWeekday = getWeekdayFromEventDate(updateData.event_date);
+        if (updateData.day_of_week !== undefined || expectedWeekday !== slotDayFromPath) {
+          updateData.day_of_week = expectedWeekday;
+        }
       }
+    }
+
+    if (updateData.start_time !== undefined && !isValidTime24h(updateData.start_time)) {
+      return badRequest('Invalid start_time: use 24-hour HH:MM format (00:00–23:59)');
+    }
+    if (updateData.end_time !== undefined && !isValidTime24h(updateData.end_time)) {
+      return badRequest('Invalid end_time: use 24-hour HH:MM format (00:00–23:59)');
+    }
+    const effectiveStartForRange = updateData.start_time ?? slotStartFromPath;
+    if (
+      updateData.end_time &&
+      isValidTime24h(effectiveStartForRange) &&
+      parseMinutes(updateData.end_time) <= parseMinutes(effectiveStartForRange)
+    ) {
+      return badRequest('Invalid time range: end_time must be after start_time');
     }
 
     if (isExamType(updateData.event_type) && clearEventDate) {
@@ -200,8 +240,17 @@ export function createHandler({
         }
         
         const oldItem = getResult.Item;
-        const newDay = updateData.day_of_week || oldItem.day_of_week;
         const newTime = updateData.start_time || oldItem.start_time;
+        const newEndTime = updateData.end_time !== undefined ? updateData.end_time : oldItem.end_time;
+        if (isValidTime24h(newTime) && isValidTime24h(newEndTime) && parseMinutes(newEndTime) <= parseMinutes(newTime)) {
+          return badRequest('Invalid time range: end_time must be after start_time');
+        }
+        const effectiveEventDate = clearEventDate ? undefined : (updateData.event_date || oldItem.event_date);
+        const newDay =
+          effectiveEventDate && isValidEventDate(effectiveEventDate)
+            ? getWeekdayFromEventDate(effectiveEventDate)
+            : updateData.day_of_week || oldItem.day_of_week;
+        updateData.day_of_week = newDay;
         const newCourse = updateData.event_code || oldItem.event_code;
         const newScheduleSlot = `${newDay}#${newTime}#${newCourse}`;
         const newRoomCode = move ? move.targetRoomCode : roomCode;

@@ -35,7 +35,7 @@ export function createHandler({ docClient = defaultDocClient, tableName = TABLE_
    */
   return async function deleteSchedule(event) {
     const groups = getCallerGroups(event);
-    if (!groups.includes('admin')) {
+    if (!groups.includes('admin') && !groups.includes('staff')) {
       return {
         statusCode: 403,
         headers: CORS_HEADERS,

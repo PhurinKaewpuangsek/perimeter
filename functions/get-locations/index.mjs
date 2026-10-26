@@ -19,6 +19,11 @@ const SUCCESS_HEADERS = {
   'Cache-Control': 'public, max-age=60, stale-while-revalidate=30',
 };
 
+const FRESH_HEADERS = {
+  ...CORS_HEADERS,
+  'Cache-Control': 'no-store',
+};
+
 const ERROR_HEADERS = {
   ...CORS_HEADERS,
   'Cache-Control': 'no-store',
@@ -64,10 +69,11 @@ export function createHandler({
   let cachedRecords = null;
   let cachedAt = 0;
 
-  return async function getLocations() {
+  return async function getLocations(event = {}) {
     try {
+      const forceFresh = event?.queryStringParameters?.fresh === '1';
       const currentTime = typeof now === 'function' ? now().getTime() : Date.now();
-      if (!cachedRecords || currentTime - cachedAt >= cacheTtlMs) {
+      if (forceFresh || !cachedRecords || currentTime - cachedAt >= cacheTtlMs) {
         cachedRecords = await scanAllLocations(docClient, tableName);
         cachedAt = currentTime;
       }
@@ -75,7 +81,7 @@ export function createHandler({
       // Same envelope the static rooms.json used, so the frontend parser is unchanged.
       return {
         statusCode: 200,
-        headers: SUCCESS_HEADERS,
+        headers: forceFresh ? FRESH_HEADERS : SUCCESS_HEADERS,
         body: JSON.stringify({ count: cachedRecords.length, records: cachedRecords }),
       };
     } catch (error) {

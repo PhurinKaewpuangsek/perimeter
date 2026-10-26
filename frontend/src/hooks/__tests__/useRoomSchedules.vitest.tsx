@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ScheduleSlot } from '../../types/schedule'
 
 const { getSchedules } = vi.hoisted(() => ({
-  getSchedules: vi.fn<(options?: { roomCode?: string }) => Promise<ScheduleSlot[]>>(),
+  getSchedules: vi.fn<(options?: { roomCode?: string; bypassCache?: boolean }) => Promise<ScheduleSlot[]>>(),
 }))
 
 vi.mock('../../services/schedulesService.ts', () => ({ getSchedules }))
@@ -69,6 +69,7 @@ describe('useRoomSchedules', () => {
     expect(result.current.schedules).toEqual([roomSchedule])
     expect(result.current.error).toBeNull()
     expect(getSchedules).toHaveBeenCalledTimes(2)
+    expect(getSchedules).toHaveBeenLastCalledWith({ roomCode: 'LC3-103', bypassCache: true })
   })
 
   it('keeps the loaded timetable when a focus refresh fails', async () => {

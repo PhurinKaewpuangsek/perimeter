@@ -142,12 +142,38 @@ function isExamEventType(type: string | undefined): boolean {
   return (type || '').toLowerCase() === 'exam'
 }
 
+const TIME_24H_REGEX = /^(?:[01]\d|2[0-3]):[0-5]\d$/
+const WEEKDAY_CODES = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'] as const
+
 /** True when value is a real calendar date written as YYYY-MM-DD (rejects 2026-02-30). */
 function isValidEventDate(value: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
   const [year, month, day] = value.split('-').map(Number)
   const date = new Date(Date.UTC(year, month - 1, day))
   return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day
+}
+
+/** Returns the 3-letter weekday code (MON..SUN) for a valid YYYY-MM-DD string, or null. */
+function getWeekdayFromDateString(value: string): string | null {
+  if (!isValidEventDate(value)) return null
+  const [year, month, day] = value.split('-').map(Number)
+  const date = new Date(Date.UTC(year, month - 1, day))
+  return WEEKDAY_CODES[date.getUTCDay()] ?? null
+}
+
+/** Thai error message for start/end time fields (24h HH:MM and start < end), or null when valid. */
+function getScheduleTimeError(startTime: string, endTime: string): string | null {
+  const start = startTime.trim()
+  const end = endTime.trim()
+  if (!TIME_24H_REGEX.test(start) || !TIME_24H_REGEX.test(end)) {
+    return 'กรุณาระบุเวลาเป็นรูปแบบ HH:MM (00:00–23:59)'
+  }
+  const [sh, sm] = start.split(':').map(Number)
+  const [eh, em] = end.split(':').map(Number)
+  if (eh * 60 + em <= sh * 60 + sm) {
+    return 'เวลาสิ้นสุดต้องมากกว่าเวลาเริ่ม'
+  }
+  return null
 }
 
 /** Thai error message for the date field, or null when it can be saved. Mirrors the API rules. */
@@ -348,10 +374,9 @@ interface ScheduleRowProps {
   onEdit: (updated: ScheduleEditFields) => Promise<void>
   /** Rooms already loaded by the page, offered as move targets (no extra API call). */
   rooms: Room[]
-  isAdmin?: boolean
 }
 
-function ScheduleRow({ slot, onDelete, onEdit, rooms, isAdmin = false }: ScheduleRowProps) {
+function ScheduleRow({ slot, onDelete, onEdit, rooms }: ScheduleRowProps) {
   const [editing, setEditing] = useState(false)
   const [targetRoomCode, setTargetRoomCode] = useState(slot.roomCode)
   const moveTargets = useMemo(
@@ -386,6 +411,11 @@ function ScheduleRow({ slot, onDelete, onEdit, rooms, isAdmin = false }: Schedul
   }
 
   async function handleSave() {
+    const timeError = getScheduleTimeError(startTime, endTime)
+    if (timeError) {
+      setErr(timeError)
+      return
+    }
     const dateError = getEventDateError(eventType, eventDate)
     if (dateError) {
       setErr(dateError)
@@ -396,10 +426,23 @@ function ScheduleRow({ slot, onDelete, onEdit, rooms, isAdmin = false }: Schedul
       setErr('ไม่พบห้องปลายทาง กรุณาเลือกห้องจากรายการ')
       return
     }
+    const syncedDayOfWeek =
+      isDatedEventType(eventType) && eventDate
+        ? (getWeekdayFromDateString(eventDate) ?? dayOfWeek)
+        : dayOfWeek
     setSaving(true)
     setErr(null)
     try {
-      await onEdit({ dayOfWeek, startTime, eventCode, endTime, eventName, eventType, eventDate, targetRoom })
+      await onEdit({
+        dayOfWeek: syncedDayOfWeek,
+        startTime: startTime.trim(),
+        eventCode,
+        endTime: endTime.trim(),
+        eventName,
+        eventType,
+        eventDate,
+        targetRoom,
+      })
       setEditing(false)
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'เกิดข้อผิดพลาด')
@@ -453,6 +496,7 @@ function ScheduleRow({ slot, onDelete, onEdit, rooms, isAdmin = false }: Schedul
               value={startTime}
               onChange={(e) => setStartTime(e.target.value)}
               placeholder="09:00"
+              required
               className="input-boxed font-mono"
             />
           </div>
@@ -463,6 +507,7 @@ function ScheduleRow({ slot, onDelete, onEdit, rooms, isAdmin = false }: Schedul
               value={endTime}
               onChange={(e) => setEndTime(e.target.value)}
               placeholder="12:00"
+              required
               className="input-boxed font-mono"
             />
           </div>
@@ -488,7 +533,15 @@ function ScheduleRow({ slot, onDelete, onEdit, rooms, isAdmin = false }: Schedul
               <option value="other">อื่นๆ (Other)</option>
             </select>
           </div>
-          <EventDateField eventType={eventType} value={eventDate} onChange={setEventDate} />
+          <EventDateField
+            eventType={eventType}
+            value={eventDate}
+            onChange={(newDate) => {
+              setEventDate(newDate)
+              const weekday = getWeekdayFromDateString(newDate)
+              if (weekday) setDayOfWeek(weekday)
+            }}
+          />
           <div className="col-span-2">
             <label className="label" htmlFor={`move-room-${slot.schedule_slot}`}>
               ย้ายไปห้อง
@@ -563,18 +616,16 @@ function ScheduleRow({ slot, onDelete, onEdit, rooms, isAdmin = false }: Schedul
         >
           <PencilSimple size={14} />
         </button>
-        {isAdmin && (
-          <button
-            type="button"
-            onClick={handleDelete}
-            disabled={saving}
-            className="btn btn-ghost btn-icon-sm"
-            title="ลบตาราง"
-            aria-label="ลบตาราง"
-          >
-            <Trash size={14} />
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={handleDelete}
+          disabled={saving}
+          className="btn btn-ghost btn-icon-sm"
+          title="ลบตาราง"
+          aria-label="ลบตาราง"
+        >
+          <Trash size={14} />
+        </button>
       </div>
     </div>
   )
@@ -603,20 +654,26 @@ function CreateScheduleForm({ roomCode, onCreated, onCancel }: CreateScheduleFor
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    const timeError = getScheduleTimeError(startTime, endTime)
+    if (timeError) {
+      setErr(timeError)
+      return
+    }
     const dateError = getEventDateError(eventType, eventDate)
     if (dateError) {
       setErr(dateError)
       return
     }
     const event_date = eventDateForPayload(eventType, eventDate)
+    const syncedDayOfWeek = event_date ? (getWeekdayFromDateString(event_date) ?? dayOfWeek) : dayOfWeek
     setSaving(true)
     setErr(null)
     try {
       await createSchedule({
         room_code: roomCode,
-        day_of_week: dayOfWeek,
-        start_time: startTime,
-        end_time: endTime,
+        day_of_week: syncedDayOfWeek,
+        start_time: startTime.trim(),
+        end_time: endTime.trim(),
         event_code: eventCode,
         event_name: eventName,
         event_type: eventType,
@@ -694,12 +751,15 @@ function CreateScheduleForm({ roomCode, onCreated, onCancel }: CreateScheduleFor
           />
         </div>
         <div>
-          <label className="label">เวลาสิ้นสุด</label>
+          <label className="label">
+            เวลาสิ้นสุด <span className="text-ink-2">*</span>
+          </label>
           <input
             type="text"
             value={endTime}
             onChange={(e) => setEndTime(e.target.value)}
             placeholder="12:00"
+            required
             className="input-boxed font-mono"
           />
         </div>
@@ -726,7 +786,15 @@ function CreateScheduleForm({ roomCode, onCreated, onCancel }: CreateScheduleFor
             <option value="other">อื่นๆ (Other)</option>
           </select>
         </div>
-        <EventDateField eventType={eventType} value={eventDate} onChange={setEventDate} />
+        <EventDateField
+          eventType={eventType}
+          value={eventDate}
+          onChange={(newDate) => {
+            setEventDate(newDate)
+            const weekday = getWeekdayFromDateString(newDate)
+            if (weekday) setDayOfWeek(weekday)
+          }}
+        />
       </div>
 
       <div className="flex gap-2 justify-end pt-1">
@@ -1138,7 +1206,6 @@ function RoomEditPanel({
                 onDelete={() => handleScheduleDelete(slot)}
                 onEdit={(updated) => handleScheduleEdit(slot, updated)}
                 rooms={rooms}
-                isAdmin={isAdmin}
               />
             ))}
           </div>

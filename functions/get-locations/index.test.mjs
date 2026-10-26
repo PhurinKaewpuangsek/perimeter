@@ -95,6 +95,38 @@ describe('GetLocationsFunction Lambda Handler', () => {
     assert.equal(docClient.calls.length, 2); // Rescanned
   });
 
+  test('bypasses in-memory cache and returns Cache-Control: no-store when fresh=1 is provided (BUG-02)', async () => {
+    const initialItems = [{ location_id: 'LC3-101', name_th: 'Old Name' }];
+    const updatedItems = [{ location_id: 'LC3-101', name_th: 'New Name' }];
+    const docClient = fakeDocClient([{ Items: initialItems }, { Items: updatedItems }]);
+    let currentTime = 1000;
+    const handler = createHandler({
+      docClient,
+      tableName: 'TestTable',
+      cacheTtlMs: 60 * 1000,
+      now: () => new Date(currentTime),
+    });
+
+    // Warm cache
+    const res1 = await handler();
+    assert.equal(res1.statusCode, 200);
+    assert.equal(docClient.calls.length, 1);
+
+    // Within TTL (5s later), request with fresh=1
+    currentTime += 5 * 1000;
+    const resFresh = await handler({ queryStringParameters: { fresh: '1' } });
+    assert.equal(resFresh.statusCode, 200);
+    assert.equal(resFresh.headers['Cache-Control'], 'no-store');
+    assert.deepEqual(JSON.parse(resFresh.body).records, updatedItems);
+    assert.equal(docClient.calls.length, 2);
+
+    // Subsequent normal request within TTL returns updated cache
+    const resCached = await handler();
+    assert.equal(resCached.headers['Cache-Control'], 'public, max-age=60, stale-while-revalidate=30');
+    assert.deepEqual(JSON.parse(resCached.body).records, updatedItems);
+    assert.equal(docClient.calls.length, 2);
+  });
+
   test('returns 500 with CORS headers and no-store when the scan fails', async () => {
     const docClient = fakeDocClient([new Error('ResourceNotFoundException')]);
 
