@@ -10,6 +10,7 @@ import {
   Users,
 } from '@phosphor-icons/react'
 import { useRooms } from '../hooks/useRooms'
+import { useSchedules } from '../hooks/useSchedules'
 import { useIsDesktop } from '../hooks/useIsDesktop'
 import { usePreloadImages } from '../hooks/usePreloadImages'
 import MapContainer from './map/MapContainer'
@@ -18,6 +19,8 @@ import SearchResultList from './SearchResultList'
 import { PlaceholdersAndVanishInput } from './ui/PlaceholdersAndVanishInput'
 import {
   filterRooms,
+  findExams,
+  isExamSearchQuery,
   DEFAULT_CATEGORY_KEY,
 } from '../services/filterRooms'
 import {
@@ -32,7 +35,8 @@ import perimeterLogoNoBg from '../assets/perimeter_logo_negative_nobg.png'
 const FLOOR_PLAN_ASSETS = FLOOR_CONFIGS.map((config) => config.asset)
 
 const SEARCH_PLACEHOLDERS = [
-  'พิมพ์เลขห้อง เช่น LC3-101',
+  'รหัสวิชาหรือห้อง เช่น BAS350, LC3-101',
+  'ค้นหาการสอบ เช่น BAS350 13:00',
   'ค้นหาห้องบรรยาย เช่น บรรยาย 1',
   'ค้นหาห้องน้ำชาย / หญิง',
   'ค้นหาห้อง 108/1, 102...',
@@ -52,6 +56,11 @@ const SEARCH_PLACEHOLDERS = [
 export default function LandingPage() {
   const navigate = useNavigate()
   const { rooms, loading, error } = useRooms()
+  const {
+    schedules,
+    loading: schedulesLoading,
+    error: schedulesError,
+  } = useSchedules()
   usePreloadImages(FLOOR_PLAN_ASSETS)
 
   const isDesktop = useIsDesktop()
@@ -60,6 +69,7 @@ export default function LandingPage() {
   const [demoInterrupted, setDemoInterrupted] = useState(false)
   const [quickQuery, setQuickQuery] = useState('')
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+  const [showPastExams, setShowPastExams] = useState(false)
   const [isSlidingOut, setIsSlidingOut] = useState(false)
   const searchContainerRef = useRef<HTMLDivElement>(null)
 
@@ -68,11 +78,21 @@ export default function LandingPage() {
     [rooms, selectedRoomId]
   )
 
-  // Landing page: Search ONLY by room number, name, and aliases (NO Course ID / Schedule search)
   const searchResults = useMemo(() => {
     if (!quickQuery.trim()) return []
-    return filterRooms(rooms, quickQuery, DEFAULT_CATEGORY_KEY, [])
-  }, [rooms, quickQuery])
+    return filterRooms(rooms, quickQuery, DEFAULT_CATEGORY_KEY, schedules)
+  }, [rooms, quickQuery, schedules])
+
+  const allExamResults = useMemo(
+    () => findExams(schedules, quickQuery, { includePast: true }),
+    [quickQuery, schedules]
+  )
+  const examResults = useMemo(
+    () => (showPastExams ? allExamResults : findExams(schedules, quickQuery)),
+    [allExamResults, quickQuery, schedules, showPastExams]
+  )
+  const examSearchActive = isExamSearchQuery(quickQuery, rooms, schedules)
+  const pastExamsAvailable = allExamResults.length > examResults.length
 
   function handleRoomSelect(roomId: string) {
     setDemoInterrupted(true)
@@ -84,13 +104,18 @@ export default function LandingPage() {
     }
   }
 
-  function handleEnterFullMap(targetRoomId?: string | null, query?: string) {
+  function handleEnterFullMap(
+    targetRoomId?: string | null,
+    query?: string,
+    navigationDestinationId?: string | null
+  ) {
     setIsSlidingOut(true)
     setTimeout(() => {
       let targetUrl = '/map'
       const params = new URLSearchParams()
       if (targetRoomId) params.set('room', targetRoomId)
       if (query && query.trim()) params.set('q', query.trim())
+      if (navigationDestinationId) params.set('navigate', navigationDestinationId)
       const paramStr = params.toString()
       if (paramStr) targetUrl += `?${paramStr}`
       navigate(targetUrl)
@@ -101,7 +126,12 @@ export default function LandingPage() {
     e.preventDefault()
     if (!quickQuery.trim()) return
 
-    const matches = filterRooms(rooms, quickQuery, DEFAULT_CATEGORY_KEY, [])
+    if (examSearchActive) {
+      setIsDropdownOpen(true)
+      return
+    }
+
+    const matches = filterRooms(rooms, quickQuery, DEFAULT_CATEGORY_KEY, schedules)
     if (matches.length > 0) {
       handleRoomSelect(matches[0].id)
     } else {
@@ -254,12 +284,21 @@ export default function LandingPage() {
                 <div className="dropdown absolute inset-x-0 top-15 max-h-72 overflow-y-auto p-2 animate-fade-in">
                   <SearchResultList
                     rooms={searchResults}
-                    schedules={[]}
-                    schedulesLoading={false}
-                    schedulesError={null}
+                    allRooms={rooms}
+                    schedules={schedules}
+                    examResults={examResults}
+                    examSearchActive={examSearchActive}
+                    pastExamsAvailable={pastExamsAvailable}
+                    showPastExams={showPastExams}
+                    onToggleShowPastExams={() => setShowPastExams((current) => !current)}
+                    schedulesLoading={schedulesLoading}
+                    schedulesError={schedulesError}
                     loading={loading}
                     error={error}
                     onSelectRoom={(roomId) => handleRoomSelect(roomId)}
+                    onNavigateToRoom={(roomId) =>
+                      handleEnterFullMap(null, quickQuery, roomId)
+                    }
                   />
                 </div>
               )}
@@ -403,6 +442,4 @@ export default function LandingPage() {
     </div>
   )
 }
-
-
 

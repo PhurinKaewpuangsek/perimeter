@@ -3,18 +3,54 @@ import { render, screen, fireEvent, act } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import LandingPage from '../LandingPage'
 
-const mockNavigate = vi.fn()
+const mocks = vi.hoisted(() => ({
+  navigate: vi.fn(),
+  rooms: [
+    {
+      id: 'LC3-F1-R103',
+      code: 'LC3-103',
+      roomNumber: '103',
+      nameThai: 'ห้อง 103',
+      building: 'LC3',
+      floor: 1,
+      category: 'lecture_room',
+      coordinates: { x: 100, y: 200 },
+      aliases: ['LC3-103', '103'],
+      landmarks: [],
+    },
+  ],
+  schedules: [
+    {
+      roomCode: 'LC3-103',
+      eventCode: 'BAS350',
+      eventName: 'Exam - BAS350',
+      dayOfWeek: 'MON',
+      startTime: '13:00',
+      endTime: '16:00',
+      eventType: 'exam',
+      eventDate: '2027-05-18',
+    },
+  ],
+}))
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom')
   return {
     ...actual,
-    useNavigate: () => mockNavigate,
+    useNavigate: () => mocks.navigate,
   }
 })
 
 vi.mock('../../hooks/useRooms', () => ({
   useRooms: () => ({
-    rooms: [],
+    rooms: mocks.rooms,
+    loading: false,
+    error: null,
+  }),
+}))
+
+vi.mock('../../hooks/useSchedules', () => ({
+  useSchedules: () => ({
+    schedules: mocks.schedules,
     loading: false,
     error: null,
   }),
@@ -30,7 +66,7 @@ vi.mock('../map/MapContainer', () => ({
 
 describe('LandingPage', () => {
   beforeEach(() => {
-    mockNavigate.mockReset()
+    mocks.navigate.mockReset()
     vi.clearAllMocks()
     vi.useFakeTimers()
   })
@@ -63,7 +99,7 @@ describe('LandingPage', () => {
     act(() => {
       vi.advanceTimersByTime(500)
     })
-    expect(mockNavigate).toHaveBeenCalledWith('/login')
+    expect(mocks.navigate).toHaveBeenCalledWith('/login')
   })
 
   it('submitting search does not navigate away to /map', () => {
@@ -83,7 +119,44 @@ describe('LandingPage', () => {
       vi.advanceTimersByTime(500)
     })
     // Crucial requirement: User stays on landing page, does not navigate to /map
-    expect(mockNavigate).not.toHaveBeenCalledWith(expect.stringContaining('/map'))
+    expect(mocks.navigate).not.toHaveBeenCalledWith(expect.stringContaining('/map'))
+  })
+
+  it('lets a guest find an exam and opens map navigation to its room', () => {
+    render(
+      <MemoryRouter>
+        <LandingPage />
+      </MemoryRouter>,
+    )
+
+    fireEvent.change(screen.getByRole('textbox', { name: /ค้นหา/i }), {
+      target: { value: 'BAS350 13:00' },
+    })
+
+    expect(screen.getByText('สอบ: BAS350')).toBeInTheDocument()
+    expect(screen.getByText('อาคาร LC3 · ห้อง LC3-103 ชั้น 1')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'นำทางไปห้องสอบ LC3-103' }))
+    act(() => {
+      vi.advanceTimersByTime(500)
+    })
+    expect(mocks.navigate).toHaveBeenCalledWith('/map?q=BAS350+13%3A00&navigate=LC3-F1-R103')
+  })
+
+  it('shows an exam-specific empty state for a course code without exam rows', () => {
+    render(
+      <MemoryRouter>
+        <LandingPage />
+      </MemoryRouter>,
+    )
+
+    fireEvent.change(screen.getByRole('textbox', { name: /ค้นหา/i }), {
+      target: { value: 'NOPE123' },
+    })
+
+    expect(
+      screen.getByText('ไม่พบการสอบที่ตรงกับรหัสวิชา ลองตรวจสอบรหัสวิชาอีกครั้ง')
+    ).toBeInTheDocument()
   })
 
   it('removes full-screen button and keeps enter map action intact via logo', () => {
@@ -106,7 +179,7 @@ describe('LandingPage', () => {
     act(() => {
       vi.advanceTimersByTime(500)
     })
-    expect(mockNavigate).toHaveBeenCalledWith('/map')
+    expect(mocks.navigate).toHaveBeenCalledWith('/map')
   })
 
   it('offers a no-login way into the map on phones', () => {
@@ -120,7 +193,7 @@ describe('LandingPage', () => {
     act(() => {
       vi.advanceTimersByTime(500)
     })
-    expect(mockNavigate).toHaveBeenCalledWith('/map')
+    expect(mocks.navigate).toHaveBeenCalledWith('/map')
   })
 
   it('does not mount the background map on phones, where it is hidden', () => {

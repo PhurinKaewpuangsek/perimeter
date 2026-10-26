@@ -69,6 +69,17 @@ const mockSchedulesForRoom: ScheduleSlot[] = [
   },
 ]
 
+const examSchedule: ScheduleSlot = {
+  roomCode: 'LC3-103',
+  eventCode: 'BAS350',
+  eventName: 'Exam - BAS350',
+  dayOfWeek: 'TUE',
+  startTime: '13:00',
+  endTime: '16:00',
+  eventType: 'exam',
+  eventDate: '2027-05-18',
+}
+
 describe('RoomSearchPanel Component', () => {
   it('renders the TORCH brand logo at the top of the panel', () => {
     render(<RoomSearchPanel rooms={mockRooms} onSelectRoom={vi.fn()} />)
@@ -131,6 +142,62 @@ describe('RoomSearchPanel Component', () => {
 
     expect(screen.getByText('CS361 · CS 361 · TUE 08:00-11:00 · LC3-103')).toBeInTheDocument()
     expect(screen.queryByText('BAS350 · BAS 350 · MON 13:00-16:00 · LC3-103')).not.toBeInTheDocument()
+  })
+
+  it('shows an exam card and navigates directly to its room', async () => {
+    const user = userEvent.setup()
+    const onNavigateToRoom = vi.fn()
+    render(
+      <RoomSearchPanel
+        rooms={mockRooms}
+        schedules={[examSchedule]}
+        onSelectRoom={vi.fn()}
+        onNavigateToRoom={onNavigateToRoom}
+      />
+    )
+
+    await user.type(screen.getByPlaceholderText(/ค้นหาห้อง/i), 'bas 350 13.00')
+
+    expect(screen.getByText('สอบ: BAS350')).toBeInTheDocument()
+    expect(screen.getByText('อ. 18 พ.ค. 2570 13:00–16:00')).toBeInTheDocument()
+    expect(screen.getByText('อาคาร LC3 · ห้อง LC3-103 ชั้น 1')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'นำทางไปห้องสอบ LC3-103' }))
+    expect(onNavigateToRoom).toHaveBeenCalledWith('LC3-F1-R103')
+  })
+
+  it('shows the exam-specific empty state for an unknown course code', async () => {
+    const user = userEvent.setup()
+    render(
+      <RoomSearchPanel
+        rooms={mockRooms}
+        schedules={mockSchedules}
+        onSelectRoom={vi.fn()}
+      />
+    )
+
+    await user.type(screen.getByPlaceholderText(/ค้นหาห้อง/i), 'NOPE123')
+
+    expect(
+      screen.getByText('ไม่พบการสอบที่ตรงกับรหัสวิชา ลองตรวจสอบรหัสวิชาอีกครั้ง')
+    ).toBeInTheDocument()
+    expect(screen.queryByText('ไม่พบห้องที่ค้นหา ลองเปลี่ยนคำค้นหาหรือหมวดหมู่ดูนะ')).not.toBeInTheDocument()
+  })
+
+  it('preserves direct room-code search instead of treating it as a course code', async () => {
+    const user = userEvent.setup()
+    render(
+      <RoomSearchPanel
+        rooms={mockRooms}
+        schedules={[examSchedule]}
+        onSelectRoom={vi.fn()}
+      />
+    )
+
+    await user.type(screen.getByPlaceholderText(/ค้นหาห้อง/i), 'LC3-103')
+
+    expect(screen.getByRole('list')).toBeInTheDocument()
+    expect(screen.getByText('LC3-103')).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'ผลการค้นหาการสอบ' })).not.toBeInTheDocument()
   })
 
   it('keeps direct room results available while schedules are loading', async () => {
@@ -294,4 +361,3 @@ describe('RoomSearchPanel Component', () => {
     }
   })
 })
-

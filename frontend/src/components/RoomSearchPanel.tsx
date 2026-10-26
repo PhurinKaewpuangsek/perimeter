@@ -2,7 +2,9 @@ import { useMemo, useState, useRef, useEffect } from 'react'
 import type { KeyboardEvent } from 'react'
 import {
   filterRooms,
+  findExams,
   getExpandedSearchTerms,
+  isExamSearchQuery,
   scheduleMatchesQuery,
   DEFAULT_CATEGORY_KEY,
 } from '../services/filterRooms.ts'
@@ -22,6 +24,8 @@ export interface RoomSearchPanelProps {
   error?: Error | null
   /** ยิง event ออกไปเมื่อผู้ใช้กดเลือกห้องจากผลลัพธ์ ให้ parent ไปปักหมุด SVG / เปิด Room Detail Modal ต่อ */
   onSelectRoom: (roomId: string) => void
+  /** เริ่มนำทางไปยังห้องสอบโดยตรง */
+  onNavigateToRoom?: (roomId: string) => void
 }
 
 /**
@@ -37,10 +41,12 @@ export default function RoomSearchPanel({
   loading = false,
   error = null,
   onSelectRoom,
+  onNavigateToRoom,
 }: RoomSearchPanelProps) {
   const [query, setQuery] = useState('')
   const [categoryKey, setCategoryKey] = useState(DEFAULT_CATEGORY_KEY)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+  const [showPastExams, setShowPastExams] = useState(false)
   const [isFilterExpanded, setIsFilterExpanded] = useState(() => {
     if (typeof window !== 'undefined') {
       return window.innerWidth >= 640
@@ -63,6 +69,16 @@ export default function RoomSearchPanel({
     const searchTerms = getExpandedSearchTerms(query)
     return schedules.filter((schedule) => scheduleMatchesQuery(schedule, searchTerms))
   }, [query, schedules])
+  const allExamResults = useMemo(
+    () => findExams(schedules, query, { includePast: true }),
+    [query, schedules]
+  )
+  const examResults = useMemo(
+    () => (showPastExams ? allExamResults : findExams(schedules, query)),
+    [allExamResults, query, schedules, showPastExams]
+  )
+  const examSearchActive = isExamSearchQuery(query, rooms, schedules)
+  const pastExamsAvailable = allExamResults.length > examResults.length
 
   const showDropdown = isDropdownOpen && hasActiveQueryOrFilter
 
@@ -87,6 +103,16 @@ export default function RoomSearchPanel({
     }
     // 4. Trigger room selection
     onSelectRoom(roomId)
+  }
+
+  function handleNavigateToRoom(roomId: string) {
+    setIsDropdownOpen(false)
+    inputRef.current?.blur()
+    if (typeof window !== 'undefined' && window.innerWidth < 640) {
+      setIsFilterExpanded(false)
+    }
+    if (onNavigateToRoom) onNavigateToRoom(roomId)
+    else onSelectRoom(roomId)
   }
 
   function handleInputFocus() {
@@ -160,12 +186,19 @@ export default function RoomSearchPanel({
       {showDropdown && (
         <SearchResultList
           rooms={results}
+          allRooms={rooms}
           schedules={matchedSchedules}
+          examResults={examResults}
+          examSearchActive={examSearchActive}
+          pastExamsAvailable={pastExamsAvailable}
+          showPastExams={showPastExams}
+          onToggleShowPastExams={() => setShowPastExams((current) => !current)}
           schedulesLoading={schedulesLoading}
           schedulesError={schedulesError}
           loading={loading}
           error={error}
           onSelectRoom={handleSelect}
+          onNavigateToRoom={handleNavigateToRoom}
           variant="legacy"
         />
       )}

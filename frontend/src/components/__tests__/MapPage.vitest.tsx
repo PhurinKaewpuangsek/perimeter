@@ -548,6 +548,15 @@ describe('MapPage navigation (issue #145)', () => {
     expect(screen.queryByRole('textbox', { name: 'ค้นหาห้อง' })).not.toBeInTheDocument()
   })
 
+  it('starts navigation from a destination supplied by the public search link', () => {
+    mockViewport(true)
+    renderMap('/map?q=BAS350&navigate=LC3-F1-R103')
+
+    expect(lastRouteCall()).toEqual(['LC3_Junction_SM', 'LC3-F1-R103'])
+    expect(screen.getByRole('region', { name: 'นำทาง' })).toBeInTheDocument()
+    expect(screen.queryByRole('textbox', { name: 'ค้นหาห้อง' })).not.toBeInTheDocument()
+  })
+
   it('lists the floor legs with the stairs step, and a leg switches the map floor', async () => {
     mockViewport(true)
     const user = await startNavigation()

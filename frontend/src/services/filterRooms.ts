@@ -1,5 +1,6 @@
 import type { Room } from '../types/room.ts'
 import type { ScheduleSlot } from '../types/schedule.ts'
+import { isExamSchedule } from './scheduleDisplay.ts'
 
 export interface CategoryFilterOption {
   /** ค่าที่ใช้อ้างอิงปุ่มนี้ภายในแอป (ส่งเข้า filterRooms เป็นพารามิเตอร์ category) */
@@ -186,6 +187,122 @@ export function scheduleMatchesQuery(schedule: ScheduleSlot, searchTerms: string
 
   const searchableValues = [schedule.eventCode, schedule.eventName].map(normalize)
   return searchTerms.some((term) => searchableValues.some((value) => value.includes(term)))
+}
+
+interface ParsedExamQuery {
+  courseCode: string
+  time: string | null
+  date: string | null
+}
+
+export interface FindExamsOptions {
+  includePast?: boolean
+  today?: string
+}
+
+function parseExamQuery(query: string): ParsedExamQuery {
+  let remaining = query.trim()
+  const dateMatch = remaining.match(/\b\d{4}-\d{2}-\d{2}\b/)
+  const date = dateMatch?.[0] ?? null
+  if (date) remaining = remaining.replace(date, ' ')
+
+  const timeMatch = remaining.match(/\b([01]?\d|2[0-3])([:.])([0-5]\d)\b/)
+  const time = timeMatch ? `${timeMatch[1].padStart(2, '0')}:${timeMatch[3]}` : null
+  if (timeMatch) remaining = remaining.replace(timeMatch[0], ' ')
+
+  return {
+    courseCode: remaining.replace(/\s+/g, '').toUpperCase(),
+    time,
+    date,
+  }
+}
+
+function matchesCourseCode(schedule: ScheduleSlot, courseCode: string): boolean {
+  const searchableCodes = [schedule.eventCode, schedule.eventName]
+    .flatMap((value) => value.split(/[/,;]/))
+    .map((value) => value.replace(/\s+/g, '').toUpperCase())
+
+  return searchableCodes.includes(courseCode)
+}
+
+function timeIsWithinSchedule(time: string, schedule: ScheduleSlot): boolean {
+  const toMinutes = (value: string) => {
+    const match = value.match(/^([01]\d|2[0-3]):([0-5]\d)$/)
+    return match ? Number(match[1]) * 60 + Number(match[2]) : null
+  }
+
+  const queryMinutes = toMinutes(time)
+  const startMinutes = toMinutes(schedule.startTime)
+  const endMinutes = toMinutes(schedule.endTime)
+
+  return (
+    queryMinutes !== null &&
+    startMinutes !== null &&
+    endMinutes !== null &&
+    queryMinutes >= startMinutes &&
+    queryMinutes < endMinutes
+  )
+}
+
+export function isExamSearchQuery(
+  query: string,
+  rooms: Room[] = [],
+  schedules: ScheduleSlot[] = []
+): boolean {
+  const parsed = parseExamQuery(query)
+  const courseCode = parsed.courseCode
+  if (!/^[A-Zก-๛]+\d+[A-Z0-9ก-๛]*$/i.test(courseCode)) return false
+
+  const exactRoomSearch = rooms.some((room) =>
+    [room.code, room.roomNumber, room.id, ...room.aliases].some(
+      (value) => value.replace(/\s+/g, '').toUpperCase() === courseCode
+    )
+  )
+
+  if (exactRoomSearch) return false
+
+  const hasDateOrTimeFilter = parsed.date !== null || parsed.time !== null
+  const matchesOnlyClassSchedules =
+    !hasDateOrTimeFilter &&
+    schedules.some(
+      (schedule) => !isExamSchedule(schedule) && matchesCourseCode(schedule, courseCode)
+    ) &&
+    !schedules.some(
+      (schedule) => isExamSchedule(schedule) && matchesCourseCode(schedule, courseCode)
+    )
+
+  return !matchesOnlyClassSchedules
+}
+
+/**
+ * Finds exam rows by course code with optional date/time filters.
+ * Past exams are excluded by default; pass includePast to show the full history.
+ */
+export function findExams(
+  schedules: ScheduleSlot[],
+  query: string,
+  options: FindExamsOptions = {}
+): ScheduleSlot[] {
+  const parsed = parseExamQuery(query)
+  if (!parsed.courseCode || !isExamSearchQuery(query)) return []
+
+  const now = new Date()
+  const today =
+    options.today ??
+    `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+
+  return schedules
+    .filter((schedule) => {
+      if (!isExamSchedule(schedule) || !matchesCourseCode(schedule, parsed.courseCode)) return false
+      if (parsed.date && schedule.eventDate !== parsed.date) return false
+      if (parsed.time && !timeIsWithinSchedule(parsed.time, schedule)) return false
+      if (!options.includePast && schedule.eventDate && schedule.eventDate < today) return false
+      return true
+    })
+    .sort((a, b) => {
+      const dateOrder = (a.eventDate || '9999-12-31').localeCompare(b.eventDate || '9999-12-31')
+      return dateOrder || a.startTime.localeCompare(b.startTime) || a.roomCode.localeCompare(b.roomCode)
+    })
 }
 
 function roomMatchesSchedule(room: Room, schedules: ScheduleSlot[], searchTerms: string[]): boolean {
