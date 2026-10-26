@@ -9,7 +9,11 @@ import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import type { MapContainerProps } from "./MapContainer2D";
 import { ROOM_AREAS } from "./roomAreaGeometry";
 import { findRoomAt, isMapTap, modelToSvg, svgToModel } from "./modelCoordinates";
-import { getMarkerLabel } from "../../services/markerLayout";
+import {
+  CLOSED_MARKER_STATUS,
+  CLOSED_PIN_COLOR,
+  getMarkerText,
+} from "../../services/markerLayout";
 import { getCategoryPinColor } from "../../services/roomDisplay";
 // Vite fingerprints the file name, so the model can be cached as immutable.
 import modelUrl from "../../assets/maps/lc3-campus.glb?url";
@@ -595,7 +599,12 @@ function buildMapScene(
       const button = document.createElement("button");
       button.type = "button";
       button.className = "map3d-marker";
-      button.style.setProperty("--pin", getCategoryPinColor(room.category));
+      // Rooms staff closed right now (#147): grey pin and "ปิดชั่วคราว", as in 2D.
+      const closed = state.closedRoomIds?.has(room.id) ?? false;
+      button.style.setProperty(
+        "--pin",
+        closed ? CLOSED_PIN_COLOR : getCategoryPinColor(room.category),
+      );
       const icon = icons.get(room.id);
       if (icon) {
         const disc = document.createElement("span");
@@ -603,10 +612,12 @@ function buildMapScene(
         disc.append(icon.cloneNode(true));
         button.append(disc);
       }
-      button.append(getMarkerLabel(room));
+      if (closed) button.dataset.closed = "true";
+      button.append(getMarkerText(room, closed));
+      const name = `${room.code || room.nameThai} ${room.nameThai}`.trim();
       button.setAttribute(
         "aria-label",
-        `${room.code || room.nameThai} ${room.nameThai}`.trim(),
+        closed ? `${name} (${CLOSED_MARKER_STATUS})` : name,
       );
       button.setAttribute(
         "aria-pressed",

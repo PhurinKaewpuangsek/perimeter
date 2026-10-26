@@ -6,6 +6,7 @@ import { PinsContext, defaultContextValue } from '../../hooks/usePins'
 import { MODAL_OVERLAY_Z, rootZIndex } from '../../test/stacking'
 import type { Room } from '../../types/room'
 import type { ScheduleSlot } from '../../types/schedule'
+import type { Graph } from '../../types/graph'
 
 const room = (id: string, code: string, x: number, y: number, category = 'lecture_room'): Room => ({
   id,
@@ -59,6 +60,10 @@ vi.mock('../../hooks/useRoomSchedules', () => ({
     error: null,
     reload: vi.fn(),
   }),
+}))
+const graphState = vi.hoisted(() => ({ graph: null as Graph | null }))
+vi.mock('../../hooks/useGraph', () => ({
+  useGraph: () => ({ graph: graphState.graph, loading: false, error: null, reload: vi.fn() }),
 }))
 vi.mock('../../hooks/usePreloadImages', () => ({
   usePreloadImages: () => true,
@@ -474,5 +479,61 @@ describe('MapPage layering with My Schedule open (issue #139)', () => {
 
     expect(screen.getByTestId('drawer-backdrop')).toBeInTheDocument()
     expect(screen.queryByRole('navigation', { name: 'แถบควบคุมแผนที่' })).not.toBeInTheDocument()
+  })
+})
+
+describe('MapPage room closures (issue #147)', () => {
+  const HOUR = 60 * 60 * 1000
+  const roomNode = (locationId: string, closure: Partial<Graph['nodes'][number]>) => ({
+    elementId: `NODE#${locationId}`,
+    nodeId: locationId,
+    floor: 1,
+    x: 0,
+    y: 0,
+    nodeType: 'room',
+    locationId,
+    closed: false,
+    ...closure,
+  })
+
+  afterEach(() => {
+    window.matchMedia = originalMatchMedia
+    graphState.graph = null
+  })
+
+  it('shows "ปิดชั่วคราว" with the window and reason in the room panel while the room is closed', () => {
+    graphState.graph = {
+      graphId: 'LC3',
+      nodes: [
+        roomNode('LC3-F1-R121', {
+          closed: true,
+          closedFrom: new Date(Date.now() - HOUR).toISOString(),
+          closedUntil: new Date(Date.now() + HOUR).toISOString(),
+          closedReason: 'ซ่อมเครื่องปรับอากาศ',
+        }),
+      ],
+      edges: [],
+    }
+    mockViewport(true)
+    renderMap('/map?room=LC3-F1-R121')
+
+    const notice = screen.getByText('ปิดชั่วคราว', { selector: 'p' }).closest('[role="status"]')
+    expect(notice).not.toBeNull()
+    expect(notice).toHaveTextContent(/ช่วงเวลา: .+ – .+/)
+    expect(notice).toHaveTextContent('เหตุผล: ซ่อมเครื่องปรับอากาศ')
+  })
+
+  it('shows no notice for an open room, or for a closure that has not started yet', () => {
+    graphState.graph = {
+      graphId: 'LC3',
+      nodes: [
+        roomNode('LC3-F1-R121', { closed: true, closedFrom: new Date(Date.now() + HOUR).toISOString() }),
+      ],
+      edges: [],
+    }
+    mockViewport(true)
+    renderMap('/map?room=LC3-F1-R121')
+
+    expect(screen.queryByText('ปิดชั่วคราว')).not.toBeInTheDocument()
   })
 })

@@ -9,7 +9,7 @@
  * 3. Chronological Day-Grouped Schedule: Fixed 3-letter day codes (MON-SUN), Thai day badges with
  *    standard day colors, quick day filter pills, and cleaned non-redundant schedule cards.
  */
-import { useState, useMemo, useRef, createElement } from 'react'
+import { useState, useMemo, useRef, useEffect, createElement } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   X,
@@ -20,8 +20,12 @@ import {
   GraduationCap,
   Sparkle,
   Users,
+  Prohibit,
 } from '@phosphor-icons/react'
 import { useRooms } from '../hooks/useRooms'
+import { useGraph } from '../hooks/useGraph'
+import { activeRoomClosures, formatWindow } from '../services/closureModel'
+import type { Closure } from '../types/graph'
 import { useIsDesktop } from '../hooks/useIsDesktop'
 import { useSchedules } from '../hooks/useSchedules'
 import { usePreloadImages } from '../hooks/usePreloadImages'
@@ -57,6 +61,23 @@ import type { PinnedSchedule } from '../types/pin'
 
 const FLOOR_PLAN_ASSETS = FLOOR_CONFIGS.map((config) => config.asset)
 
+/** How often /map re-checks closure windows, so one that starts or ends while open shows up. */
+const CLOSURE_CLOCK_MS = 60_000
+
+/** Shown in the room panel while staff have the room closed (#147). */
+function RoomClosureNotice({ closure }: { closure: Closure }) {
+  return (
+    <div role="status" className="mt-3 flex items-start gap-2 border border-ink bg-surface-2 p-3">
+      <Prohibit size={16} weight="bold" className="mt-0.5 shrink-0 text-ink" aria-hidden="true" />
+      <div className="min-w-0 text-xs text-ink-2">
+        <p className="text-button font-bold text-ink">ปิดชั่วคราว</p>
+        <p className="mt-0.5">ช่วงเวลา: {formatWindow(closure)}</p>
+        {closure.closedReason && <p className="mt-0.5 break-words">เหตุผล: {closure.closedReason}</p>}
+      </div>
+    </div>
+  )
+}
+
 function RoomCategoryBadge({ category, nameThai }: { category: string; nameThai?: string }) {
   const color = getCategoryColor(category)
   const Icon = getCategoryIcon(category, nameThai)
@@ -80,6 +101,8 @@ interface RoomDetailContentProps {
   schedulesLoading: boolean
   schedulesError: Error | null
   reloadSchedules: () => void
+  /** Set while staff have this room closed right now (#147). */
+  closure?: Closure
 }
 
 function RoomDetailContent({
@@ -92,6 +115,7 @@ function RoomDetailContent({
   schedulesLoading,
   schedulesError,
   reloadSchedules,
+  closure,
 }: RoomDetailContentProps) {
   const activeSchedules = activeScheduleTab === 'class' ? classSchedules : examSchedules
 
@@ -180,6 +204,8 @@ function RoomDetailContent({
             <X size={16} weight="bold" />
           </button>
         </div>
+
+        {closure && <RoomClosureNotice closure={closure} />}
 
         {/* Quick Meta Chips: Category + Capacity */}
         <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -303,6 +329,21 @@ export default function MapPage() {
   const { rooms, loading, error, reload } = useRooms()
   const { schedules, loading: schedulesLoading, error: schedulesError } = useSchedules()
   const floorPlansReady = usePreloadImages(FLOOR_PLAN_ASSETS)
+  // Closures are public (GET /api/graph). If the graph fails to load the map simply shows
+  // no closures; routing still applies them server-side.
+  const { graph } = useGraph()
+  const [now, setNow] = useState(() => new Date())
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), CLOSURE_CLOCK_MS)
+    return () => clearInterval(timer)
+  }, [])
+  const roomClosures = useMemo(() => activeRoomClosures(graph, now), [graph, now])
+  // Keyed by content so the minute clock alone does not rebuild the 3D markers.
+  const closedRoomKey = [...roomClosures.keys()].sort().join('|')
+  const closedRoomIds = useMemo(
+    () => new Set(closedRoomKey ? closedRoomKey.split('|') : []),
+    [closedRoomKey]
+  )
 
   const targetInitialRoom = initialRoomId ? rooms.find((rm) => rm.id === initialRoomId) : null
   // Resolve a cold deep link after the room response arrives, until the user
@@ -568,6 +609,7 @@ export default function MapPage() {
           viewMode={mapView}
           onViewModeChange={setMapView}
           hideBottomControls={isDesktop}
+          closedRoomIds={closedRoomIds}
         />
 
         {/* =========================================================================
@@ -650,6 +692,7 @@ export default function MapPage() {
                       schedulesLoading={roomSchedulesLoading}
                       schedulesError={roomSchedulesError}
                       reloadSchedules={reloadRoomSchedules}
+                      closure={roomClosures.get(selectedRoom.id)}
                     />
                   ) : isShowingSearchResults ? (
                     /* STATE 2: SEARCH RESULTS LIST */
@@ -866,6 +909,7 @@ export default function MapPage() {
                     schedulesLoading={roomSchedulesLoading}
                     schedulesError={roomSchedulesError}
                     reloadSchedules={reloadRoomSchedules}
+                    closure={roomClosures.get(selectedRoom.id)}
                   />
                 </div>
               </div>

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import type { Room } from '../../types/room'
 import type { Graph } from '../../types/graph'
 import {
+  activeRoomClosures,
   buildWalkways,
   formatWindow,
   fromBangkokInputValue,
@@ -136,6 +137,40 @@ describe('listClosures', () => {
   it('drops closures that have ended', () => {
     const items = listClosures(g, rooms, new Date('2026-10-30T10:00:00+07:00'))
     expect(items.map((i) => i.elementId)).toEqual(['NODE#LC3_105'])
+  })
+})
+
+describe('activeRoomClosures', () => {
+  const g: Graph = {
+    ...graph,
+    nodes: graph.nodes.map((n) =>
+      n.nodeId === 'LC3_104'
+        ? { ...n, closed: true, closedFrom: '2026-10-29T08:00:00+07:00', closedUntil: '2026-10-29T12:00:00+07:00', closedReason: 'ทาสี' }
+        : n.nodeId === 'LC3_105'
+          ? { ...n, closed: true, closedFrom: '2026-11-01T08:00:00+07:00' }
+          : n,
+    ),
+  }
+
+  it('maps rooms closed right now by Room.id, with window and reason', () => {
+    const closures = activeRoomClosures(g, new Date('2026-10-29T10:00:00+07:00'))
+    expect([...closures.keys()]).toEqual(['LC3-F1-R104'])
+    expect(closures.get('LC3-F1-R104')).toEqual({
+      closed: true,
+      closedFrom: '2026-10-29T08:00:00+07:00',
+      closedUntil: '2026-10-29T12:00:00+07:00',
+      closedReason: 'ทาสี',
+    })
+  })
+
+  it('leaves out closures not started yet or already ended, and closed walkways', () => {
+    expect(activeRoomClosures(g, new Date('2026-10-29T07:59:00+07:00')).size).toBe(0)
+    expect(activeRoomClosures(g, new Date('2026-10-30T10:00:00+07:00')).size).toBe(0)
+    expect([...activeRoomClosures(g, new Date('2026-11-02T10:00:00+07:00')).keys()]).toEqual(['LC3-F1-R105'])
+  })
+
+  it('returns nothing before the graph has loaded', () => {
+    expect(activeRoomClosures(null).size).toBe(0)
   })
 })
 

@@ -42,6 +42,8 @@ export interface MapContainerProps {
    * coordinates as room pins. Only segments on `currentFloor` are drawn. Ignored in 3D.
    */
   overlaySegments?: MapOverlaySegment[]
+  /** Rooms closed right now (#147); their pins show "ปิดชั่วคราว" in 2D and 3D. */
+  closedRoomIds?: ReadonlySet<string>
 }
 
 export interface MapOverlaySegment {
@@ -111,6 +113,7 @@ function MapContainer({
   hideBottomControls = false,
   hideFloorSwitcher = false,
   overlaySegments = [],
+  closedRoomIds,
 }: MapContainerProps) {
   const floorConfig = getFloorConfig(currentFloor)
   const transformRef = useRef<ReactZoomPanPinchRef | null>(null)
@@ -324,6 +327,7 @@ function MapContainer({
               floorConfig={floorConfig}
               selectedRoomId={selectedRoomId}
               onSelectRoom={onSelectRoom}
+              closedRoomIds={closedRoomIds}
             />
           </div>
         </TransformComponent>

@@ -181,6 +181,19 @@ export function listClosures(graph: Graph, rooms: Room[], now: Date = new Date()
   return items.sort((p, q) => (p.kind === q.kind ? p.label.localeCompare(q.label, 'th') : p.kind === 'room' ? -1 : 1))
 }
 
+/**
+ * Rooms whose graph node is closed at `now`, keyed by Room.id, for the public map (#147).
+ * A closure that starts later or has ended is left out, matching the route API.
+ */
+export function activeRoomClosures(graph: Graph | null, now: Date = new Date()): Map<string, Closure> {
+  const closures = new Map<string, Closure>()
+  if (!graph) return closures
+  for (const node of graph.nodes) {
+    if (node.locationId && isClosedAt(node, now)) closures.set(node.locationId, closureOf(node))
+  }
+  return closures
+}
+
 function floorOfEdge(graph: Graph, edge: GraphEdge): number {
   return graph.nodes.find((n) => n.nodeId === edge.from)?.floor ?? 1
 }
