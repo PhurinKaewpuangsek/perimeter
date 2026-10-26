@@ -94,24 +94,11 @@ Globals:
             Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
     # Throttling settings to protect against traffic spikes and runaway clients (issue #149)
     MethodSettings:
-      # Read routes: high capacity for surge traffic before classes / exams
+      # Stage-wide baseline throttling: applies to all methods across all endpoints (*/*)
       - ResourcePath: "/*"
-        HttpMethod: "GET"
+        HttpMethod: "*"
         ThrottlingRateLimit: 100
         ThrottlingBurstLimit: 200
-      # Write routes: strict limits to protect database from rapid writes
-      - ResourcePath: "/*"
-        HttpMethod: "POST"
-        ThrottlingRateLimit: 20
-        ThrottlingBurstLimit: 40
-      - ResourcePath: "/*"
-        HttpMethod: "PUT"
-        ThrottlingRateLimit: 20
-        ThrottlingBurstLimit: 40
-      - ResourcePath: "/*"
-        HttpMethod: "DELETE"
-        ThrottlingRateLimit: 20
-        ThrottlingBurstLimit: 40
 
 # ---------------------------------------------------------------------------
 # Resources
