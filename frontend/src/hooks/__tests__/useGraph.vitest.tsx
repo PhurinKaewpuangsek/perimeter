@@ -50,4 +50,27 @@ describe('useGraph', () => {
     expect(result.current.graph?.nodes[0].closed).toBe(false)
     expect(result.current.error).toBeNull()
   })
+
+  it('ignores an older request that finishes after a newer one', async () => {
+    let resolveOld: (g: Graph) => void = () => {}
+    getGraphMock
+      .mockResolvedValueOnce(graph(false))
+      .mockImplementationOnce(() => new Promise<Graph>((r) => (resolveOld = r)))
+      .mockResolvedValueOnce(graph(true))
+    const { result } = renderHook(() => useGraph())
+    await waitFor(() => expect(result.current.graph).not.toBeNull())
+
+    let older: Promise<void> = Promise.resolve()
+    await act(async () => {
+      older = result.current.reload()
+      await result.current.reload()
+    })
+    expect(result.current.graph?.nodes[0].closed).toBe(true)
+
+    await act(async () => {
+      resolveOld(graph(false))
+      await older
+    })
+    expect(result.current.graph?.nodes[0].closed).toBe(true)
+  })
 })

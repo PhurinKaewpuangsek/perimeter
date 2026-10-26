@@ -23,11 +23,15 @@ export function useGraph(): UseGraphResult {
   const [error, setError] = useState<Error | null>(null)
   const mountedRef = useRef(true)
   const hasGraphRef = useRef(false)
+  /** Only the newest request may update state, so a slow older one cannot undo a newer graph. */
+  const latestRequestRef = useRef(0)
 
   const load = useCallback(async () => {
+    const requestId = ++latestRequestRef.current
+    const isLatest = () => mountedRef.current && requestId === latestRequestRef.current
     try {
       const data = await getGraph()
-      if (mountedRef.current) {
+      if (isLatest()) {
         hasGraphRef.current = true
         setGraph(data)
         setError(null)
@@ -35,10 +39,10 @@ export function useGraph(): UseGraphResult {
     } catch (err) {
       const e = err instanceof Error ? err : new Error(String(err))
       // Keep the last good graph on a failed refresh; only a first load shows the error.
-      if (mountedRef.current && !hasGraphRef.current) setError(e)
+      if (isLatest() && !hasGraphRef.current) setError(e)
       throw e
     } finally {
-      if (mountedRef.current) setLoading(false)
+      if (isLatest()) setLoading(false)
     }
   }, [])
 

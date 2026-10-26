@@ -115,6 +115,8 @@ export function buildWalkways(graph: Graph, rooms: Room[], floor: number): Walkw
       .sort((p, q) => (p.x1 + p.x2) - (q.x1 + q.x2) || (p.y1 + p.y2) - (q.y1 + q.y2))
       .forEach((w, i) => {
         w.label = `${w.label} · ช่วง ${i + 1}`
+        // Keep the shown suffix searchable, e.g. "ช่วง 2".
+        w.searchText = `${w.searchText} ช่วง ${i + 1}`
       })
   }
 

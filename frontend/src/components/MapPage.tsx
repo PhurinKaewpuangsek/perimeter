@@ -67,6 +67,18 @@ const FLOOR_PLAN_ASSETS = FLOOR_CONFIGS.map((config) => config.asset)
  */
 const CLOSURE_CLOCK_MS = 60_000
 
+/** Shown in the room panel when closures failed to load, so the room may be closed. */
+function ClosureStatusUnavailable({ onRetry }: { onRetry: () => void }) {
+  return (
+    <div role="status" className="mt-3 flex flex-wrap items-center gap-2 text-xs text-ink-2">
+      <span>ตรวจสอบสถานะปิดชั่วคราวไม่ได้ในขณะนี้</span>
+      <button type="button" onClick={onRetry} className="btn btn-ghost btn-sm">
+        ลองใหม่
+      </button>
+    </div>
+  )
+}
+
 /** Shown in the room panel while staff have the room closed (#147). */
 function RoomClosureNotice({ closure }: { closure: Closure }) {
   return (
@@ -106,6 +118,8 @@ interface RoomDetailContentProps {
   reloadSchedules: () => void
   /** Set while staff have this room closed right now (#147). */
   closure?: Closure
+  /** Set when closures could not be loaded, so "open" cannot be confirmed; retries the load. */
+  onRetryClosures?: () => void
 }
 
 function RoomDetailContent({
@@ -119,6 +133,7 @@ function RoomDetailContent({
   schedulesError,
   reloadSchedules,
   closure,
+  onRetryClosures,
 }: RoomDetailContentProps) {
   const activeSchedules = activeScheduleTab === 'class' ? classSchedules : examSchedules
 
@@ -209,6 +224,7 @@ function RoomDetailContent({
         </div>
 
         {closure && <RoomClosureNotice closure={closure} />}
+        {!closure && onRetryClosures && <ClosureStatusUnavailable onRetry={onRetryClosures} />}
 
         {/* Quick Meta Chips: Category + Capacity */}
         <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -332,9 +348,10 @@ export default function MapPage() {
   const { rooms, loading, error, reload } = useRooms()
   const { schedules, loading: schedulesLoading, error: schedulesError } = useSchedules()
   const floorPlansReady = usePreloadImages(FLOOR_PLAN_ASSETS)
-  // Closures are public (GET /api/graph). If the graph fails to load the map simply shows
-  // no closures; routing still applies them server-side.
-  const { graph, reload: reloadGraph } = useGraph()
+  // Closures are public (GET /api/graph). If the first load fails the room panel says the
+  // status is unavailable and offers a retry; the minute refresh below also retries.
+  const { graph, error: graphError, reload: reloadGraph } = useGraph()
+  const retryClosures = graph === null && graphError ? () => reloadGraph().catch(() => {}) : undefined
   const [now, setNow] = useState(() => new Date())
   useEffect(() => {
     const timer = setInterval(() => {
@@ -700,6 +717,7 @@ export default function MapPage() {
                       schedulesError={roomSchedulesError}
                       reloadSchedules={reloadRoomSchedules}
                       closure={roomClosures.get(selectedRoom.id)}
+                      onRetryClosures={retryClosures}
                     />
                   ) : isShowingSearchResults ? (
                     /* STATE 2: SEARCH RESULTS LIST */
@@ -917,6 +935,7 @@ export default function MapPage() {
                     schedulesError={roomSchedulesError}
                     reloadSchedules={reloadRoomSchedules}
                     closure={roomClosures.get(selectedRoom.id)}
+                    onRetryClosures={retryClosures}
                   />
                 </div>
               </div>

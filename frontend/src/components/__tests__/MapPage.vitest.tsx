@@ -63,10 +63,11 @@ vi.mock('../../hooks/useRoomSchedules', () => ({
 }))
 const graphState = vi.hoisted(() => ({
   graph: null as Graph | null,
+  error: null as Error | null,
   reload: vi.fn(async () => {}),
 }))
 vi.mock('../../hooks/useGraph', () => ({
-  useGraph: () => ({ graph: graphState.graph, loading: false, error: null, reload: graphState.reload }),
+  useGraph: () => ({ graph: graphState.graph, loading: false, error: graphState.error, reload: graphState.reload }),
 }))
 vi.mock('../../hooks/usePreloadImages', () => ({
   usePreloadImages: () => true,
@@ -502,8 +503,27 @@ describe('MapPage room closures (issue #147)', () => {
   afterEach(() => {
     window.matchMedia = originalMatchMedia
     graphState.graph = null
+    graphState.error = null
     graphState.reload.mockClear()
     vi.useRealTimers()
+  })
+
+  it('says the closure status is unavailable when the graph fails to load, and retries', async () => {
+    graphState.error = new Error('network')
+    mockViewport(true)
+    const user = userEvent.setup()
+    renderMap('/map?room=LC3-F1-R121')
+
+    expect(screen.getByText('ตรวจสอบสถานะปิดชั่วคราวไม่ได้ในขณะนี้')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'ลองใหม่' }))
+    expect(graphState.reload).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows no unavailable notice once closures have loaded', () => {
+    graphState.graph = { graphId: 'LC3', nodes: [], edges: [] }
+    mockViewport(true)
+    renderMap('/map?room=LC3-F1-R121')
+    expect(screen.queryByText('ตรวจสอบสถานะปิดชั่วคราวไม่ได้ในขณะนี้')).not.toBeInTheDocument()
   })
 
   it('refetches closures every minute so changes made by staff show without a reload', () => {

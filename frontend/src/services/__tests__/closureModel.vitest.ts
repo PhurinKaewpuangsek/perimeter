@@ -87,6 +87,9 @@ describe('buildWalkways', () => {
     expect(labels['EDGE#J3|LC3_104']).toBe('ทางเดินหน้าห้อง 104 · ช่วง 1')
     expect(labels['EDGE#LC3_104|J1']).toBe('ทางเดินหน้าห้อง 104 · ช่วง 2')
     expect(labels['EDGE#J1|J2']).toBe('ทางเดิน ห้อง 104 ↔ ห้อง 105')
+    // The shown suffix is searchable too.
+    const walkways = buildWalkways(g, rooms, 1)
+    expect(searchWalkways(walkways, 'ช่วง 2').map((w) => w.elementId)).toEqual(['EDGE#LC3_104|J1'])
   })
 
   it('lists stairs on both floors and only same-floor walkways per floor', () => {
