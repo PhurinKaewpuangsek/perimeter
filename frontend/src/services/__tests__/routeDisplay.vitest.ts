@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getFloorChangeLabel, getPlaceLabel, splitRouteByFloor } from '../routeDisplay'
+import { getFloorChangeLabel, getPlaceLabel, getRouteKey, splitRouteByFloor } from '../routeDisplay'
 import type { RoutePoint } from '../../types/route'
 
 const point = (nodeId: string, floor: number): RoutePoint => ({ nodeId, floor, x: 0, y: 0 })
@@ -38,5 +38,17 @@ describe('labels', () => {
   it('names a room by its number and a POI by its name', () => {
     expect(getPlaceLabel({ roomNumber: '105', nameThai: 'ห้องบรรยาย', code: 'LC3-105' })).toBe('ห้อง 105')
     expect(getPlaceLabel({ roomNumber: '', nameThai: 'ห้องน้ำหญิง (ฝั่งซ้าย)', code: 'X' })).toBe('ห้องน้ำหญิง (ฝั่งซ้าย)')
+  })
+})
+
+describe('getRouteKey', () => {
+  it('is the same for the same path and floor', () => {
+    expect(getRouteKey([point('a', 1), point('b', 2)], 1)).toBe(getRouteKey([point('a', 1), point('b', 2)], 1))
+  })
+
+  it('changes with the path or the floor shown', () => {
+    const key = getRouteKey([point('a', 1), point('b', 2)], 1)
+    expect(getRouteKey([point('a', 1), point('c', 2)], 1)).not.toBe(key)
+    expect(getRouteKey([point('a', 1), point('b', 2)], 2)).not.toBe(key)
   })
 })

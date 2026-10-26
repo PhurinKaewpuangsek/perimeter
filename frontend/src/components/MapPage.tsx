@@ -27,7 +27,7 @@ import { useIsDesktop } from '../hooks/useIsDesktop'
 import { useSchedules } from '../hooks/useSchedules'
 import { usePreloadImages } from '../hooks/usePreloadImages'
 import { useRoute } from '../hooks/useRoute'
-import { BUILDING_ENTRANCE_ID } from '../services/routeService'
+import { BUILDING_ENTRANCE_FLOOR, BUILDING_ENTRANCE_ID } from '../services/routeService'
 import MapContainer from './map/MapContainer'
 import { FLOOR_CONFIGS } from './map/floorConfig'
 import LoadingScreen from './LoadingScreen'
@@ -420,7 +420,7 @@ export default function MapPage() {
 
   /** The floor a route starts on, so the map opens where the user is standing. */
   function getStartFloor(fromId: string) {
-    if (fromId === BUILDING_ENTRANCE_ID) return 1
+    if (fromId === BUILDING_ENTRANCE_ID) return BUILDING_ENTRANCE_FLOOR
     return rooms.find((r) => r.id === fromId)?.floor ?? currentFloor
   }
 
@@ -590,7 +590,7 @@ export default function MapPage() {
       fromId={routeFrom}
       onChangeFrom={handleChangeRouteFrom}
       destination={rooms.find((r) => r.id === routeTo)}
-      route={routeState}
+      routeState={routeState}
       currentFloor={currentFloor}
       onFloorChange={setCurrentFloor}
       onClose={handleClearRoute}

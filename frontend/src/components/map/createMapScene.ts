@@ -13,6 +13,7 @@ import { getMarkerLabel } from "../../services/markerLayout";
 import { getCategoryPinColor } from "../../services/roomDisplay";
 import {
   getFloorChangeLabel,
+  getRouteKey,
   splitRouteByFloor,
 } from "../../services/routeDisplay";
 // Vite fingerprints the file name, so the model can be cached as immutable.
@@ -885,7 +886,7 @@ function buildMapScene(
       focusKey = nextFocus;
     }
     const nextRoute = state.route
-      ? `${state.route.path.map((point) => point.nodeId).join(">")}@${state.currentFloor}`
+      ? getRouteKey(state.route.path, state.currentFloor)
       : "";
     if (nextRoute !== routeKey) {
       buildRoute(state);

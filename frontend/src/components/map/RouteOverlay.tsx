@@ -3,7 +3,7 @@ import { ArrowDown, ArrowUp } from '@phosphor-icons/react'
 import type { FoundRoute } from '../../types/route'
 import type { FloorConfig } from './floorConfig'
 import { useTransformScale } from './useTransformScale'
-import { getFloorChangeLabel, splitRouteByFloor } from '../../services/routeDisplay'
+import { getFloorChangeLabel, getRouteKey, splitRouteByFloor } from '../../services/routeDisplay'
 
 interface RouteOverlayProps {
   route: FoundRoute
@@ -36,7 +36,7 @@ export default function RouteOverlay({
   const start = route.path[0]
   const end = route.path[route.path.length - 1]
   // Each route-and-floor is drawn in once; after that the line is static.
-  const drawKey = `${route.path.map((point) => point.nodeId).join('>')}@${currentFloor}`
+  const drawKey = getRouteKey(route.path, currentFloor)
   const [drawnKey, setDrawnKey] = useState<string>()
   const drawing = animate && drawnKey !== drawKey
   // While drawing, the dash is measured along the line (pathLength 1) in floor-plan units,

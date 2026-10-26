@@ -5,6 +5,7 @@
  * how the response (found / not found / HTTP error) comes back to the UI.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import type { RawRoutePoint } from '../../types/route'
 import { BUILDING_ENTRANCE_ID, getRoute, normalizeRoute } from '../routeService'
 
 function mockFetch(status: number, body: unknown) {
@@ -91,6 +92,11 @@ describe('getRoute', () => {
     await expect(getRoute({ from: 'a', to: 'b' })).rejects.toThrow('คำนวณเส้นทางไม่สำเร็จ (404)')
   })
 
+  it('rejects a found route with a malformed point', async () => {
+    mockFetch(200, { found: true, path: [{ node_id: 'n', floor: 1, y: 20 }] })
+    await expect(getRoute({ from: 'a', to: 'b' })).rejects.toThrow('ข้อมูลเส้นทางจากเซิร์ฟเวอร์ไม่ถูกต้อง')
+  })
+
   it('rejects a body that is not a route', async () => {
     mockFetch(200, { records: [] })
     await expect(getRoute({ from: 'a', to: 'b' })).rejects.toThrow('ข้อมูลเส้นทางจากเซิร์ฟเวอร์ไม่ถูกต้อง')
@@ -109,6 +115,22 @@ describe('normalizeRoute', () => {
       floors: [2],
       path: [{ nodeId: 'n', floor: 2, x: 10, y: 20 }],
       closuresAvoided: [],
+    })
+  })
+
+  it.each<[string, unknown]>([
+    ['x is missing', { node_id: 'n', floor: 1, y: 20 }],
+    ['y is null', { node_id: 'n', floor: 1, x: 10, y: null }],
+    ['floor is missing', { node_id: 'n', x: 10, y: 20 }],
+    ['x is not a number', { node_id: 'n', floor: 1, x: 'abc', y: 20 }],
+    ['y is not finite', { node_id: 'n', floor: 1, x: 10, y: Infinity }],
+  ])('rejects a route whose point has a bad coordinate (%s) instead of plotting it at 0', (_case, point) => {
+    expect(() => normalizeRoute({ found: true, path: [point as RawRoutePoint] })).toThrow('ข้อมูลเส้นทางจากเซิร์ฟเวอร์ไม่ถูกต้อง')
+  })
+
+  it('keeps a coordinate that is really 0', () => {
+    expect(normalizeRoute({ found: true, path: [{ node_id: 'n', floor: 1, x: 0, y: 0 }] })).toMatchObject({
+      path: [{ nodeId: 'n', floor: 1, x: 0, y: 0 }],
     })
   })
 })

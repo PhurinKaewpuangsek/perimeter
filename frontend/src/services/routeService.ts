@@ -13,6 +13,11 @@ import { fetchWithRetry } from './apiClient.ts'
  */
 export const BUILDING_ENTRANCE_ID = 'LC3_Junction_SM'
 
+/** Floor the building entrance is on, so a route from it opens the map there. */
+export const BUILDING_ENTRANCE_FLOOR = 1
+
+const INVALID_ROUTE_MESSAGE = 'ข้อมูลเส้นทางจากเซิร์ฟเวอร์ไม่ถูกต้อง'
+
 const FAILURE_REASONS: RouteFailureReason[] = [
   'NO_PATH',
   'DESTINATION_CLOSED',
@@ -24,12 +29,21 @@ function toNumber(value: unknown): number {
   return typeof value === 'number' ? value : Number(value) || 0
 }
 
+/** A coordinate the map can plot; a missing or non-finite one would land at (0, 0) or floor 0. */
+function toFiniteNumber(value: unknown): number {
+  const number = typeof value === 'number' ? value : Number(value)
+  if (value === undefined || value === null || value === '' || !Number.isFinite(number)) {
+    throw new Error(INVALID_ROUTE_MESSAGE)
+  }
+  return number
+}
+
 function normalizePoint(raw: RawRoutePoint): RoutePoint {
   return {
     nodeId: raw.node_id ?? '',
-    floor: toNumber(raw.floor),
-    x: toNumber(raw.x),
-    y: toNumber(raw.y),
+    floor: toFiniteNumber(raw.floor),
+    x: toFiniteNumber(raw.x),
+    y: toFiniteNumber(raw.y),
     ...(raw.location_id ? { locationId: raw.location_id } : {}),
   }
 }
@@ -97,7 +111,7 @@ export async function getRoute({ from, to, at, signal }: GetRouteOptions): Promi
   const data: RawRouteResponse | null = await response.json()
 
   if (!data || typeof data.found !== 'boolean') {
-    throw new Error('ข้อมูลเส้นทางจากเซิร์ฟเวอร์ไม่ถูกต้อง')
+    throw new Error(INVALID_ROUTE_MESSAGE)
   }
 
   return normalizeRoute(data)

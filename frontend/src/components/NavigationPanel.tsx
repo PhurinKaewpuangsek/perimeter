@@ -29,7 +29,7 @@ interface NavigationPanelProps {
   fromId: string
   onChangeFrom: (fromId: string) => void
   destination: Room | undefined
-  route: UseRouteResult
+  routeState: UseRouteResult
   currentFloor: number
   onFloorChange: (floor: number) => void
   onClose: () => void
@@ -56,7 +56,7 @@ export default function NavigationPanel({
   fromId,
   onChangeFrom,
   destination,
-  route,
+  routeState,
   currentFloor,
   onFloorChange,
   onClose,
@@ -84,7 +84,7 @@ export default function NavigationPanel({
     inputRef.current?.blur()
   }
 
-  const legs = route.route ? splitRouteByFloor(route.route.path) : []
+  const legs = routeState.route ? splitRouteByFloor(routeState.route.path) : []
 
   return (
     <section aria-label="นำทาง" className="space-y-4">
@@ -192,45 +192,45 @@ export default function NavigationPanel({
       <p className="-mt-2 pl-7 text-xs text-ink-3">แตะห้องบนแผนที่เพื่อเปลี่ยนปลายทาง</p>
 
       {/* Route status */}
-      {route.status === 'loading' && (
+      {routeState.status === 'loading' && (
         <p role="status" className="py-2 text-button text-ink-3">
           กำลังคำนวณเส้นทาง…
         </p>
       )}
 
-      {route.status === 'error' && (
+      {routeState.status === 'error' && (
         <div role="alert" className="card flex items-start gap-3 border-ink p-4">
           <WarningCircle size={20} weight="bold" className="shrink-0 text-ink" aria-hidden="true" />
           <div className="min-w-0 flex-1">
             <p className="text-button font-medium text-ink">คำนวณเส้นทางไม่สำเร็จ</p>
-            <p className="mt-0.5 text-button text-ink-2">{route.error?.message}</p>
-            <button type="button" onClick={route.retry} className="btn btn-secondary btn-sm mt-3">
+            <p className="mt-0.5 text-button text-ink-2">{routeState.error?.message}</p>
+            <button type="button" onClick={routeState.retry} className="btn btn-secondary btn-sm mt-3">
               ลองอีกครั้ง
             </button>
           </div>
         </div>
       )}
 
-      {route.status === 'not-found' && route.reason && (
+      {routeState.status === 'not-found' && routeState.reason && (
         <div role="alert" className="card flex items-start gap-3 border-ink p-4">
           <Prohibit size={20} weight="bold" className="shrink-0 text-ink" aria-hidden="true" />
           <div className="min-w-0 flex-1">
-            <p className="text-button font-medium text-ink">{ROUTE_FAILURE_MESSAGES[route.reason].title}</p>
-            <p className="mt-0.5 text-button text-ink-2">{ROUTE_FAILURE_MESSAGES[route.reason].hint}</p>
+            <p className="text-button font-medium text-ink">{ROUTE_FAILURE_MESSAGES[routeState.reason].title}</p>
+            <p className="mt-0.5 text-button text-ink-2">{ROUTE_FAILURE_MESSAGES[routeState.reason].hint}</p>
           </div>
         </div>
       )}
 
-      {route.status === 'found' && route.route && (
+      {routeState.status === 'found' && routeState.route && (
         <div className="space-y-3">
-          {route.route.closuresAvoided.length > 0 && (
+          {routeState.route.closuresAvoided.length > 0 && (
             <div role="status" className="card flex items-start gap-3 p-3">
               <Barricade size={20} weight="bold" className="shrink-0 text-ink" aria-hidden="true" />
               <div className="min-w-0 text-button">
                 <p className="font-medium text-ink">{CLOSURES_AVOIDED_NOTICE}</p>
-                {route.route.closuresAvoided.some((closure) => closure.reason) && (
+                {routeState.route.closuresAvoided.some((closure) => closure.reason) && (
                   <p className="mt-0.5 text-ink-2">
-                    {route.route.closuresAvoided
+                    {routeState.route.closuresAvoided
                       .map((closure) => closure.reason)
                       .filter(Boolean)
                       .join(' · ')}
@@ -240,7 +240,7 @@ export default function NavigationPanel({
             </div>
           )}
 
-          {route.route.path.length <= 1 ? (
+          {routeState.route.path.length <= 1 ? (
             <p role="status" className="text-button text-ink-2">
               คุณอยู่ที่ปลายทางแล้ว
             </p>

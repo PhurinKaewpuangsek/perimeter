@@ -106,7 +106,6 @@ function MapContainer({
   // centerOnInit re-centres the plan when its ResizeObserver first reports the content
   // size, which can land after a mount-time framing; count those passes to frame again.
   const [layoutPass, setLayoutPass] = useState(0)
-  useEffect(() => transformRef.current?.instance.onInit(() => setLayoutPass((n) => n + 1)), [])
 
   // Frame the route's part on this floor whenever a new route arrives or the floor changes.
   useEffect(() => {
@@ -244,6 +243,7 @@ function MapContainer({
 
       <TransformWrapper
         ref={transformRef}
+        onInit={() => setLayoutPass((n) => n + 1)}
         initialScale={initialScale}
         minScale={0.8}
         maxScale={4}

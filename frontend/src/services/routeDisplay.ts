@@ -28,6 +28,11 @@ export function splitRouteByFloor(path: RoutePoint[]): RouteLeg[] {
   return legs
 }
 
+/** Identifies a path, so the 2D and 3D maps redraw only when the route or floor changes. */
+export function getRouteKey(path: RoutePoint[], floor: number): string {
+  return `${path.map((point) => point.nodeId).join('>')}@${floor}`
+}
+
 /** "ขึ้นบันไดไปชั้น 2" / "ลงบันไดไปชั้น 1" */
 export function getFloorChangeLabel(fromFloor: number, toFloor: number): string {
   return `${toFloor > fromFloor ? 'ขึ้น' : 'ลง'}บันไดไปชั้น ${toFloor}`
