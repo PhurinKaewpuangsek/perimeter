@@ -1,4 +1,5 @@
-import type { RawScheduleRecord, ScheduleSlot, SchedulesDataResponse } from '../types/schedule'
+import type { RawScheduleRecord, ScheduleSlot, SchedulesDataResponse } from '../types/schedule.ts'
+import { fetchWithRetry } from './apiClient.ts'
 
 function normalizeText(value: unknown): string {
   return typeof value === 'string' ? value : ''
@@ -29,15 +30,17 @@ export const SCHEDULES_ENDPOINT = `${API_BASE_URL}/api/schedules`
 
 export interface GetSchedulesOptions {
   roomCode?: string
+  bypassCache?: boolean
 }
 
-export async function getSchedules({ roomCode }: GetSchedulesOptions = {}): Promise<ScheduleSlot[]> {
+export async function getSchedules({ roomCode, bypassCache }: GetSchedulesOptions = {}): Promise<ScheduleSlot[]> {
   const url = new URL(SCHEDULES_ENDPOINT || '/api/schedules', globalThis.location?.origin ?? 'http://localhost')
   if (roomCode?.trim()) {
     url.searchParams.set('room_code', roomCode.trim())
   }
   const endpoint = API_BASE_URL ? url.toString() : `${url.pathname}${url.search}`
-  const response = await fetch(endpoint, { cache: 'no-store' })
+  const init: RequestInit = bypassCache ? { cache: 'no-cache' } : {}
+  const response = await fetchWithRetry(endpoint, init)
 
   if (!response.ok) {
     throw new Error(`Failed to fetch schedules: ${response.status} ${response.statusText}`)

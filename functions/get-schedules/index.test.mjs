@@ -27,6 +27,7 @@ describe('GetSchedulesFunction Lambda Handler', () => {
 
     assert.equal(response.statusCode, 200);
     assert.equal(response.headers['Access-Control-Allow-Origin'], '*');
+    assert.equal(response.headers['Cache-Control'], 'public, max-age=60, stale-while-revalidate=30');
     const body = JSON.parse(response.body);
     assert.equal(body.count, 2);
     assert.deepEqual(body.records, items);
@@ -58,6 +59,7 @@ describe('GetSchedulesFunction Lambda Handler', () => {
     });
 
     assert.equal(response.statusCode, 200);
+    assert.equal(response.headers['Cache-Control'], 'public, max-age=60, stale-while-revalidate=30');
     assert.deepEqual(docClient.calls, [
       {
         TableName: 'TestTable',
@@ -88,15 +90,61 @@ describe('GetSchedulesFunction Lambda Handler', () => {
     const response = await createHandler({ docClient, tableName: 'TestTable' })();
 
     assert.equal(response.statusCode, 200);
+    assert.equal(response.headers['Cache-Control'], 'public, max-age=60, stale-while-revalidate=30');
     assert.deepEqual(JSON.parse(response.body), { count: 0, records: [] });
   });
 
-  test('returns 500 with CORS headers when the scan fails', async () => {
+  test('caches schedules in memory within cacheTtlMs for both bulk and room queries', async () => {
+    const allItems = [{ room_code: 'LC3-101', schedule_slot: 'S1' }];
+    const roomItems = [{ room_code: 'LC3-101', schedule_slot: 'S1' }];
+    const docClient = fakeDocClient([
+      { Items: allItems },
+      { Items: roomItems },
+      { Items: allItems },
+    ]);
+    let currentTime = 1000;
+    const handler = createHandler({
+      docClient,
+      tableName: 'TestTable',
+      cacheTtlMs: 60 * 1000,
+      now: () => new Date(currentTime),
+    });
+
+    // Bulk scan call 1
+    const res1 = await handler();
+    assert.equal(res1.statusCode, 200);
+    assert.equal(docClient.calls.length, 1);
+
+    // Bulk scan call 2 (within TTL)
+    currentTime += 30 * 1000;
+    const res2 = await handler();
+    assert.equal(res2.statusCode, 200);
+    assert.equal(docClient.calls.length, 1); // Not called again
+
+    // Room query call 1
+    const resRoom1 = await handler({ queryStringParameters: { room_code: 'LC3-101' } });
+    assert.equal(resRoom1.statusCode, 200);
+    assert.equal(docClient.calls.length, 2);
+
+    // Room query call 2 (within TTL)
+    const resRoom2 = await handler({ queryStringParameters: { room_code: 'LC3-101' } });
+    assert.equal(resRoom2.statusCode, 200);
+    assert.equal(docClient.calls.length, 2);
+
+    // Bulk scan past TTL
+    currentTime += 40 * 1000;
+    const res3 = await handler();
+    assert.equal(res3.statusCode, 200);
+    assert.equal(docClient.calls.length, 3);
+  });
+
+  test('returns 500 with CORS headers and no-store when the scan fails', async () => {
     const docClient = fakeDocClient([new Error('ResourceNotFoundException')]);
     const response = await createHandler({ docClient, tableName: 'TestTable' })();
 
     assert.equal(response.statusCode, 500);
     assert.equal(response.headers['Access-Control-Allow-Origin'], '*');
+    assert.equal(response.headers['Cache-Control'], 'no-store');
     const body = JSON.parse(response.body);
     assert.match(body.error, /Failed to fetch schedules/);
   });

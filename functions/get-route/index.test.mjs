@@ -86,6 +86,7 @@ describe('GetRouteFunction Lambda Handler', () => {
 
     assert.equal(response.statusCode, 400);
     assert.equal(response.headers['Access-Control-Allow-Origin'], '*');
+    assert.equal(response.headers['Cache-Control'], 'no-store');
     assert.equal(response.headers['Content-Type'], 'application/json');
     const body = JSON.parse(response.body);
     assert.match(body.error, /Missing.*parameters/i);
@@ -103,6 +104,7 @@ describe('GetRouteFunction Lambda Handler', () => {
 
     assert.equal(response.statusCode, 400);
     assert.equal(response.headers['Access-Control-Allow-Origin'], '*');
+    assert.equal(response.headers['Cache-Control'], 'no-store');
     const body = JSON.parse(response.body);
     assert.match(body.error, /Missing.*parameters/i);
   });
@@ -119,6 +121,7 @@ describe('GetRouteFunction Lambda Handler', () => {
 
     assert.equal(response.statusCode, 400);
     assert.equal(response.headers['Access-Control-Allow-Origin'], '*');
+    assert.equal(response.headers['Cache-Control'], 'no-store');
     const body = JSON.parse(response.body);
     assert.match(body.error, /Invalid.*timestamp/i);
   });
@@ -136,8 +139,10 @@ describe('GetRouteFunction Lambda Handler', () => {
     });
 
     assert.equal(response.statusCode, 200);
+    assert.equal(response.headers['Cache-Control'], 'public, max-age=15');
     assert.equal(response.headers['Access-Control-Allow-Origin'], '*');
     assert.equal(response.headers['Content-Type'], 'application/json');
+    assert.equal(response.headers['Cache-Control'], 'public, max-age=15');
     const body = JSON.parse(response.body);
     assert.equal(body.found, true);
     assert.equal(body.distance, 20);
@@ -160,6 +165,7 @@ describe('GetRouteFunction Lambda Handler', () => {
     });
 
     assert.equal(response.statusCode, 200);
+    assert.equal(response.headers['Cache-Control'], 'public, max-age=15');
     const body = JSON.parse(response.body);
     assert.equal(body.found, false);
     assert.equal(body.reason, 'UNKNOWN_LOCATION');
@@ -190,6 +196,7 @@ describe('GetRouteFunction Lambda Handler', () => {
     });
 
     assert.equal(response.statusCode, 200);
+    assert.equal(response.headers['Cache-Control'], 'public, max-age=15');
     assert.equal(capture.commands.length, 2);
     assert.equal(capture.commands[0].input.TableName, 'TestGraph');
     assert.equal(capture.commands[0].input.KeyConditionExpression, 'graph_id = :graphId');
@@ -247,6 +254,7 @@ describe('GetRouteFunction Lambda Handler', () => {
 
     assert.equal(response.statusCode, 500);
     assert.equal(response.headers['Access-Control-Allow-Origin'], '*');
+    assert.equal(response.headers['Cache-Control'], 'no-store');
     const body = JSON.parse(response.body);
     assert.equal(body.error, 'Failed to calculate route');
     assert.equal(body.message, 'An internal error occurred. Please try again later.');

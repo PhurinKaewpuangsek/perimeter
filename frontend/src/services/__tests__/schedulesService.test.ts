@@ -132,6 +132,27 @@ describe('schedulesService - Data Access Layer', () => {
       }
     })
 
+    it('passes cache: "no-cache" when bypassCache is true', async () => {
+      const originalFetch = globalThis.fetch
+      try {
+        let receivedInit: RequestInit | undefined
+        globalThis.fetch = async (_input: RequestInfo | URL, init?: RequestInit) => {
+          receivedInit = init
+          return {
+            ok: true,
+            status: 200,
+            statusText: 'OK',
+            json: async () => API_RESPONSE,
+          } as Response
+        }
+
+        await getSchedules({ bypassCache: true })
+        assert.strictEqual(receivedInit?.cache, 'no-cache')
+      } finally {
+        globalThis.fetch = originalFetch
+      }
+    })
+
     it('throws when the HTTP response is not successful', async () => {
       const originalFetch = globalThis.fetch
       try {

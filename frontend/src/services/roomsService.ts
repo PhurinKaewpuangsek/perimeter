@@ -1,4 +1,5 @@
-import type { RawRoomRecord, Room, RoomsDataResponse } from '../types/room'
+import type { RawRoomRecord, Room, RoomsDataResponse } from '../types/room.ts'
+import { fetchWithRetry } from './apiClient.ts'
 
 export function normalizeRoom(raw: RawRoomRecord): Room {
   const roomCode = raw.room_code ?? ''
@@ -46,8 +47,13 @@ const API_BASE_URL = (import.meta.env?.VITE_API_BASE_URL ?? '').replace(/\/+$/, 
 
 export const ROOMS_ENDPOINT = `${API_BASE_URL}/api/locations`
 
-export async function getRooms(): Promise<Room[]> {
-  const response = await fetch(ROOMS_ENDPOINT, { cache: 'no-store' })
+export interface GetRoomsOptions {
+  bypassCache?: boolean
+}
+
+export async function getRooms({ bypassCache }: GetRoomsOptions = {}): Promise<Room[]> {
+  const init: RequestInit = bypassCache ? { cache: 'no-cache' } : {}
+  const response = await fetchWithRetry(ROOMS_ENDPOINT, init)
 
   if (!response.ok) {
     throw new Error(`Failed to fetch rooms: ${response.status} ${response.statusText}`)

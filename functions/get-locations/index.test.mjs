@@ -29,6 +29,7 @@ describe('GetLocationsFunction Lambda Handler', () => {
     assert.equal(response.statusCode, 200);
     assert.equal(response.headers['Access-Control-Allow-Origin'], '*');
     assert.equal(response.headers['Content-Type'], 'application/json');
+    assert.equal(response.headers['Cache-Control'], 'public, max-age=60, stale-while-revalidate=30');
 
     const body = JSON.parse(response.body);
     assert.equal(body.count, 2);
@@ -62,16 +63,46 @@ describe('GetLocationsFunction Lambda Handler', () => {
 
     assert.equal(response.statusCode, 200);
     assert.equal(response.headers['Access-Control-Allow-Origin'], '*');
+    assert.equal(response.headers['Cache-Control'], 'public, max-age=60, stale-while-revalidate=30');
     assert.deepEqual(JSON.parse(response.body), { count: 0, records: [] });
   });
 
-  test('returns 500 with CORS headers when the scan fails', async () => {
+  test('caches scanned items in memory within cacheTtlMs, avoiding repeated scans', async () => {
+    const items = [{ location_id: 'LC3-101' }];
+    const docClient = fakeDocClient([{ Items: items }, { Items: items }]);
+    let currentTime = 1000;
+    const handler = createHandler({
+      docClient,
+      tableName: 'TestTable',
+      cacheTtlMs: 60 * 1000,
+      now: () => new Date(currentTime),
+    });
+
+    const res1 = await handler();
+    assert.equal(res1.statusCode, 200);
+    assert.equal(docClient.calls.length, 1);
+
+    // Call again within TTL (30s later)
+    currentTime += 30 * 1000;
+    const res2 = await handler();
+    assert.equal(res2.statusCode, 200);
+    assert.equal(docClient.calls.length, 1); // No new scan
+
+    // Advance past TTL (61s later)
+    currentTime += 31 * 1000;
+    const res3 = await handler();
+    assert.equal(res3.statusCode, 200);
+    assert.equal(docClient.calls.length, 2); // Rescanned
+  });
+
+  test('returns 500 with CORS headers and no-store when the scan fails', async () => {
     const docClient = fakeDocClient([new Error('ResourceNotFoundException')]);
 
     const response = await createHandler({ docClient, tableName: 'TestTable' })();
 
     assert.equal(response.statusCode, 500);
     assert.equal(response.headers['Access-Control-Allow-Origin'], '*');
+    assert.equal(response.headers['Cache-Control'], 'no-store');
 
     const body = JSON.parse(response.body);
     assert.match(body.error, /Failed to fetch locations/);

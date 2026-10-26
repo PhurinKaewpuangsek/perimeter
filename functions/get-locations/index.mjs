@@ -5,12 +5,23 @@ const client = new DynamoDBClient({});
 const defaultDocClient = DynamoDBDocumentClient.from(client);
 
 const TABLE_NAME = process.env.TABLE_NAME || 'SmartFacultyLocations';
+const DEFAULT_CACHE_TTL_MS = 60 * 1000; // 60 seconds TTL
 
 const CORS_HEADERS = {
   'Content-Type': 'application/json',
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET,OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
+};
+
+const SUCCESS_HEADERS = {
+  ...CORS_HEADERS,
+  'Cache-Control': 'public, max-age=60, stale-while-revalidate=30',
+};
+
+const ERROR_HEADERS = {
+  ...CORS_HEADERS,
+  'Cache-Control': 'no-store',
 };
 
 /**
@@ -44,22 +55,34 @@ async function scanAllLocations(docClient, tableName) {
  * Builds the Lambda handler around an injectable document client so the response
  * contract can be unit tested without reaching AWS.
  */
-export function createHandler({ docClient = defaultDocClient, tableName = TABLE_NAME } = {}) {
+export function createHandler({
+  docClient = defaultDocClient,
+  tableName = TABLE_NAME,
+  cacheTtlMs = DEFAULT_CACHE_TTL_MS,
+  now = () => new Date(),
+} = {}) {
+  let cachedRecords = null;
+  let cachedAt = 0;
+
   return async function getLocations() {
     try {
-      const records = await scanAllLocations(docClient, tableName);
+      const currentTime = typeof now === 'function' ? now().getTime() : Date.now();
+      if (!cachedRecords || currentTime - cachedAt >= cacheTtlMs) {
+        cachedRecords = await scanAllLocations(docClient, tableName);
+        cachedAt = currentTime;
+      }
 
       // Same envelope the static rooms.json used, so the frontend parser is unchanged.
       return {
         statusCode: 200,
-        headers: CORS_HEADERS,
-        body: JSON.stringify({ count: records.length, records }),
+        headers: SUCCESS_HEADERS,
+        body: JSON.stringify({ count: cachedRecords.length, records: cachedRecords }),
       };
     } catch (error) {
       console.error('Error scanning locations:', error);
       return {
         statusCode: 500,
-        headers: CORS_HEADERS,
+        headers: ERROR_HEADERS,
         body: JSON.stringify({
           error: 'Failed to fetch locations',
           message: error.message,
