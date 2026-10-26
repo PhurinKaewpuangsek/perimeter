@@ -38,8 +38,11 @@ export async function getSchedules({ roomCode, bypassCache }: GetSchedulesOption
   if (roomCode?.trim()) {
     url.searchParams.set('room_code', roomCode.trim())
   }
+  if (bypassCache) {
+    url.searchParams.set('fresh', '1')
+  }
   const endpoint = API_BASE_URL ? url.toString() : `${url.pathname}${url.search}`
-  const init: RequestInit = bypassCache ? { cache: 'no-cache' } : {}
+  const init: RequestInit = bypassCache ? { cache: 'no-store' } : {}
   const response = await fetchWithRetry(endpoint, init)
 
   if (!response.ok) {

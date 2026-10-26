@@ -73,13 +73,14 @@ describe('AccountMenu', () => {
     const trigger = screen.getByRole('button', { name: /บัญชีผู้ใช้|admin@torch.dev/i })
     await user.click(trigger)
 
-    // AccountMenu is strictly user profile & sign out (navigation moved to bottom dock)
     expect(screen.getByText('เข้าสู่ระบบด้วย')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /ออกจากระบบ/i })).toBeInTheDocument()
-    expect(screen.queryByRole('link')).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /แผนที่อาคารเรียนรวม 3/i })).toHaveAttribute('href', '/map')
+    expect(screen.getByRole('link', { name: /staff console/i })).toHaveAttribute('href', '/staff')
+    expect(screen.getByRole('link', { name: /admin console/i })).toHaveAttribute('href', '/admin')
   })
 
-  it('renders email, role badge, and sign out button for staff', async () => {
+  it('renders email, role badge, mobile workspace links, and sign out button for staff (BUG-03)', async () => {
     currentSession = {
       idToken: 'mock-token',
       accessToken: 'mock-access',
@@ -106,6 +107,38 @@ describe('AccountMenu', () => {
 
     expect(screen.getByText('เข้าสู่ระบบด้วย')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /ออกจากระบบ/i })).toBeInTheDocument()
+    const mapLink = screen.getByRole('link', { name: /แผนที่อาคารเรียนรวม 3/i })
+    const staffLink = screen.getByRole('link', { name: /staff console/i })
+    expect(mapLink).toHaveAttribute('href', '/map')
+    expect(staffLink).toHaveAttribute('href', '/staff')
+    expect(screen.queryByRole('link', { name: /admin console/i })).not.toBeInTheDocument()
+
+    // Clicking a workspace link closes the menu
+    await user.click(staffLink)
+    expect(screen.queryByText('เข้าสู่ระบบด้วย')).not.toBeInTheDocument()
+  })
+
+  it('does not render workspace switcher links in AccountMenu for standard user role', async () => {
+    currentSession = {
+      idToken: 'mock-token',
+      accessToken: 'mock-access',
+      expiresAt: Date.now() + 3600000,
+      user: {
+        email: 'student@torch.dev',
+        sub: 'sub-user',
+        groups: ['user'],
+      },
+    }
+
+    const user = userEvent.setup()
+    render(
+      <MemoryRouter>
+        <AccountMenu />
+      </MemoryRouter>,
+    )
+
+    await user.click(screen.getByRole('button', { name: /บัญชีผู้ใช้|student@torch.dev/i }))
+    expect(screen.getByText('เข้าสู่ระบบด้วย')).toBeInTheDocument()
     expect(screen.queryByRole('link')).not.toBeInTheDocument()
   })
 

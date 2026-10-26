@@ -132,11 +132,13 @@ describe('schedulesService - Data Access Layer', () => {
       }
     })
 
-    it('passes cache: "no-cache" when bypassCache is true', async () => {
+    it('appends fresh=1 and passes cache: "no-store" when bypassCache is true', async () => {
       const originalFetch = globalThis.fetch
       try {
+        let receivedUrl: string | undefined
         let receivedInit: RequestInit | undefined
-        globalThis.fetch = async (_input: RequestInfo | URL, init?: RequestInit) => {
+        globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+          receivedUrl = String(input)
           receivedInit = init
           return {
             ok: true,
@@ -147,7 +149,12 @@ describe('schedulesService - Data Access Layer', () => {
         }
 
         await getSchedules({ bypassCache: true })
-        assert.strictEqual(receivedInit?.cache, 'no-cache')
+        assert.strictEqual(receivedUrl, `${SCHEDULES_ENDPOINT}?fresh=1`)
+        assert.strictEqual(receivedInit?.cache, 'no-store')
+
+        await getSchedules({ roomCode: 'LC3-103/1', bypassCache: true })
+        assert.strictEqual(receivedUrl, `${SCHEDULES_ENDPOINT}?room_code=LC3-103%2F1&fresh=1`)
+        assert.strictEqual(receivedInit?.cache, 'no-store')
       } finally {
         globalThis.fetch = originalFetch
       }

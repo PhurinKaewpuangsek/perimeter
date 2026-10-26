@@ -132,6 +132,16 @@ describe('TopBar (Shared Component)', () => {
     expect(screen.queryByRole('button', { name: /staff@example.com/i })).not.toBeInTheDocument()
   })
 
+  it('renders the sidebar toggle button without hiding it on mobile viewports (BUG-03)', () => {
+    const onToggleSidebar = vi.fn()
+    renderTopBar({ onToggleSidebar, isSidebarCollapsed: false })
+
+    const toggleBtn = screen.getByRole('button', { name: 'ซ่อนแผงด้านซ้าย' })
+    expect(toggleBtn).toBeInTheDocument()
+    expect(toggleBtn).toHaveClass('inline-flex')
+    expect(toggleBtn).not.toHaveClass('hidden')
+  })
+
   it('mounts AccountMenu with user role and options when user is logged in as staff', async () => {
     const user = userEvent.setup()
     mockSession = {
@@ -157,7 +167,7 @@ describe('TopBar (Shared Component)', () => {
     await user.click(trigger)
     expect(screen.getByText('เข้าสู่ระบบด้วย')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /ออกจากระบบ/i })).toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: /staff console/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /staff console/i })).toHaveAttribute('href', '/staff')
   })
 
   it('displays admin role in AccountMenu when user is logged in as admin', async () => {

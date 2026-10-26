@@ -32,6 +32,24 @@ function getCallerIdentity(event) {
 const REQUIRED_FIELDS = ['room_code', 'day_of_week', 'start_time', 'event_code'];
 
 const EVENT_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const TIME_24H_PATTERN = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
+const WEEKDAYS_UTC = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+
+/** True when value is a 24-hour time string in HH:MM format (00:00..23:59). */
+export function isValidTime24h(value) {
+  return typeof value === 'string' && TIME_24H_PATTERN.test(value);
+}
+
+function parseMinutes(hhmm) {
+  const [h, m] = hhmm.split(':').map(Number);
+  return h * 60 + m;
+}
+
+/** Returns the 3-letter weekday ('SUN'..'SAT') for a valid YYYY-MM-DD date. */
+export function getWeekdayFromEventDate(value) {
+  const [year, month, day] = value.split('-').map(Number);
+  return WEEKDAYS_UTC[new Date(Date.UTC(year, month - 1, day)).getUTCDay()];
+}
 
 /** True when value is a real calendar date written as YYYY-MM-DD (e.g. rejects 2026-02-30). */
 export function isValidEventDate(value) {
@@ -105,9 +123,22 @@ export function createHandler({ docClient = defaultDocClient, tableName = TABLE_
       }
     }
 
-    const { room_code, day_of_week, start_time, event_code, end_time, event_name } = body;
+    const { room_code, start_time, event_code, end_time, event_name } = body;
+    let { day_of_week } = body;
     // Stored lowercase so DynamoDB conditions that compare event_type match every spelling.
     const event_type = normalizeEventType(body.event_type);
+
+    if (!isValidTime24h(start_time)) {
+      return badRequest('Invalid start_time: use 24-hour HH:MM format (00:00–23:59)');
+    }
+    if (end_time !== undefined && end_time !== null && end_time !== '') {
+      if (!isValidTime24h(end_time)) {
+        return badRequest('Invalid end_time: use 24-hour HH:MM format (00:00–23:59)');
+      }
+      if (parseMinutes(end_time) <= parseMinutes(start_time)) {
+        return badRequest('Invalid time range: end_time must be after start_time');
+      }
+    }
 
     // event_date is optional, but when present it must be a real YYYY-MM-DD date,
     // and exam rows must always carry one.
@@ -119,6 +150,9 @@ export function createHandler({ docClient = defaultDocClient, tableName = TABLE_
       return badRequest('event_date is required for exam rows (YYYY-MM-DD)');
     }
     const event_date = hasEventDate ? body.event_date : undefined;
+    if (event_date) {
+      day_of_week = getWeekdayFromEventDate(event_date);
+    }
 
     // Auto-generate composite key
     const schedule_slot = `${day_of_week}#${start_time}#${event_code}`;

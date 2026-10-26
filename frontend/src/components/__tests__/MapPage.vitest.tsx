@@ -151,6 +151,24 @@ describe('MapPage course search (issue #91)', () => {
     expect(screen.getByRole('textbox')).toHaveValue('ROOM')
   })
 
+  it('shows lecture, lab, and other schedule types in the class timetable tab (BUG-01)', () => {
+    schedulesForTest = [
+      { ...slot('LC3-121', 'MON'), eventCode: 'LEC-101', startTime: '09:00', endTime: '10:30', eventType: 'lecture' },
+      { ...slot('LC3-121', 'MON'), eventCode: 'LAB-102', startTime: '11:00', endTime: '12:30', eventType: 'lab' },
+      { ...slot('LC3-121', 'MON'), eventCode: 'EVT-103', startTime: '13:00', endTime: '14:30', eventType: 'other' },
+      { ...slot('LC3-121', 'MON'), eventCode: 'EXM-104', startTime: '15:00', endTime: '16:30', eventType: 'exam', eventDate: '2026-10-26' },
+    ]
+    mockViewport(true)
+    renderMap('/map?room=LC3-F1-R121')
+
+    expect(screen.getByRole('button', { name: /ตารางเรียน\s*\(3\)/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /ตารางสอบ\s*\(1\)/ })).toBeInTheDocument()
+    expect(screen.getByText('LEC-101')).toBeInTheDocument()
+    expect(screen.getByText('LAB-102')).toBeInTheDocument()
+    expect(screen.getByText('EVT-103')).toBeInTheDocument()
+    expect(screen.queryByText('EXM-104')).not.toBeInTheDocument()
+  })
+
   it('filters search results by room category', async () => {
     mockViewport(true)
     const user = userEvent.setup()

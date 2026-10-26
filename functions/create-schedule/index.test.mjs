@@ -264,5 +264,44 @@ describe('CreateScheduleFunction Lambda Handler', () => {
       assert.equal(response.statusCode, 400);
       assert.match(JSON.parse(response.body).error, /event_date is required/);
     });
+
+    test('syncs day_of_week automatically from a valid event_date (BUG-06)', async () => {
+      const capture = {};
+      // 2026-10-30 is a Friday (FRI), even though baseBody sends day_of_week: 'MON'
+      const response = await create({ event_type: 'exam', event_date: '2026-10-30' }, capture);
+      assert.equal(response.statusCode, 200);
+      assert.equal(capture.command.input.Item.day_of_week, 'FRI');
+      assert.equal(capture.command.input.Item.schedule_slot, 'FRI#13:00#BAS350');
+    });
+  });
+
+  describe('time validation (BUG-06)', () => {
+    const staffContext = {
+      authorizer: { claims: { sub: 'staff-uuid', 'cognito:username': 'staff@torch.dev', 'cognito:groups': 'staff' } },
+    };
+    const baseBody = { room_code: 'LC3-103', day_of_week: 'MON', start_time: '09:00', end_time: '12:00', event_code: 'CS101' };
+
+    async function create(extra, capture = {}) {
+      const handler = createHandler({ docClient: fakeDocClient({}, capture), tableName: 'TestTable' });
+      return handler({ body: JSON.stringify({ ...baseBody, ...extra }), requestContext: staffContext });
+    }
+
+    test('rejects start_time or end_time that is not in 24-hour HH:MM format', async () => {
+      for (const badStart of ['9:00', '25:00', '12:60', '24:00', 'abc']) {
+        const res = await create({ start_time: badStart });
+        assert.equal(res.statusCode, 400, `should reject start_time=${badStart}`);
+      }
+      for (const badEnd of ['9:00', '25:99', '12:60', '24:00', 'abc']) {
+        const res = await create({ end_time: badEnd });
+        assert.equal(res.statusCode, 400, `should reject end_time=${badEnd}`);
+      }
+    });
+
+    test('rejects when start_time >= end_time', async () => {
+      for (const [start_time, end_time] of [['16:00', '09:00'], ['09:00', '09:00']]) {
+        const res = await create({ start_time, end_time });
+        assert.equal(res.statusCode, 400, `should reject ${start_time}..${end_time}`);
+      }
+    });
   });
 });
