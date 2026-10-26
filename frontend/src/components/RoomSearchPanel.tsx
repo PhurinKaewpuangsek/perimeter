@@ -14,6 +14,7 @@ import CategoryFilter from './CategoryFilter.tsx'
 import SearchResultList from './SearchResultList.tsx'
 import type { Room } from '../types/room.ts'
 import type { ScheduleSlot } from '../types/schedule.ts'
+import { formatLocalDate } from '../services/scheduleDisplay.ts'
 
 export interface RoomSearchPanelProps {
   rooms: Room[]
@@ -69,13 +70,14 @@ export default function RoomSearchPanel({
     const searchTerms = getExpandedSearchTerms(query)
     return schedules.filter((schedule) => scheduleMatchesQuery(schedule, searchTerms))
   }, [query, schedules])
+  const today = formatLocalDate(new Date())
   const allExamResults = useMemo(
-    () => findExams(schedules, query, { includePast: true }),
-    [query, schedules]
+    () => findExams(schedules, query, { includePast: true, today }),
+    [query, schedules, today]
   )
   const examResults = useMemo(
-    () => (showPastExams ? allExamResults : findExams(schedules, query)),
-    [allExamResults, query, schedules, showPastExams]
+    () => (showPastExams ? allExamResults : findExams(schedules, query, { today })),
+    [allExamResults, query, schedules, showPastExams, today]
   )
   const examSearchActive = isExamSearchQuery(query, rooms, schedules)
   const pastExamsAvailable = allExamResults.length > examResults.length

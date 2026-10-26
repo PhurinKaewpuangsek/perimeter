@@ -59,7 +59,7 @@ import {
 import { getCategoryIcon } from './categoryIcon'
 import { buildGoogleCalendarUrl } from '../services/calendarExport'
 import { computeScheduleSlot } from '../hooks/usePins'
-import { isExamSchedule } from '../services/scheduleDisplay'
+import { formatLocalDate, isExamSchedule } from '../services/scheduleDisplay'
 import { useRoomSchedules } from '../hooks/useRoomSchedules'
 import type { Room } from '../types/room'
 import type { ScheduleSlot } from '../types/schedule'
@@ -458,13 +458,14 @@ export default function MapPage() {
     const searchTerms = getExpandedSearchTerms(query)
     return schedules.filter((schedule) => scheduleMatchesQuery(schedule, searchTerms))
   }, [query, schedules])
+  const today = formatLocalDate(now)
   const allExamResults = useMemo(
-    () => findExams(schedules, query, { includePast: true }),
-    [query, schedules]
+    () => findExams(schedules, query, { includePast: true, today }),
+    [query, schedules, today]
   )
   const examResults = useMemo(
-    () => (showPastExams ? allExamResults : findExams(schedules, query)),
-    [allExamResults, query, schedules, showPastExams]
+    () => (showPastExams ? allExamResults : findExams(schedules, query, { today })),
+    [allExamResults, query, schedules, showPastExams, today]
   )
   const examSearchActive = isExamSearchQuery(query, rooms, schedules)
   const pastExamsAvailable = allExamResults.length > examResults.length

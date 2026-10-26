@@ -1,6 +1,11 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { formatExamDateTime, getExamDateLabel, isExamSchedule } from '../scheduleDisplay.ts'
+import {
+  formatExamDateTime,
+  formatLocalDate,
+  getExamDateLabel,
+  isExamSchedule,
+} from '../scheduleDisplay.ts'
 
 describe('scheduleDisplay', () => {
   it('identifies exams without case sensitivity', () => {
@@ -39,5 +44,9 @@ describe('scheduleDisplay', () => {
       }),
       'อ. 09:00–12:00'
     )
+  })
+
+  it('formats an explicitly supplied date in local YYYY-MM-DD form', () => {
+    assert.equal(formatLocalDate(new Date(2026, 4, 18, 12)), '2026-05-18')
   })
 })

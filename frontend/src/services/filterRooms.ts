@@ -196,8 +196,8 @@ interface ParsedExamQuery {
 }
 
 export interface FindExamsOptions {
+  today: string
   includePast?: boolean
-  today?: string
 }
 
 function parseExamQuery(query: string): ParsedExamQuery {
@@ -281,22 +281,17 @@ export function isExamSearchQuery(
 export function findExams(
   schedules: ScheduleSlot[],
   query: string,
-  options: FindExamsOptions = {}
+  options: FindExamsOptions
 ): ScheduleSlot[] {
   const parsed = parseExamQuery(query)
   if (!parsed.courseCode || !isExamSearchQuery(query)) return []
-
-  const now = new Date()
-  const today =
-    options.today ??
-    `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
 
   return schedules
     .filter((schedule) => {
       if (!isExamSchedule(schedule) || !matchesCourseCode(schedule, parsed.courseCode)) return false
       if (parsed.date && schedule.eventDate !== parsed.date) return false
       if (parsed.time && !timeIsWithinSchedule(parsed.time, schedule)) return false
-      if (!options.includePast && schedule.eventDate && schedule.eventDate < today) return false
+      if (!options.includePast && schedule.eventDate && schedule.eventDate < options.today) return false
       return true
     })
     .sort((a, b) => {

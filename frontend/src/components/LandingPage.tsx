@@ -23,6 +23,7 @@ import {
   isExamSearchQuery,
   DEFAULT_CATEGORY_KEY,
 } from '../services/filterRooms'
+import { formatLocalDate } from '../services/scheduleDisplay'
 import {
   getBuildingLabel,
   getCategoryLabel,
@@ -83,13 +84,14 @@ export default function LandingPage() {
     return filterRooms(rooms, quickQuery, DEFAULT_CATEGORY_KEY, schedules)
   }, [rooms, quickQuery, schedules])
 
+  const today = formatLocalDate(new Date())
   const allExamResults = useMemo(
-    () => findExams(schedules, quickQuery, { includePast: true }),
-    [quickQuery, schedules]
+    () => findExams(schedules, quickQuery, { includePast: true, today }),
+    [quickQuery, schedules, today]
   )
   const examResults = useMemo(
-    () => (showPastExams ? allExamResults : findExams(schedules, quickQuery)),
-    [allExamResults, quickQuery, schedules, showPastExams]
+    () => (showPastExams ? allExamResults : findExams(schedules, quickQuery, { today })),
+    [allExamResults, quickQuery, schedules, showPastExams, today]
   )
   const examSearchActive = isExamSearchQuery(quickQuery, rooms, schedules)
   const pastExamsAvailable = allExamResults.length > examResults.length
@@ -442,4 +444,3 @@ export default function LandingPage() {
     </div>
   )
 }
-

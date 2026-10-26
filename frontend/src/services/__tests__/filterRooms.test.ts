@@ -186,11 +186,22 @@ describe('filterRooms()', () => {
     })
 
     it('returns no results for a missing course or time/date combination', () => {
-      assert.deepStrictEqual(findExams(examSchedules, 'MISSING101'), [])
+      assert.deepStrictEqual(findExams(examSchedules, 'MISSING101', { today: '2026-05-01' }), [])
       assert.deepStrictEqual(
         findExams(examSchedules, 'BAS350 17:00', { today: '2026-05-01' }),
         []
       )
+    })
+
+    it('uses only the supplied reference date when deciding which exams are past', () => {
+      const asOfMayFirst = findExams(examSchedules, 'BAS350', { today: '2026-05-01' })
+      const asOfMayTwentyFirst = findExams(examSchedules, 'BAS350', { today: '2026-05-21' })
+
+      assert.deepStrictEqual(asOfMayFirst.map((exam) => exam.eventDate), [
+        '2026-05-18',
+        '2026-05-20',
+      ])
+      assert.deepStrictEqual(asOfMayTwentyFirst, [])
     })
   })
 
