@@ -85,7 +85,7 @@ Globals:
 > 1. **API Gateway MethodSettings Throttling** (Read: 100 rps / 200 burst) สกัดกั้น Spike โหลดเกินขนาดตั้งแต่ขอบระบบก่อนถึง Lambda
 > 2. **Multi-Tier Caching** (HTTP `Cache-Control` 15–60s + In-memory 15–60s + Frontend Deduplication) ช่วยให้ request ส่วนใหญ่ได้ cache ทันที ลด cold start และ invocation จริงลงมหาศาล
 >
-> จึงทำการ**ปลด `ReservedConcurrentExecutions` ออกจาก `template.yaml`** เพื่อให้สอดคล้องกับ Least-Privilege IAM Boundary ของระบบ CI/CD โดยยังคงประสิทธิภาพการรองรับโหลดระดับสูงไว้ผ่าน API Gateway Throttling และ Multi-Tier Caching อย่างสมบูรณ์
+> จึงทำการ**ปลด `ReservedConcurrentExecutions` ออกจาก `template.yaml`** เพื่อให้สอดคล้องกับ Least-Privilege IAM Boundary ของระบบ CI/CD ส่งผลให้ฟังก์ชันอ่านและฟังก์ชันเขียนกลับมาแชร์ Unreserved Concurrency Pool ของบัญชีร่วมกัน แม้ว่าจะไม่มี Concurrency Isolation แยกขาดระหว่าง Read และ Write อีกต่อไป แต่ภาระโหลดจริงถูกควบคุมและสกัดกั้นไว้ด้วย **API Gateway MethodSettings Throttling** (Read 100 rps, Write 20 rps) และ **Multi-Tier Caching** (15–60s) ซึ่งช่วยลดความเสี่ยงจากการแย่ง Concurrency ลงอย่างมีนัยสำคัญ
 
 ### การเปรียบเทียบและการกำหนดค่าเดิม
 
@@ -147,7 +147,9 @@ AWS กำหนดให้ต้องเหลือ Unreserved Account Concu
   - การลด TTL ของ Topology และ Graph จาก 30 วินาที เหลือ 15 วินาที ส่งผลให้อินสแตนซ์ Lambda (Warm Container) มีการดึงข้อมูล `SmartFacultyGraph` ซ้ำสูงสุดประมาณ **4 ครั้งต่อนาทีต่อคอนเทนเนอร์** (จากเดิม 2 ครั้งต่อนาที)
 - **การประเมิน Read Capacity Units (RCU)**:
   - ข้อมูลกราฟ `LC3` มีขนาดรวม ~92 KB (~590 รายการ) การ query ทั้งหมดใช้ pagination 1 รอบ (DynamoDB paginates ที่เพดาน 1 MB, ข้อมูล 92 KB จึงอ่านเสร็จใน query command เดียว แต่คิดตามขนาดข้อมูลคือ 92 KB / 4 KB = ~23-24 RCU ต่อ 1 full query)
-  - ภายใต้ Reserved Concurrency สูงสุด 15 คอนเทนเนอร์สำหรับ `GetRouteFunction` และ 10 คอนเทนเนอร์สำหรับ `GetGraphFunction`:
-    - อัตราการยิง Query รวมสูงสุดคือ $(15 + 10) \times 4 = 100\text{ queries/นาที} \approx 1.67\text{ queries/วินาที}$
-    - คิดเป็นอัตราการบริโภค RCU รวมสูงสุดประมาณ $1.67 \times 24 \approx 40\text{ RCU/วินาที}$
-  - ตาราง `SmartFacultyGraph` เป็นแบบ On-Demand (`PAY_PER_REQUEST`) ซึ่งรองรับ baseline ได้ถึง 40,000 RCU/s โดยไม่ต้อง provision ล่วงหน้า อัตรา ~40 RCU/s ในช่วงโหลดสูงสุดจึงปลอดภัยอย่างยิ่งและไม่กระทบต่อประสิทธิภาพหรือโควตาของบัญชี
+- **การประเมิน RCU เชิงประวัติศาสตร์ (Historical Baseline)**:
+    - เดิมคำนวณไว้ที่ $\sim 40\text{ RCU/วินาที}$ บนสมมติฐานเพดาน Reserved Concurrency รวม 25 คอนเทนเนอร์ ($(15 + 10) \times 4 = 100\text{ queries/นาที} \approx 1.67\text{ queries/วินาที} \times 24 \approx 40\text{ RCU/วินาที}$)
+  - **การประเมินด้วย Retained Controls (Hotfix #171)**:
+    - เมื่อปลด Reserved Concurrency และฟังก์ชันอ่านแชร์ Unreserved Concurrency ร่วมกับบัญชี ขีดจำกัดสูงสุดของคำขออ่านทั้งหมดถูกกำกับโดย API Gateway Throttling ที่เพดาน 100 requests/s (Burst 200)
+    - ด้วย In-Memory Container Cache (TTL 15 วินาที) และ HTTP `Cache-Control: public, max-age=15` คำขอส่วนใหญ่จะถูกตอบกลับจาก Browser หรือ Memory Cache ทันทีโดยไม่ต้อง Query ซ้ำไปที่ DynamoDB
+    - แม้ในกรณีที่คอนเทนเนอร์ใหม่ถูกเรียกพร้อมกันภายใต้ Throttling เพดาน 100 req/s อัตราการอ่าน DynamoDB เฉลี่ยจะยังคงอยู่ในหลักสิบถึงร้อย RCU/s ซึ่งต่ำกว่าเพดาน 40,000 RCU/s ของตารางแบบ On-Demand (`PAY_PER_REQUEST`) อย่างปลอดภัย
