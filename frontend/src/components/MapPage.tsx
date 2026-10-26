@@ -61,7 +61,10 @@ import type { PinnedSchedule } from '../types/pin'
 
 const FLOOR_PLAN_ASSETS = FLOOR_CONFIGS.map((config) => config.asset)
 
-/** How often /map re-checks closure windows, so one that starts or ends while open shows up. */
+/**
+ * How often /map refetches closures and re-checks their windows, so a closure staff add or
+ * cancel, or one that starts or ends, shows up without a page reload.
+ */
 const CLOSURE_CLOCK_MS = 60_000
 
 /** Shown in the room panel while staff have the room closed (#147). */
@@ -331,12 +334,16 @@ export default function MapPage() {
   const floorPlansReady = usePreloadImages(FLOOR_PLAN_ASSETS)
   // Closures are public (GET /api/graph). If the graph fails to load the map simply shows
   // no closures; routing still applies them server-side.
-  const { graph } = useGraph()
+  const { graph, reload: reloadGraph } = useGraph()
   const [now, setNow] = useState(() => new Date())
   useEffect(() => {
-    const timer = setInterval(() => setNow(new Date()), CLOSURE_CLOCK_MS)
+    const timer = setInterval(() => {
+      setNow(new Date())
+      // A failed refresh keeps the last good graph (useGraph), so closures never vanish.
+      reloadGraph().catch(() => {})
+    }, CLOSURE_CLOCK_MS)
     return () => clearInterval(timer)
-  }, [])
+  }, [reloadGraph])
   const roomClosures = useMemo(() => activeRoomClosures(graph, now), [graph, now])
   // Keyed by content so the minute clock alone does not rebuild the 3D markers.
   const closedRoomKey = [...roomClosures.keys()].sort().join('|')

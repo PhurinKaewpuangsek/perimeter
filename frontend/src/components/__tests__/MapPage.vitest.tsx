@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
@@ -61,9 +61,12 @@ vi.mock('../../hooks/useRoomSchedules', () => ({
     reload: vi.fn(),
   }),
 }))
-const graphState = vi.hoisted(() => ({ graph: null as Graph | null }))
+const graphState = vi.hoisted(() => ({
+  graph: null as Graph | null,
+  reload: vi.fn(async () => {}),
+}))
 vi.mock('../../hooks/useGraph', () => ({
-  useGraph: () => ({ graph: graphState.graph, loading: false, error: null, reload: vi.fn() }),
+  useGraph: () => ({ graph: graphState.graph, loading: false, error: null, reload: graphState.reload }),
 }))
 vi.mock('../../hooks/usePreloadImages', () => ({
   usePreloadImages: () => true,
@@ -499,6 +502,25 @@ describe('MapPage room closures (issue #147)', () => {
   afterEach(() => {
     window.matchMedia = originalMatchMedia
     graphState.graph = null
+    graphState.reload.mockClear()
+    vi.useRealTimers()
+  })
+
+  it('refetches closures every minute so changes made by staff show without a reload', () => {
+    vi.useFakeTimers()
+    mockViewport(true)
+    renderMap()
+    expect(graphState.reload).not.toHaveBeenCalled()
+
+    act(() => {
+      vi.advanceTimersByTime(60_000)
+    })
+    expect(graphState.reload).toHaveBeenCalledTimes(1)
+
+    act(() => {
+      vi.advanceTimersByTime(60_000)
+    })
+    expect(graphState.reload).toHaveBeenCalledTimes(2)
   })
 
   it('shows "ปิดชั่วคราว" with the window and reason in the room panel while the room is closed', () => {
