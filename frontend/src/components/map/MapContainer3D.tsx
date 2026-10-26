@@ -57,6 +57,7 @@ export default function MapContainer3D(props: MapContainerProps & { onUnavailabl
     initialScale,
     idleOrbit,
     demoInterrupted,
+    route,
     closedRoomIds,
   } = props
   useEffect(() => {
@@ -66,12 +67,14 @@ export default function MapContainer3D(props: MapContainerProps & { onUnavailabl
       selectedRoomId,
       onSelectRoom: (id) => callbacks.current.onSelectRoom(id),
       onClearSelection: () => callbacks.current.onClearSelection?.(),
+      onFloorChange: (floor) => callbacks.current.onFloorChange(floor),
       isDetailOpen,
       mode,
       sidebarWidth,
       initialScale,
       idleOrbit,
       demoInterrupted,
+      route,
       closedRoomIds,
       icons: icons.current,
     })
@@ -86,6 +89,7 @@ export default function MapContainer3D(props: MapContainerProps & { onUnavailabl
     initialScale,
     idleOrbit,
     demoInterrupted,
+    route,
     closedRoomIds,
   ])
   const hintOffset = sidebarWidth ?? (mode === 'admin' ? 460 : 400)

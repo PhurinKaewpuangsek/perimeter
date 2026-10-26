@@ -9,6 +9,8 @@ interface SearchBarProps {
   onKeyDown?: (event: KeyboardEvent<HTMLInputElement>) => void
   inputRef?: RefObject<HTMLInputElement | null>
   placeholder?: string
+  /** Accessible name of the input; defaults to the room search. */
+  ariaLabel?: string
   isFilterOpen?: boolean
   hasActiveFilter?: boolean
   onToggleFilter?: () => void
@@ -26,6 +28,7 @@ export default function SearchBar({
   onKeyDown,
   inputRef,
   placeholder = 'ค้นหาห้องหรือรหัสวิชา เช่น 109, CS361',
+  ariaLabel = 'ค้นหาห้อง',
   isFilterOpen,
   hasActiveFilter,
   onToggleFilter,
@@ -52,7 +55,7 @@ export default function SearchBar({
         onFocus={onFocus}
         onKeyDown={onKeyDown}
         placeholder={placeholder}
-        aria-label="ค้นหาห้อง"
+        aria-label={ariaLabel}
         className="h-full w-full min-w-0 border-none bg-transparent text-body text-ink outline-none placeholder:text-ink-3"
       />
       {value && (

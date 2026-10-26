@@ -74,6 +74,33 @@
   padding: 6px 10px 6px 8px;
   z-index: 3;
 }
+/* Route floor change ("ขึ้นบันไดไปชั้น 2"): a primary pill, like the 2D button. */
+.map3d-route-floor {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 4;
+  pointer-events: auto;
+  cursor: pointer;
+  white-space: nowrap;
+  background: #000000;
+  color: #ffffff;
+  border: 0;
+  border-radius: 999px;
+  padding: 8px 12px;
+  font:
+    500 14px/20px 'Plus Jakarta Sans',
+    'Prompt',
+    sans-serif;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.16);
+}
+.map3d-route-floor:hover {
+  background: #333333;
+}
+.map3d-route-floor:focus-visible {
+  outline: 2px solid #0000ee;
+  outline-offset: 2px;
+}
 .map3d-marker[aria-pressed='true'] .map3d-icon {
   box-shadow: 0 0 0 1.5px #ffffff;
 }

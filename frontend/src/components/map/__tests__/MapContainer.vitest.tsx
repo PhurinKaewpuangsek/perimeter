@@ -1,8 +1,9 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import MapContainer from '../MapContainer2D'
 import type { Room } from '../../../types/room'
+import type { FoundRoute } from '../../../types/route'
 
 const rooms: Room[] = [
   {
@@ -227,6 +228,102 @@ describe('MapContainer2D fallback', () => {
     expect(floorSwitcher.className).toContain('bottom-[calc(55dvh+1rem)]')
     expect(zoomControls.closest('.map2d > div')?.className).toContain('bottom-[calc(55dvh+5rem)]')
     expect(recenterBtn.closest('.map2d > div')?.className).toContain('bottom-[calc(55dvh+5rem)]')
+  })
+})
+
+describe('MapContainer2D route (#145)', () => {
+  // Entrance on floor 1 → stairs → room 201 on floor 2.
+  const route: FoundRoute = {
+    found: true,
+    distance: 400,
+    floors: [1, 2],
+    path: [
+      { nodeId: 'LC3_Junction_SM', floor: 1, x: 632, y: 484 },
+      { nodeId: 'LC3_Junction_MStair', floor: 1, x: 620, y: 300 },
+      { nodeId: 'LC3_stair-2', floor: 1, x: 622, y: 270 },
+      { nodeId: 'LC3_F2_stair-2', floor: 2, x: 529, y: 228 },
+      { nodeId: 'LC3_F2_201', floor: 2, x: 300, y: 400, locationId: 'LC3-F2-R201' },
+    ],
+    closuresAvoided: [],
+  }
+
+  function renderRoute(currentFloor: number, onFloorChange = vi.fn()) {
+    render(
+      <MapContainer
+        rooms={rooms}
+        currentFloor={currentFloor}
+        onFloorChange={onFloorChange}
+        selectedRoomId="LC3-F2-R201"
+        onSelectRoom={vi.fn()}
+        route={route}
+      />
+    )
+    return onFloorChange
+  }
+
+  it('draws only the part on the shown floor, with the start marker and a stairs button', async () => {
+    const user = userEvent.setup()
+    const onFloorChange = renderRoute(1)
+
+    const lines = screen.getAllByTestId('route-line')
+    expect(lines).toHaveLength(1)
+    expect(lines[0].querySelector('polyline')?.getAttribute('points')).toBe('632,484 620,300 622,270')
+    expect(screen.getByTestId('route-start')).toBeInTheDocument()
+    expect(screen.queryByTestId('route-end')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'ขึ้นบันไดไปชั้น 2' }))
+    expect(onFloorChange).toHaveBeenCalledWith(2)
+  })
+
+  it('shows the end marker on the destination floor and no stairs button there', () => {
+    renderRoute(2)
+
+    expect(screen.getAllByTestId('route-line')[0].querySelector('polyline')?.getAttribute('points')).toBe(
+      '529,228 300,400'
+    )
+    expect(screen.getByTestId('route-end')).toBeInTheDocument()
+    expect(screen.queryByTestId('route-start')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /บันไดไปชั้น/ })).not.toBeInTheDocument()
+  })
+
+  it('draws the line in once, then keeps it at a fixed screen width', () => {
+    renderRoute(2)
+    const line = () => screen.getAllByTestId('route-line')[0].querySelectorAll('polyline')[1]
+
+    expect(line()).toHaveClass('animate-route-draw')
+    expect(line()).toHaveAttribute('pathLength', '1')
+    expect(screen.getByTestId('route-end')).toHaveClass('animate-route-reveal')
+
+    // jsdom has no AnimationEvent, so React listens for the prefixed name there.
+    fireEvent.animationEnd(line())
+    fireEvent(line(), new Event('webkitAnimationEnd', { bubbles: true }))
+    expect(line()).not.toHaveClass('animate-route-draw')
+    expect(line()).toHaveAttribute('vector-effect', 'non-scaling-stroke')
+    expect(screen.getByTestId('route-end')).not.toHaveClass('animate-route-reveal')
+  })
+
+  it('shows the whole line at once when motion is reduced', () => {
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: query === '(prefers-reduced-motion: reduce)',
+      addEventListener() {},
+      removeEventListener() {},
+    }))
+    try {
+      renderRoute(1)
+      const line = screen.getAllByTestId('route-line')[0].querySelectorAll('polyline')[1]
+      expect(line).not.toHaveClass('animate-route-draw')
+      expect(line).toHaveAttribute('vector-effect', 'non-scaling-stroke')
+      expect(screen.getByRole('button', { name: 'ขึ้นบันไดไปชั้น 2' })).not.toHaveClass('animate-route-reveal')
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('draws nothing without a route', () => {
+    render(
+      <MapContainer rooms={rooms} currentFloor={1} onFloorChange={vi.fn()} selectedRoomId={null} onSelectRoom={vi.fn()} />
+    )
+    expect(screen.queryByTestId('route-overlay')).not.toBeInTheDocument()
   })
 })
 

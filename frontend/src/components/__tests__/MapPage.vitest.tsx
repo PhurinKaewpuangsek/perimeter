@@ -6,6 +6,8 @@ import { PinsContext, defaultContextValue } from '../../hooks/usePins'
 import { MODAL_OVERLAY_Z, rootZIndex } from '../../test/stacking'
 import type { Room } from '../../types/room'
 import type { ScheduleSlot } from '../../types/schedule'
+import type { UseRouteResult } from '../../hooks/useRoute'
+import type { FoundRoute } from '../../types/route'
 import type { Graph } from '../../types/graph'
 
 const room = (id: string, code: string, x: number, y: number, category = 'lecture_room'): Room => ({
@@ -71,6 +73,18 @@ vi.mock('../../hooks/useGraph', () => ({
 }))
 vi.mock('../../hooks/usePreloadImages', () => ({
   usePreloadImages: () => true,
+}))
+
+const IDLE_ROUTE: UseRouteResult = { status: 'idle', route: null, reason: null, error: null, retry: () => {} }
+// What useRoute returns once both points are set; each test sets it. `routeCalls` records
+// the (from, to) MapPage asks for.
+let routeForTest: UseRouteResult = IDLE_ROUTE
+const routeCalls: [string | null, string | null][] = []
+vi.mock('../../hooks/useRoute', () => ({
+  useRoute: (from: string | null, to: string | null) => {
+    routeCalls.push([from, to])
+    return from && to ? routeForTest : IDLE_ROUTE
+  },
 }))
 
 const { default: MapPage } = await import('../MapPage')
@@ -483,6 +497,156 @@ describe('MapPage layering with My Schedule open (issue #139)', () => {
 
     expect(screen.getByTestId('drawer-backdrop')).toBeInTheDocument()
     expect(screen.queryByRole('navigation', { name: 'แถบควบคุมแผนที่' })).not.toBeInTheDocument()
+  })
+})
+
+describe('MapPage navigation (issue #145)', () => {
+  const FOUND: FoundRoute = {
+    found: true,
+    distance: 420,
+    floors: [1, 2],
+    path: [
+      { nodeId: 'LC3_Junction_SM', floor: 1, x: 632, y: 484 },
+      { nodeId: 'LC3_stair-2', floor: 1, x: 622, y: 270 },
+      { nodeId: 'LC3_F2_stair-2', floor: 2, x: 529, y: 228 },
+      { nodeId: 'LC3_121', floor: 2, x: 408, y: 531, locationId: 'LC3-F1-R121' },
+    ],
+    closuresAvoided: [],
+  }
+  const lastRouteCall = () => routeCalls[routeCalls.length - 1]
+
+  beforeEach(() => {
+    routeCalls.length = 0
+    routeForTest = { ...IDLE_ROUTE, status: 'found', route: FOUND }
+  })
+  afterEach(() => {
+    window.matchMedia = originalMatchMedia
+    routeForTest = IDLE_ROUTE
+  })
+
+  async function startNavigation(path = '/map?room=LC3-F1-R121') {
+    const user = userEvent.setup()
+    renderMap(path)
+    await user.click(screen.getByRole('button', { name: 'นำทางมาที่นี่' }))
+    return user
+  }
+
+  it('asks for nothing until "นำทางมาที่นี่" is pressed', () => {
+    mockViewport(true)
+    renderMap('/map?room=LC3-F1-R121')
+    expect(routeCalls.every(([, to]) => to === null)).toBe(true)
+  })
+
+  it('"นำทางมาที่นี่" routes from the building entrance and swaps the search for the navigation panel', async () => {
+    mockViewport(true)
+    await startNavigation()
+
+    expect(lastRouteCall()).toEqual(['LC3_Junction_SM', 'LC3-F1-R121'])
+    const panel = screen.getByRole('region', { name: 'นำทาง' })
+    expect(within(panel).getByRole('textbox', { name: 'จุดเริ่มต้น' })).toHaveValue('ทางเข้าอาคาร')
+    expect(within(panel).getByText('ห้อง 121')).toBeInTheDocument()
+    expect(screen.queryByRole('textbox', { name: 'ค้นหาห้อง' })).not.toBeInTheDocument()
+  })
+
+  it('lists the floor legs with the stairs step, and a leg switches the map floor', async () => {
+    mockViewport(true)
+    const user = await startNavigation()
+
+    const steps = within(screen.getByRole('list', { name: 'ขั้นตอนเส้นทาง' })).getAllByRole('button')
+    expect(steps.map((step) => step.textContent)).toEqual([
+      expect.stringContaining('เดินจากทางเข้าอาคาร ไปที่บันได'),
+      expect.stringContaining('เดินต่อไปยังห้อง 121'),
+    ])
+    expect(within(screen.getByRole('region', { name: 'นำทาง' })).getByText('ขึ้นบันไดไปชั้น 2')).toBeInTheDocument()
+    expect(steps[0]).toHaveAttribute('aria-pressed', 'true')
+
+    await user.click(steps[1])
+    expect(steps[1]).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: '2nd Floor' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('says when the route goes around a closure', async () => {
+    mockViewport(true)
+    routeForTest = {
+      ...routeForTest,
+      route: { ...FOUND, closuresAvoided: [{ elementId: 'EDGE#A|B', reason: 'ปิดซ่อมทางเดิน' }] },
+    }
+    await startNavigation()
+    expect(screen.getByText('เส้นทางนี้เลี่ยงจุดที่ปิดชั่วคราว')).toBeInTheDocument()
+    expect(screen.getByText('ปิดซ่อมทางเดิน')).toBeInTheDocument()
+  })
+
+  it.each([
+    ['NO_PATH', 'ไม่มีทางเดินไปยังปลายทางในขณะนี้'],
+    ['DESTINATION_CLOSED', 'ปลายทางปิดชั่วคราว'],
+    ['ORIGIN_CLOSED', 'จุดเริ่มต้นปิดชั่วคราว'],
+    ['UNKNOWN_LOCATION', 'ไม่พบสถานที่นี้ในข้อมูลเส้นทาง'],
+  ] as const)('explains %s instead of showing an empty map', async (reason, message) => {
+    mockViewport(true)
+    routeForTest = { ...IDLE_ROUTE, status: 'not-found', reason }
+    await startNavigation()
+    expect(screen.getByRole('alert')).toHaveTextContent(message)
+  })
+
+  it('shows a request error with a retry button', async () => {
+    mockViewport(true)
+    const retry = vi.fn()
+    routeForTest = { ...IDLE_ROUTE, status: 'error', error: new Error('คำนวณเส้นทางไม่สำเร็จ (500)'), retry }
+    const user = await startNavigation()
+    expect(screen.getByRole('alert')).toHaveTextContent('คำนวณเส้นทางไม่สำเร็จ (500)')
+    await user.click(screen.getByRole('button', { name: 'ลองอีกครั้ง' }))
+    expect(retry).toHaveBeenCalledOnce()
+  })
+
+  it('picks another start with the room search', async () => {
+    mockViewport(true)
+    const user = await startNavigation()
+
+    await user.click(screen.getByRole('textbox', { name: 'จุดเริ่มต้น' }))
+    await user.type(screen.getByRole('textbox', { name: 'จุดเริ่มต้น' }), '105')
+    const options = within(screen.getByRole('list', { name: 'ตัวเลือกจุดเริ่มต้น' })).getAllByRole('button')
+    // The entrance is always offered; the destination itself never is.
+    expect(options[0]).toHaveTextContent('ทางเข้าอาคาร')
+    expect(options.some((option) => option.textContent?.includes('ห้อง 121'))).toBe(false)
+
+    await user.click(options.find((option) => option.textContent?.includes('ห้อง 105'))!)
+    expect(lastRouteCall()).toEqual(['LC3-F1-R105', 'LC3-F1-R121'])
+    expect(screen.getByRole('textbox', { name: 'จุดเริ่มต้น' })).toHaveValue('ห้อง 105')
+    expect(screen.queryByRole('list', { name: 'ตัวเลือกจุดเริ่มต้น' })).not.toBeInTheDocument()
+  })
+
+  it('tapping a room on the map while navigating makes it the destination', async () => {
+    mockViewport(true)
+    const user = await startNavigation()
+    // jsdom has no WebGL, so the map is the 2D fallback; R105 sits at (318, 148).
+    const room105 = screen
+      .getAllByRole('button', { name: 'ห้องบรรยายเรียนรวม' })
+      .find((marker) => marker.getAttribute('transform')?.startsWith('translate(318, 148)'))
+    await user.click(room105!)
+    expect(lastRouteCall()?.[1]).toBe('LC3-F1-R105')
+  })
+
+  it('"ล้างเส้นทาง" stops navigating and returns to the room details', async () => {
+    mockViewport(true)
+    const user = await startNavigation()
+    await user.click(screen.getByRole('button', { name: 'ล้างเส้นทาง' }))
+
+    expect(screen.queryByRole('region', { name: 'นำทาง' })).not.toBeInTheDocument()
+    expect(lastRouteCall()).toEqual([null, null])
+    expect(screen.getByRole('button', { name: 'นำทางมาที่นี่' })).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'ค้นหาห้อง' })).toBeInTheDocument()
+  })
+
+  it('on mobile, the navigation card replaces the search panel and room sheet, below the top bar', async () => {
+    mockViewport(false)
+    await startNavigation()
+
+    const card = screen.getByTestId('mobile-navigation')
+    expect(within(card).getByRole('region', { name: 'นำทาง' })).toBeInTheDocument()
+    expect(screen.queryByRole('textbox', { name: 'ค้นหาห้อง' })).not.toBeInTheDocument()
+    expect(document.querySelector('[data-sheet-handle="true"]')).toBeNull()
+    expect(effectivePointerEvents(card)).toBe('auto')
+    expect(rootZIndex(card)).toBeLessThan(rootZIndex(screen.getByTestId('map-top-bar')))
   })
 })
 
