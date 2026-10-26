@@ -75,7 +75,19 @@ Globals:
 
 ---
 
-## 4. โควตา Concurrency ของ Lambda (`ReservedConcurrentExecutions`)
+## 4. การจัดการ Concurrency ของ Lambda และการปลด Reserved Concurrency (Hotfix #171)
+
+> **หมายเหตุการแก้ไขฉุกเฉิน (Hotfix #171):**
+> เดิมมีการกำหนด `ReservedConcurrentExecutions` ให้กับ Lambda ฟังก์ชันอ่านหลัก 4 ตัว รวม 45 คอนเทนเนอร์ อย่างไรก็ตาม การกำหนด Reserved Concurrency ทำให้ CloudFormation ต้องเรียกใช้ AWS Lambda API `lambda:PutFunctionConcurrency` และ `lambda:DeleteFunctionConcurrency`
+> ตามหลัก **IAM Least Privilege** ของ Perimeter บทบาท OIDC (`GitHubActionsOIDCRole`) ที่ใช้ในการทำ Automated CD บน GitHub Actions ไม่ได้รับสิทธิ์ระดับ Account ในการตั้งค่าหรือลบ Concurrency ของ Lambda ส่งผลให้การ Deploy บน CD Pipeline ล้มเหลว (`AccessDenied`) และทำให้ CloudFormation Stack เข้าสู่สถานะ `UPDATE_ROLLBACK_FAILED`
+> 
+> เมื่อพิจารณาร่วมกับมาตรการป้องกันที่มีอยู่แล้ว:
+> 1. **API Gateway MethodSettings Throttling** (Read: 100 rps / 200 burst) สกัดกั้น Spike โหลดเกินขนาดตั้งแต่ขอบระบบก่อนถึง Lambda
+> 2. **Multi-Tier Caching** (HTTP `Cache-Control` 15–60s + In-memory 15–60s + Frontend Deduplication) ช่วยให้ request ส่วนใหญ่ได้ cache ทันที ลด cold start และ invocation จริงลงมหาศาล
+>
+> จึงทำการ**ปลด `ReservedConcurrentExecutions` ออกจาก `template.yaml`** เพื่อให้สอดคล้องกับ Least-Privilege IAM Boundary ของระบบ CI/CD โดยยังคงประสิทธิภาพการรองรับโหลดระดับสูงไว้ผ่าน API Gateway Throttling และ Multi-Tier Caching อย่างสมบูรณ์
+
+### การเปรียบเทียบและการกำหนดค่าเดิม
 
 AWS กำหนดให้ต้องเหลือ Unreserved Account Concurrency อย่างน้อย 100 เสมอ สำหรับฟังก์ชันอื่น ๆ ในบัญชี เพื่อความปลอดภัยในโควตาของ AWS Academy Learner Lab จึงตั้งค่า Reserved Concurrency ให้กับ Lambda อ่านความถี่สูงสุดดังนี้ (กำหนดผ่าน CloudFormation Parameters เพื่อให้ปรับลดหรือ override ได้ตามโควตาของบัญชีเป้าหมาย):
 
