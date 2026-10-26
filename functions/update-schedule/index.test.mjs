@@ -369,7 +369,6 @@ describe('UpdateScheduleFunction Lambda Handler', () => {
       for (const badBody of [
         { start_time: '25:99' },
         { end_time: '9:00' },
-        { end_time: '' },
         { end_time: '12:00' }, // slot start_time in path is 13:00
         { start_time: '16:00', end_time: '09:00' },
         { start_time: '12:00', end_time: '12:00' },
@@ -378,6 +377,15 @@ describe('UpdateScheduleFunction Lambda Handler', () => {
         const res = await update(badBody, docClient);
         assert.equal(res.statusCode, 400, `should reject ${JSON.stringify(badBody)}`);
       }
+    });
+
+    test('allows clearing end_time with empty string or null', async () => {
+      const docClient = scriptedDocClient();
+      const response = await update({ end_time: '' }, docClient);
+      assert.equal(response.statusCode, 200);
+      const input = docClient.commands[0].input;
+      assert.match(input.UpdateExpression, /REMOVE #endTime/);
+      assert.equal(input.ExpressionAttributeNames['#endTime'], 'end_time');
     });
 
     test('syncs day_of_week and re-creates schedule_slot when event_date weekday differs (BUG-06)', async () => {

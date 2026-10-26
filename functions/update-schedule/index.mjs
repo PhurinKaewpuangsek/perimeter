@@ -184,8 +184,14 @@ export function createHandler({
     if (updateData.start_time !== undefined && !isValidTime24h(updateData.start_time)) {
       return badRequest('Invalid start_time: use 24-hour HH:MM format (00:00–23:59)');
     }
-    if (updateData.end_time !== undefined && !isValidTime24h(updateData.end_time)) {
-      return badRequest('Invalid end_time: use 24-hour HH:MM format (00:00–23:59)');
+    let clearEndTime = false;
+    if (updateData.end_time !== undefined) {
+      if (updateData.end_time === null || updateData.end_time === '') {
+        clearEndTime = true;
+        delete updateData.end_time;
+      } else if (!isValidTime24h(updateData.end_time)) {
+        return badRequest('Invalid end_time: use 24-hour HH:MM format (00:00–23:59)');
+      }
     }
     const effectiveStartForRange = updateData.start_time ?? slotStartFromPath;
     if (
@@ -203,7 +209,7 @@ export function createHandler({
     const move = parseMoveTarget(body, roomCode);
     if (move?.error) return badRequest(move.error);
 
-    if (Object.keys(updateData).length === 0 && !clearEventDate && !move) {
+    if (Object.keys(updateData).length === 0 && !clearEventDate && !clearEndTime && !move) {
       return {
         statusCode: 400,
         headers: CORS_HEADERS,
@@ -241,7 +247,9 @@ export function createHandler({
         
         const oldItem = getResult.Item;
         const newTime = updateData.start_time || oldItem.start_time;
-        const newEndTime = updateData.end_time !== undefined ? updateData.end_time : oldItem.end_time;
+        const newEndTime = clearEndTime
+          ? undefined
+          : (updateData.end_time !== undefined ? updateData.end_time : oldItem.end_time);
         if (isValidTime24h(newTime) && isValidTime24h(newEndTime) && parseMinutes(newEndTime) <= parseMinutes(newTime)) {
           return badRequest('Invalid time range: end_time must be after start_time');
         }
@@ -265,6 +273,7 @@ export function createHandler({
             updatedAt,
           };
           if (clearEventDate) delete newItem.event_date;
+          if (clearEndTime) delete newItem.end_time;
           if (isExamType(newItem.event_type) && !isValidEventDate(newItem.event_date)) {
             return badRequest(EXAM_DATE_REQUIRED);
           }
@@ -302,9 +311,17 @@ export function createHandler({
       });
 
       let updateExpression = `SET ${updateExpressions.join(', ')}`;
+      const removeAttrs = [];
       if (clearEventDate) {
         expressionAttributeNames['#eventDate'] = 'event_date';
-        updateExpression += ' REMOVE #eventDate';
+        removeAttrs.push('#eventDate');
+      }
+      if (clearEndTime) {
+        expressionAttributeNames['#endTime'] = 'end_time';
+        removeAttrs.push('#endTime');
+      }
+      if (removeAttrs.length > 0) {
+        updateExpression += ` REMOVE ${removeAttrs.join(', ')}`;
       }
 
       // Keep exam rows dated: the stored row is checked atomically when this

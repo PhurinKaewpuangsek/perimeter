@@ -196,6 +196,47 @@ describe('GetSchedulesFunction Lambda Handler', () => {
     assert.equal(docClient.calls.length, 4);
   });
 
+  test('prevents an older in-flight read from overwriting caches cleared by fresh=1', async () => {
+    let resolveSlowRoom;
+    const staleRoom = [{ room_code: 'LC3-101', schedule_slot: 'MON#09:00#STALE' }];
+    const freshAll = [{ room_code: 'LC3-101', schedule_slot: 'MON#09:00#FRESH' }];
+    const freshRoom = [{ room_code: 'LC3-101', schedule_slot: 'MON#09:00#FRESH' }];
+
+    let callIdx = 0;
+    const docClient = {
+      async send() {
+        callIdx += 1;
+        if (callIdx === 1) {
+          return new Promise((resolve) => {
+            resolveSlowRoom = () => resolve({ Items: staleRoom });
+          });
+        }
+        if (callIdx === 2) {
+          return { Items: freshAll };
+        }
+        return { Items: freshRoom };
+      },
+    };
+
+    const handler = createHandler({ docClient, tableName: 'TestTable', cacheTtlMs: 60 * 1000 });
+
+    // Start an ordinary room query that stays in-flight
+    const slowRoomPromise = handler({ queryStringParameters: { room_code: 'LC3-101' } });
+
+    // Run a fresh bulk scan while the room query is still in-flight
+    const freshBulkRes = await handler({ queryStringParameters: { fresh: '1' } });
+    assert.deepEqual(JSON.parse(freshBulkRes.body).records, freshAll);
+
+    // Now the older room query finishes after roomCache.clear()
+    resolveSlowRoom();
+    await slowRoomPromise;
+
+    // A subsequent room query must NOT read the stale room result from roomCache
+    const nextRoomRes = await handler({ queryStringParameters: { room_code: 'LC3-101' } });
+    assert.deepEqual(JSON.parse(nextRoomRes.body).records, freshRoom);
+    assert.equal(callIdx, 3);
+  });
+
   test('returns 500 with CORS headers and no-store when the scan fails', async () => {
     const docClient = fakeDocClient([new Error('ResourceNotFoundException')]);
     const response = await createHandler({ docClient, tableName: 'TestTable' })();

@@ -127,6 +127,36 @@ describe('GetLocationsFunction Lambda Handler', () => {
     assert.equal(docClient.calls.length, 2);
   });
 
+  test('prevents an older in-flight scan from overwriting a newer fresh=1 scan', async () => {
+    let resolveSlowScan;
+    const staleItems = [{ location_id: 'LC3-101', name_th: 'Stale' }];
+    const freshItems = [{ location_id: 'LC3-101', name_th: 'Fresh' }];
+    let callIdx = 0;
+    const docClient = {
+      async send() {
+        callIdx += 1;
+        if (callIdx === 1) {
+          return new Promise((resolve) => {
+            resolveSlowScan = () => resolve({ Items: staleItems });
+          });
+        }
+        return { Items: freshItems };
+      },
+    };
+
+    const handler = createHandler({ docClient, tableName: 'TestTable', cacheTtlMs: 60 * 1000 });
+    const slowScanPromise = handler();
+    const freshRes = await handler({ queryStringParameters: { fresh: '1' } });
+    assert.deepEqual(JSON.parse(freshRes.body).records, freshItems);
+
+    resolveSlowScan();
+    await slowScanPromise;
+
+    const cachedRes = await handler();
+    assert.deepEqual(JSON.parse(cachedRes.body).records, freshItems);
+    assert.equal(callIdx, 2);
+  });
+
   test('returns 500 with CORS headers and no-store when the scan fails', async () => {
     const docClient = fakeDocClient([new Error('ResourceNotFoundException')]);
 

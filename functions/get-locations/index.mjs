@@ -68,21 +68,37 @@ export function createHandler({
 } = {}) {
   let cachedRecords = null;
   let cachedAt = 0;
+  let cacheGeneration = 0;
 
   return async function getLocations(event = {}) {
     try {
       const forceFresh = event?.queryStringParameters?.fresh === '1';
       const currentTime = typeof now === 'function' ? now().getTime() : Date.now();
+      let records;
       if (forceFresh || !cachedRecords || currentTime - cachedAt >= cacheTtlMs) {
-        cachedRecords = await scanAllLocations(docClient, tableName);
-        cachedAt = currentTime;
+        if (forceFresh) {
+          cacheGeneration += 1;
+        }
+        const readGeneration = cacheGeneration;
+        const scannedRecords = await scanAllLocations(docClient, tableName);
+        if (forceFresh) {
+          cacheGeneration += 1;
+          cachedRecords = scannedRecords;
+          cachedAt = currentTime;
+        } else if (readGeneration === cacheGeneration) {
+          cachedRecords = scannedRecords;
+          cachedAt = currentTime;
+        }
+        records = scannedRecords;
+      } else {
+        records = cachedRecords;
       }
 
       // Same envelope the static rooms.json used, so the frontend parser is unchanged.
       return {
         statusCode: 200,
         headers: forceFresh ? FRESH_HEADERS : SUCCESS_HEADERS,
-        body: JSON.stringify({ count: cachedRecords.length, records: cachedRecords }),
+        body: JSON.stringify({ count: records.length, records }),
       };
     } catch (error) {
       console.error('Error scanning locations:', error);

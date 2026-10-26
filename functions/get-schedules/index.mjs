@@ -85,6 +85,7 @@ export function createHandler({
 } = {}) {
   let cachedAllRecords = null;
   let cachedAllAt = 0;
+  let cacheGeneration = 0;
   const roomCache = new Map(); // roomCode -> { records, cachedAt }
 
   return async function getSchedules(event = {}) {
@@ -99,26 +100,48 @@ export function createHandler({
         if (!forceFresh && cached && currentTime - cached.cachedAt < cacheTtlMs) {
           records = cached.records;
         } else {
-          records = await queryRoomSchedules(docClient, tableName, roomCode);
-          if (!roomCache.has(roomCode) && roomCache.size >= MAX_ROOM_CACHE_SIZE) {
-            const oldestKey = roomCache.keys().next().value;
-            roomCache.delete(oldestKey);
-          }
-          roomCache.set(roomCode, { records, cachedAt: currentTime });
           if (forceFresh) {
+            cacheGeneration += 1;
+          }
+          const readGeneration = cacheGeneration;
+          records = await queryRoomSchedules(docClient, tableName, roomCode);
+          if (forceFresh) {
+            cacheGeneration += 1;
+            if (!roomCache.has(roomCode) && roomCache.size >= MAX_ROOM_CACHE_SIZE) {
+              const oldestKey = roomCache.keys().next().value;
+              roomCache.delete(oldestKey);
+            }
+            roomCache.set(roomCode, { records, cachedAt: currentTime });
             cachedAllRecords = null;
             cachedAllAt = 0;
+          } else if (readGeneration === cacheGeneration) {
+            if (!roomCache.has(roomCode) && roomCache.size >= MAX_ROOM_CACHE_SIZE) {
+              const oldestKey = roomCache.keys().next().value;
+              roomCache.delete(oldestKey);
+            }
+            roomCache.set(roomCode, { records, cachedAt: currentTime });
           }
         }
       } else {
         if (forceFresh || !cachedAllRecords || currentTime - cachedAllAt >= cacheTtlMs) {
-          cachedAllRecords = await scanAllSchedules(docClient, tableName);
-          cachedAllAt = currentTime;
           if (forceFresh) {
-            roomCache.clear();
+            cacheGeneration += 1;
           }
+          const readGeneration = cacheGeneration;
+          const scannedRecords = await scanAllSchedules(docClient, tableName);
+          if (forceFresh) {
+            cacheGeneration += 1;
+            cachedAllRecords = scannedRecords;
+            cachedAllAt = currentTime;
+            roomCache.clear();
+          } else if (readGeneration === cacheGeneration) {
+            cachedAllRecords = scannedRecords;
+            cachedAllAt = currentTime;
+          }
+          records = scannedRecords;
+        } else {
+          records = cachedAllRecords;
         }
-        records = cachedAllRecords;
       }
 
       return {
