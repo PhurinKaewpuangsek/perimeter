@@ -1,6 +1,6 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, it, expect, vi } from 'vitest'
+import { afterEach, describe, it, expect, vi } from 'vitest'
 import RoomSearchPanel from '../RoomSearchPanel'
 import type { Room } from '../../types/room'
 import type { ScheduleSlot } from '../../types/schedule'
@@ -80,6 +80,10 @@ const examSchedule: ScheduleSlot = {
   eventDate: '2027-05-18',
 }
 
+afterEach(() => {
+  vi.useRealTimers()
+})
+
 describe('RoomSearchPanel Component', () => {
   it('renders the TORCH brand logo at the top of the panel', () => {
     render(<RoomSearchPanel rooms={mockRooms} onSelectRoom={vi.fn()} />)
@@ -107,6 +111,22 @@ describe('RoomSearchPanel Component', () => {
     expect(screen.getByRole('list')).toBeInTheDocument()
     expect(screen.getByText('LC3-101')).toBeInTheDocument()
     expect(screen.queryByText('LC3-201')).not.toBeInTheDocument()
+  })
+
+  it('keeps Thai room-name searches with digits in the room-result flow', async () => {
+    const user = userEvent.setup()
+    render(
+      <RoomSearchPanel
+        rooms={mockRooms}
+        schedules={[examSchedule]}
+        onSelectRoom={vi.fn()}
+      />
+    )
+
+    await user.type(screen.getByPlaceholderText(/ค้นหาห้อง/i), 'ห้องเรียน 1')
+
+    expect(screen.getByText('LC3-101')).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'ผลการค้นหาการสอบ' })).not.toBeInTheDocument()
   })
 
   it('shows schedule details and selects its classroom for map zoom', async () => {
@@ -144,8 +164,9 @@ describe('RoomSearchPanel Component', () => {
     expect(screen.queryByText('BAS350 · BAS 350 · MON 13:00-16:00 · LC3-103')).not.toBeInTheDocument()
   })
 
-  it('shows an exam card and navigates directly to its room', async () => {
-    const user = userEvent.setup()
+  it('shows an exam card and navigates directly to its room', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2027-01-01T12:00:00'))
     const onNavigateToRoom = vi.fn()
     render(
       <RoomSearchPanel
@@ -156,12 +177,14 @@ describe('RoomSearchPanel Component', () => {
       />
     )
 
-    await user.type(screen.getByPlaceholderText(/ค้นหาห้อง/i), 'bas 350 13.00')
+    fireEvent.change(screen.getByPlaceholderText(/ค้นหาห้อง/i), {
+      target: { value: 'bas 350 13.00' },
+    })
 
     expect(screen.getByText('สอบ: BAS350')).toBeInTheDocument()
     expect(screen.getByText('อ. 18 พ.ค. 2570 13:00–16:00')).toBeInTheDocument()
     expect(screen.getByText('อาคาร LC3 · ห้อง LC3-103 ชั้น 1')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'นำทางไปห้องสอบ LC3-103' }))
+    fireEvent.click(screen.getByRole('button', { name: 'นำทางไปห้องสอบ LC3-103' }))
     expect(onNavigateToRoom).toHaveBeenCalledWith('LC3-F1-R103')
   })
 

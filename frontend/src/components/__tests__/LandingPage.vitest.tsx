@@ -69,6 +69,7 @@ describe('LandingPage', () => {
     mocks.navigate.mockReset()
     vi.clearAllMocks()
     vi.useFakeTimers()
+    vi.setSystemTime(new Date('2027-01-01T12:00:00'))
   })
 
   afterEach(() => {
