@@ -58,6 +58,16 @@ A formal, dated academic evaluation event tied to a course code and assigned to 
 - _Code identifiers_: `event_type: 'exam'`, `event_date` (`YYYY-MM-DD`), `start_time`, `end_time`, `room_code`
 - _Avoid_: Test, midterm, final, quiz
 
+**Room Conflict**:
+A scheduling collision occurring when two or more schedule slots assigned to the same room share the same day of the week and overlapping time intervals (`startA < endB` and `endA > startB`).
+- _Code identifiers_: `conflicts`, `isTimeOverlapping`, `getRoomConflicts`
+- _Avoid_: Double booking, clash, collision
+
+**Master Timetable**:
+A building-wide resource matrix displaying rooms along the vertical axis and hours of the day along the horizontal axis for a selected weekday.
+- _Code identifiers_: `MasterTimetableMatrix`
+- _Avoid_: Global calendar, master grid, building schedule list
+
 **Pin**:
 A user-specific bookmark linking an authenticated account to a selected room schedule slot.
 - _Code identifiers_: `pin_id` (`user_id#room_code#schedule_slot`), `room_code`, `schedule_slot`, `user_id` (or `sub`)

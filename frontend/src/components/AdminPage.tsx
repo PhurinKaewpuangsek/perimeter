@@ -1,55 +1,8 @@
-/**
- * AdminPage — Overhauled unified admin console under the Perimeter brand.
- * Route: /admin (security by obscurity for V2).
- *
- * Refined design features:
- * 1. Perimeter Theme: light-only, Uber-inspired monochrome tokens and the
- *    recipes in src/index.css (docs/design/uber-designmd.md, #137).
- * 2. Uncluttered Room List: Removed redundant room code boxes; clear typographic
- *    hierarchy with room numbers, Thai titles, and category badges.
- * 3. Functional Horizontal Scrollbars: Category and Day filter strips now feature
- *    visible thin scrollbars (.thin-scrollbar) and mouse-wheel horizontal scrolling.
- * 4. Ergonomic Room Edit Header: Prominent room title, category, and persistent
- *    back button; removed unused "ดูบนแผนที่" button.
- * 5. Bottom-Left Collapsed Pill: Repositioned floating pinned room pill to bottom-left
- *    (bottom-6 left-6) for unobstructed map exploration.
- */
-import { useState, useCallback, useMemo, useRef, useId, createElement } from 'react'
-import {
-  CaretLeft,
-  CaretRight,
-  X,
-  MapPin,
-  Calendar,
-  Clock,
-  Users,
-  Check,
-  PencilSimple,
-  Trash,
-  Plus,
-  Warning,
-  FloppyDisk,
-  MagnifyingGlass,
-  Door,
-  Sparkle,
-  Prohibit,
-} from '@phosphor-icons/react'
+import { useState, useMemo, useRef, useId } from 'react'
 import { useRooms } from '../hooks/useRooms'
 import { useSchedules } from '../hooks/useSchedules'
 import { usePreloadImages } from '../hooks/usePreloadImages'
-import MapContainer from './map/MapContainer'
-import { FLOOR_CONFIGS } from './map/floorConfig'
-import LoadingScreen from './LoadingScreen'
-import TopBar from './TopBar'
-import RoomCombobox from './RoomCombobox'
-import ClosureTab from './ClosurePanel'
-import type { MapOverlaySegment } from './map/MapContainer'
-import type { Room } from '../types/room'
-import type { ScheduleSlot } from '../types/schedule'
-import {
-  getSession,
-  isAdmin,
-} from '../services/authService'
+import { getSession, isAdmin } from '../services/authService'
 import {
   updateRoom,
   deleteRoom,
@@ -58,1833 +11,1969 @@ import {
   deleteSchedule,
 } from '../services/adminService'
 import {
-  getCategoryLabel,
-  getLandmarkText,
-  CATEGORY_COLORS,
-  DEFAULT_CATEGORY_COLOR,
-} from '../services/roomDisplay'
+  buildScheduleSlotId,
+  findRoomConflicts,
+  getRoomAvailabilityMap,
+} from '../services/scheduleConflicts'
+import { getCategoryLabel, getLandmarkText } from '../services/roomDisplay'
 import { CATEGORY_FILTERS } from '../services/filterRooms'
-import { getCategoryIcon } from './categoryIcon'
-
-// ---------------------------------------------------------------------------
-// Constants & Day Color Configurations (mirrors /map standard)
-// ---------------------------------------------------------------------------
+import TopBar from './TopBar'
+import LoadingScreen from './LoadingScreen'
+import ClosureTab from './ClosurePanel'
+import RoomCombobox from './RoomCombobox'
+import MapContainer, { type MapOverlaySegment } from './map/MapContainer'
+import { FLOOR_CONFIGS } from './map/floorConfig'
+import type { Room } from '../types/room'
+import type { ScheduleSlot, DayOfWeek, EventType } from '../types/schedule'
+import {
+  Door,
+  Calendar,
+  PencilSimple,
+  Trash,
+  Plus,
+  MagnifyingGlass,
+  Warning,
+  CaretLeft,
+  CheckCircle,
+  Clock,
+  Users,
+  X,
+  Prohibit,
+  SquaresFour,
+  ListBullets,
+  SlidersHorizontal,
+  MapPin,
+} from '@phosphor-icons/react'
 
 const FLOOR_PLAN_ASSETS = FLOOR_CONFIGS.map((c) => c.asset)
 
-interface DayConfig {
-  order: number
-  th: string
-  shortTh: string
-  color: string
-  dotColor: string
-  bgLight: string
+const DAY_LABELS_SHORT_TH: Record<string, string> = {
+  MON: 'จันทร์',
+  TUE: 'อังคาร',
+  WED: 'พุธ',
+  THU: 'พฤหัสฯ',
+  FRI: 'ศุกร์',
+  SAT: 'เสาร์',
+  SUN: 'อาทิตย์',
 }
 
-const DAY_CONFIG: Record<string, DayConfig> = {
-  MON: { order: 1, th: 'วันจันทร์', shortTh: 'จันทร์', color: 'text-ink', dotColor: 'bg-current', bgLight: 'bg-white border-line-soft' },
-  MONDAY: { order: 1, th: 'วันจันทร์', shortTh: 'จันทร์', color: 'text-ink', dotColor: 'bg-current', bgLight: 'bg-white border-line-soft' },
-  TUE: { order: 2, th: 'วันอังคาร', shortTh: 'อังคาร', color: 'text-ink', dotColor: 'bg-current', bgLight: 'bg-white border-line-soft' },
-  TUESDAY: { order: 2, th: 'วันอังคาร', shortTh: 'อังคาร', color: 'text-ink', dotColor: 'bg-current', bgLight: 'bg-white border-line-soft' },
-  WED: { order: 3, th: 'วันพุธ', shortTh: 'พุธ', color: 'text-ink', dotColor: 'bg-current', bgLight: 'bg-white border-line-soft' },
-  WEDNESDAY: { order: 3, th: 'วันพุธ', shortTh: 'พุธ', color: 'text-ink', dotColor: 'bg-current', bgLight: 'bg-white border-line-soft' },
-  THU: { order: 4, th: 'วันพฤหัสบดี', shortTh: 'พฤหัสฯ', color: 'text-ink', dotColor: 'bg-current', bgLight: 'bg-white border-line-soft' },
-  THURSDAY: { order: 4, th: 'วันพฤหัสบดี', shortTh: 'พฤหัสฯ', color: 'text-ink', dotColor: 'bg-current', bgLight: 'bg-white border-line-soft' },
-  FRI: { order: 5, th: 'วันศุกร์', shortTh: 'ศุกร์', color: 'text-ink', dotColor: 'bg-current', bgLight: 'bg-white border-line-soft' },
-  FRIDAY: { order: 5, th: 'วันศุกร์', shortTh: 'ศุกร์', color: 'text-ink', dotColor: 'bg-current', bgLight: 'bg-white border-line-soft' },
-  SAT: { order: 6, th: 'วันเสาร์', shortTh: 'เสาร์', color: 'text-ink', dotColor: 'bg-current', bgLight: 'bg-white border-line-soft' },
-  SATURDAY: { order: 6, th: 'วันเสาร์', shortTh: 'เสาร์', color: 'text-ink', dotColor: 'bg-current', bgLight: 'bg-white border-line-soft' },
-  SUN: { order: 7, th: 'วันอาทิตย์', shortTh: 'อาทิตย์', color: 'text-ink', dotColor: 'bg-current', bgLight: 'bg-white border-line-soft' },
-  SUNDAY: { order: 7, th: 'วันอาทิตย์', shortTh: 'อาทิตย์', color: 'text-ink', dotColor: 'bg-current', bgLight: 'bg-white border-line-soft' },
-}
+const DAYS: { value: DayOfWeek; label: string; short: string }[] = [
+  { value: 'MON', label: 'วันจันทร์ (MON)', short: 'จันทร์' },
+  { value: 'TUE', label: 'วันอังคาร (TUE)', short: 'อังคาร' },
+  { value: 'WED', label: 'วันพุธ (WED)', short: 'พุธ' },
+  { value: 'THU', label: 'วันพฤหัสบดี (THU)', short: 'พฤหัสฯ' },
+  { value: 'FRI', label: 'วันศุกร์ (FRI)', short: 'ศุกร์' },
+  { value: 'SAT', label: 'วันเสาร์ (SAT)', short: 'เสาร์' },
+  { value: 'SUN', label: 'วันอาทิตย์ (SUN)', short: 'อาทิตย์' },
+]
 
-function getDayInfo(rawDay: string): DayConfig {
-  const upper = (rawDay || '').toUpperCase().trim()
-  return (
-    DAY_CONFIG[upper] ?? {
-      order: 99,
-      th: rawDay || 'ไม่ระบุวัน',
-      shortTh: rawDay || 'ไม่ระบุ',
-      color: 'text-ink-2',
-      dotColor: 'bg-current',
-      bgLight: 'bg-surface-2 border-line-soft',
-    }
-  )
-}
+const MINI_GRID_DAYS: DayOfWeek[] = ['MON', 'TUE', 'WED', 'THU', 'FRI']
+const GRID_START_HOUR = 8
+const GRID_END_HOUR = 20
+const GRID_TOTAL_MINUTES = (GRID_END_HOUR - GRID_START_HOUR) * 60
+const HOURS = Array.from(
+  { length: GRID_END_HOUR - GRID_START_HOUR },
+  (_, i) => GRID_START_HOUR + i,
+)
 
-function RoomCategoryBadge({ category, nameThai }: { category: string; nameThai?: string }) {
-  const label = getCategoryLabel(category)
-  const color = CATEGORY_COLORS[category] ?? DEFAULT_CATEGORY_COLOR
-  const Icon = getCategoryIcon(category, nameThai)
+const DATE_REQUIRED_TYPES: ReadonlySet<EventType> = new Set(['exam', 'other'])
+const STRICT_TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/
+const JS_DAY_TO_WEEKDAY: readonly DayOfWeek[] = [
+  'SUN',
+  'MON',
+  'TUE',
+  'WED',
+  'THU',
+  'FRI',
+  'SAT',
+]
 
-  return (
-    <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${color.bg} ${color.text} border ${color.border}`}
-    >
-      {createElement(Icon, { size: 13, weight: 'duotone' })}
-      <span>{label}</span>
-    </span>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Event date (exam/event rows)
-// ---------------------------------------------------------------------------
-
-/** Event types that happen on one calendar date, so the form asks for event_date. */
-const DATED_EVENT_TYPES = ['exam', 'other']
-
-function isDatedEventType(type: string | undefined): boolean {
-  return DATED_EVENT_TYPES.includes((type || '').toLowerCase())
-}
-
-function isExamEventType(type: string | undefined): boolean {
-  return (type || '').toLowerCase() === 'exam'
-}
-
-const TIME_24H_REGEX = /^(?:[01]\d|2[0-3]):[0-5]\d$/
-const WEEKDAY_CODES = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'] as const
-
-/** True when value is a real calendar date written as YYYY-MM-DD (rejects 2026-02-30). */
-function isValidEventDate(value: string): boolean {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
-  const [year, month, day] = value.split('-').map(Number)
-  const date = new Date(Date.UTC(year, month - 1, day))
-  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day
-}
-
-/** Returns the 3-letter weekday code (MON..SUN) for a valid YYYY-MM-DD string, or null. */
-function getWeekdayFromDateString(value: string): string | null {
-  if (!isValidEventDate(value)) return null
-  const [year, month, day] = value.split('-').map(Number)
-  const date = new Date(Date.UTC(year, month - 1, day))
-  return WEEKDAY_CODES[date.getUTCDay()] ?? null
-}
-
-/** Thai error message for start/end time fields (24h HH:MM and start < end), or null when valid. */
-function getScheduleTimeError(startTime: string, endTime: string): string | null {
-  const start = startTime.trim()
-  const end = endTime.trim()
-  if (!TIME_24H_REGEX.test(start) || !TIME_24H_REGEX.test(end)) {
-    return 'กรุณาระบุเวลาเป็นรูปแบบ HH:MM (00:00–23:59)'
-  }
-  const [sh, sm] = start.split(':').map(Number)
-  const [eh, em] = end.split(':').map(Number)
-  if (eh * 60 + em <= sh * 60 + sm) {
-    return 'เวลาสิ้นสุดต้องมากกว่าเวลาเริ่ม'
-  }
-  return null
-}
-
-/** Thai error message for the date field, or null when it can be saved. Mirrors the API rules. */
-function getEventDateError(type: string, date: string): string | null {
-  if (!isDatedEventType(type)) return null
-  if (!date) return isExamEventType(type) ? 'กรุณาเลือกวันสอบ (จำเป็นสำหรับการสอบ)' : null
-  if (!isValidEventDate(date)) return 'วันที่ไม่ถูกต้อง กรุณาเลือกวันที่จากปฏิทิน'
-  return null
-}
-
-/** event_date value to send: the date for dated rows, otherwise undefined. */
-function eventDateForPayload(type: string, date: string): string | undefined {
-  return isDatedEventType(type) && date ? date : undefined
-}
-
-interface EventDateFieldProps {
-  eventType: string
-  value: string
-  onChange: (value: string) => void
-}
-
-/** Date picker shown only for exam/event rows. */
-function EventDateField({ eventType, value, onChange }: EventDateFieldProps) {
-  const inputId = useId()
-  if (!isDatedEventType(eventType)) return null
-  const required = isExamEventType(eventType)
-  return (
-    <div className="col-span-2">
-      <label htmlFor={inputId} className="label">
-        {required ? 'วันสอบ' : 'วันที่จัด'}
-        {required && <span className="text-ink-2"> *</span>}
-      </label>
-      <input
-        id={inputId}
-        type="date"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        required={required}
-        className="input-boxed font-mono"
-      />
-    </div>
-  )
-}
-
-function EventTypeBadge({ type }: { type?: string }) {
-  const lower = (type || '').toLowerCase()
-  if (lower === 'lab') {
-    return (
-      <span className="chip">
-        แลป
-      </span>
-    )
-  }
-  if (lower === 'exam') {
-    return (
-      <span className="chip">
-        สอบ
-      </span>
-    )
-  }
-  return (
-    <span className="chip">
-      บรรยาย
-    </span>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Search Box Subcomponent
-// ---------------------------------------------------------------------------
-
-function AdminSearchBox({
-  value,
-  onChange,
-  placeholder = 'ค้นหาห้อง...',
-}: {
-  value: string
-  onChange: (v: string) => void
-  placeholder?: string
-}) {
-  return (
-    <div className="relative flex items-center w-full">
-      <div className="pointer-events-none absolute left-3 flex items-center text-ink-3">
-        <MagnifyingGlass size={16} weight="bold" />
-      </div>
-      <input
-        type="text"
-        placeholder={placeholder}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="input-search max-sm:min-h-11 pl-9 pr-10 [&::-webkit-search-cancel-button]:hidden"
-      />
-      {value && (
-        <button
-          type="button"
-          onClick={() => onChange('')}
-          className="btn btn-ghost btn-icon-sm absolute right-1"
-          aria-label="ล้างคำค้นหา"
-        >
-          <X size={12} weight="bold" />
-        </button>
-      )}
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Room List Item Row (Uncluttered, crisp hierarchy)
-// ---------------------------------------------------------------------------
-
-function RoomListItem({
-  room,
-  scheduleCount,
-  isSelected,
-  onSelect,
-}: {
-  room: Room
-  scheduleCount: number
-  isSelected: boolean
-  onSelect: (roomId: string) => void
-}) {
-  const roomDisplayName = room.roomNumber ? `ห้อง ${room.roomNumber}` : room.nameThai || room.code
-  const hasDistinctThaiName = room.nameThai && room.nameThai !== roomDisplayName
-
-  return (
-    <button
-      type="button"
-      onClick={() => onSelect(room.id)}
-      className={`group card flex w-full flex-col gap-1.5 p-3.5 text-left cursor-pointer ${
-        isSelected
-          ? 'border-accent'
-          : 'card-hover hover:border-line'
-      }`}
-    >
-      {/* Header Row: Room Title + Floor Badge + Caret */}
-      <div className="flex items-center justify-between w-full">
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="truncate text-button font-bold text-ink">
-            {roomDisplayName}
-          </span>
-          <span className="chip shrink-0">
-            ชั้น {room.floor}
-          </span>
-          {room.code && room.roomNumber && room.code !== room.roomNumber && (
-            <span className="shrink-0 font-mono text-xs text-ink-3">
-              ({room.code})
-            </span>
-          )}
-        </div>
-        <CaretRight
-          size={14}
-          weight="bold"
-          className="shrink-0 text-ink-3 group-hover:text-ink group-hover:translate-x-0.5 transition-all ml-1"
-        />
-      </div>
-
-      {/* Optional distinct Thai Subtitle */}
-      {hasDistinctThaiName && (
-        <p className="truncate text-xs text-ink-3 font-normal">
-          {room.nameThai}
-        </p>
-      )}
-
-      {/* Badges Row: Category + Capacity + Schedule Count */}
-      <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-        <RoomCategoryBadge category={room.category} nameThai={room.nameThai} />
-        {room.capacity !== undefined && (
-          <span className="chip">
-            <Users size={11} />
-            {room.capacity} คน
-          </span>
-        )}
-        {scheduleCount > 0 && (
-          <span className="chip">
-            <Calendar size={11} />
-            {scheduleCount} คาบ
-          </span>
-        )}
-      </div>
-    </button>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Schedule Row Subcomponent (with inline editor)
-// ---------------------------------------------------------------------------
-
-type ScheduleEditFields = Partial<
-  Pick<ScheduleSlot, 'dayOfWeek' | 'startTime' | 'eventCode' | 'endTime' | 'eventName' | 'eventType' | 'eventDate'>
-> & {
-  /** Set only when the row should move to another room. */
-  targetRoom?: Room
-}
-
-interface ScheduleRowProps {
-  slot: ScheduleSlot & { schedule_slot: string }
-  onDelete: () => Promise<void>
-  onEdit: (updated: ScheduleEditFields) => Promise<void>
-  /** Rooms already loaded by the page, offered as move targets (no extra API call). */
-  rooms: Room[]
-}
-
-function ScheduleRow({ slot, onDelete, onEdit, rooms }: ScheduleRowProps) {
-  const [editing, setEditing] = useState(false)
-  const [targetRoomCode, setTargetRoomCode] = useState(slot.roomCode)
-  const moveTargets = useMemo(
-    () => rooms.filter((r) => r.code).sort((a, b) => a.code.localeCompare(b.code)),
-    [rooms],
-  )
-  const isMoving = targetRoomCode !== slot.roomCode
-  const [dayOfWeek, setDayOfWeek] = useState(slot.dayOfWeek)
-  const [startTime, setStartTime] = useState(slot.startTime)
-  const [eventCode, setEventCode] = useState(slot.eventCode)
-  const [endTime, setEndTime] = useState(slot.endTime)
-  const [eventName, setEventName] = useState(slot.eventName)
-  const [eventType, setEventType] = useState(slot.eventType)
-  const [eventDate, setEventDate] = useState(slot.eventDate ?? '')
-  const [saving, setSaving] = useState(false)
-  const [err, setErr] = useState<string | null>(null)
-
-  const dayInfo = getDayInfo(slot.dayOfWeek)
-
-  async function handleDelete() {
-    if (!window.confirm(`ยืนยันการลบตาราง ${slot.eventCode} (${slot.dayOfWeek} ${slot.startTime})?`)) {
-      return
-    }
-    setSaving(true)
-    setErr(null)
-    try {
-      await onDelete()
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : 'เกิดข้อผิดพลาด')
-      setSaving(false)
-    }
-  }
-
-  async function handleSave() {
-    const timeError = getScheduleTimeError(startTime, endTime)
-    if (timeError) {
-      setErr(timeError)
-      return
-    }
-    const dateError = getEventDateError(eventType, eventDate)
-    if (dateError) {
-      setErr(dateError)
-      return
-    }
-    const targetRoom = isMoving ? moveTargets.find((r) => r.code === targetRoomCode) : undefined
-    if (isMoving && !targetRoom) {
-      setErr('ไม่พบห้องปลายทาง กรุณาเลือกห้องจากรายการ')
-      return
-    }
-    const syncedDayOfWeek =
-      isDatedEventType(eventType) && eventDate
-        ? (getWeekdayFromDateString(eventDate) ?? dayOfWeek)
-        : dayOfWeek
-    setSaving(true)
-    setErr(null)
-    try {
-      await onEdit({
-        dayOfWeek: syncedDayOfWeek,
-        startTime: startTime.trim(),
-        eventCode,
-        endTime: endTime.trim(),
-        eventName,
-        eventType,
-        eventDate,
-        targetRoom,
-      })
-      setEditing(false)
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : 'เกิดข้อผิดพลาด')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  if (editing) {
-    return (
-      <div className="surface p-3.5 space-y-3">
-        <div className="flex items-center justify-between">
-          <span className="text-button font-bold text-ink">แก้ไขข้อมูลตาราง</span>
-          <button
-            type="button"
-            onClick={() => setEditing(false)}
-            className="btn btn-ghost btn-icon-sm"
-          >
-            <X size={14} weight="bold" />
-          </button>
-        </div>
-        {err && <p className="card border-ink p-3 text-button text-ink">{err}</p>}
-        <div className="grid grid-cols-2 gap-2.5">
-          <div>
-            <label className="label">วัน</label>
-            <select
-              value={dayOfWeek}
-              onChange={(e) => setDayOfWeek(e.target.value)}
-              className="input-boxed"
-            >
-              {['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'].map((d) => (
-                <option key={d} value={d}>
-                  {getDayInfo(d).th} ({d})
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="label">รหัสวิชา</label>
-            <input
-              type="text"
-              value={eventCode}
-              onChange={(e) => setEventCode(e.target.value)}
-              className="input-boxed font-mono"
-            />
-          </div>
-          <div>
-            <label className="label">เวลาเริ่ม (HH:MM)</label>
-            <input
-              type="text"
-              value={startTime}
-              onChange={(e) => setStartTime(e.target.value)}
-              placeholder="09:00"
-              required
-              className="input-boxed font-mono"
-            />
-          </div>
-          <div>
-            <label className="label">เวลาสิ้นสุด (HH:MM)</label>
-            <input
-              type="text"
-              value={endTime}
-              onChange={(e) => setEndTime(e.target.value)}
-              placeholder="12:00"
-              required
-              className="input-boxed font-mono"
-            />
-          </div>
-          <div className="col-span-2">
-            <label className="label">ชื่อวิชา</label>
-            <input
-              type="text"
-              value={eventName}
-              onChange={(e) => setEventName(e.target.value)}
-              className="input-boxed"
-            />
-          </div>
-          <div className="col-span-2">
-            <label className="label">ประเภท</label>
-            <select
-              value={eventType}
-              onChange={(e) => setEventType(e.target.value)}
-              className="input-boxed"
-            >
-              <option value="lecture">บรรยาย (Lecture)</option>
-              <option value="lab">ปฏิบัติการ (Lab)</option>
-              <option value="exam">การสอบ (Exam)</option>
-              <option value="other">อื่นๆ (Other)</option>
-            </select>
-          </div>
-          <EventDateField
-            eventType={eventType}
-            value={eventDate}
-            onChange={(newDate) => {
-              setEventDate(newDate)
-              const weekday = getWeekdayFromDateString(newDate)
-              if (weekday) setDayOfWeek(weekday)
-            }}
-          />
-          <div className="col-span-2">
-            <label className="label" htmlFor={`move-room-${slot.schedule_slot}`}>
-              ย้ายไปห้อง
-            </label>
-            <RoomCombobox
-              id={`move-room-${slot.schedule_slot}`}
-              rooms={moveTargets}
-              value={targetRoomCode}
-              onChange={setTargetRoomCode}
-              currentRoomCode={slot.roomCode}
-            />
-            {isMoving && (
-              <p role="status" className="mt-1.5 text-xs text-ink-2">
-                รายการนี้จะถูกย้ายจาก {slot.roomCode} ไป {targetRoomCode} และจะไม่แสดงในห้องนี้อีก
-              </p>
-            )}
-          </div>
-        </div>
-        <div className="flex gap-2 justify-end pt-1">
-          <button
-            type="button"
-            onClick={() => setEditing(false)}
-            disabled={saving}
-            className="btn btn-secondary"
-          >
-            ยกเลิก
-          </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={saving}
-            className="btn btn-primary"
-          >
-            {saving ? 'กำลังบันทึก...' : 'บันทึกการแก้ไข'}
-          </button>
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="group card card-hover flex items-center justify-between gap-2 p-3">
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <span className={`chip ${dayInfo.bgLight} ${dayInfo.color}`}>
-            <span className={`h-1.5 w-1.5 rounded-full ${dayInfo.dotColor}`} />
-            {dayInfo.shortTh}
-          </span>
-          <span className="inline-flex items-center gap-1 text-xs font-mono font-medium text-ink-3">
-            <Clock size={12} />
-            {slot.startTime}–{slot.endTime}
-          </span>
-          <EventTypeBadge type={slot.eventType} />
-        </div>
-        <div className="mt-1">
-          <span className="font-mono text-button font-bold text-ink">{slot.eventCode}</span>
-          {slot.eventName && (
-            <span className="text-button text-ink-2 ml-1.5 truncate">
-              · {slot.eventName}
-            </span>
-          )}
-        </div>
-      </div>
-
-      <div className="flex items-center gap-1 shrink-0 opacity-80 group-hover:opacity-100 transition-opacity">
-        <button
-          type="button"
-          onClick={() => setEditing(true)}
-          className="btn btn-ghost btn-icon-sm"
-          title="แก้ไขตาราง"
-          aria-label="แก้ไขตาราง"
-        >
-          <PencilSimple size={14} />
-        </button>
-        <button
-          type="button"
-          onClick={handleDelete}
-          disabled={saving}
-          className="btn btn-ghost btn-icon-sm"
-          title="ลบตาราง"
-          aria-label="ลบตาราง"
-        >
-          <Trash size={14} />
-        </button>
-      </div>
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Create Schedule Form Subcomponent
-// ---------------------------------------------------------------------------
-
-interface CreateScheduleFormProps {
-  roomCode: string
-  onCreated: () => void
-  onCancel: () => void
-}
-
-function CreateScheduleForm({ roomCode, onCreated, onCancel }: CreateScheduleFormProps) {
-  const [dayOfWeek, setDayOfWeek] = useState('MON')
-  const [startTime, setStartTime] = useState('')
-  const [endTime, setEndTime] = useState('')
-  const [eventCode, setEventCode] = useState('')
-  const [eventName, setEventName] = useState('')
-  const [eventType, setEventType] = useState('lecture')
-  const [eventDate, setEventDate] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [err, setErr] = useState<string | null>(null)
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    const timeError = getScheduleTimeError(startTime, endTime)
-    if (timeError) {
-      setErr(timeError)
-      return
-    }
-    const dateError = getEventDateError(eventType, eventDate)
-    if (dateError) {
-      setErr(dateError)
-      return
-    }
-    const event_date = eventDateForPayload(eventType, eventDate)
-    const syncedDayOfWeek = event_date ? (getWeekdayFromDateString(event_date) ?? dayOfWeek) : dayOfWeek
-    setSaving(true)
-    setErr(null)
-    try {
-      await createSchedule({
-        room_code: roomCode,
-        day_of_week: syncedDayOfWeek,
-        start_time: startTime.trim(),
-        end_time: endTime.trim(),
-        event_code: eventCode,
-        event_name: eventName,
-        event_type: eventType,
-        ...(event_date !== undefined ? { event_date } : {}),
-      })
-      onCreated()
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : 'เกิดข้อผิดพลาดในการสร้างตาราง')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const DAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN']
-
-  return (
-    <form onSubmit={handleSubmit} className="surface p-3.5 space-y-3">
-      <div className="flex items-center justify-between">
-        <h4 className="text-button font-bold text-ink flex items-center gap-1.5">
-          <Plus size={14} weight="bold" />
-          เพิ่มตารางสอนใหม่
-        </h4>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="btn btn-ghost btn-icon-sm"
-        >
-          <X size={14} weight="bold" />
-        </button>
-      </div>
-
-      {err && <p className="card border-ink p-3 text-button text-ink">{err}</p>}
-
-      <div className="grid grid-cols-2 gap-2.5">
-        <div>
-          <label className="label">
-            วัน <span className="text-ink-2">*</span>
-          </label>
-          <select
-            value={dayOfWeek}
-            onChange={(e) => setDayOfWeek(e.target.value)}
-            className="input-boxed"
-          >
-            {DAYS.map((d) => (
-              <option key={d} value={d}>
-                {getDayInfo(d).th} ({d})
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="label">
-            รหัสวิชา <span className="text-ink-2">*</span>
-          </label>
-          <input
-            type="text"
-            value={eventCode}
-            onChange={(e) => setEventCode(e.target.value)}
-            placeholder="CS333"
-            required
-            className="input-boxed font-mono"
-          />
-        </div>
-        <div>
-          <label className="label">
-            เวลาเริ่ม <span className="text-ink-2">*</span>
-          </label>
-          <input
-            type="text"
-            value={startTime}
-            onChange={(e) => setStartTime(e.target.value)}
-            placeholder="09:00"
-            required
-            className="input-boxed font-mono"
-          />
-        </div>
-        <div>
-          <label className="label">
-            เวลาสิ้นสุด <span className="text-ink-2">*</span>
-          </label>
-          <input
-            type="text"
-            value={endTime}
-            onChange={(e) => setEndTime(e.target.value)}
-            placeholder="12:00"
-            required
-            className="input-boxed font-mono"
-          />
-        </div>
-        <div className="col-span-2">
-          <label className="label">ชื่อวิชา</label>
-          <input
-            type="text"
-            value={eventName}
-            onChange={(e) => setEventName(e.target.value)}
-            placeholder="Computer Networks"
-            className="input-boxed"
-          />
-        </div>
-        <div className="col-span-2">
-          <label className="label">ประเภท</label>
-          <select
-            value={eventType}
-            onChange={(e) => setEventType(e.target.value)}
-            className="input-boxed"
-          >
-            <option value="lecture">บรรยาย (Lecture)</option>
-            <option value="lab">ปฏิบัติการ (Lab)</option>
-            <option value="exam">การสอบ (Exam)</option>
-            <option value="other">อื่นๆ (Other)</option>
-          </select>
-        </div>
-        <EventDateField
-          eventType={eventType}
-          value={eventDate}
-          onChange={(newDate) => {
-            setEventDate(newDate)
-            const weekday = getWeekdayFromDateString(newDate)
-            if (weekday) setDayOfWeek(weekday)
-          }}
-        />
-      </div>
-
-      <div className="flex gap-2 justify-end pt-1">
-        <button
-          type="button"
-          onClick={onCancel}
-          disabled={saving}
-          className="btn btn-secondary"
-        >
-          ยกเลิก
-        </button>
-        <button
-          type="submit"
-          disabled={saving}
-          className="btn btn-primary"
-        >
-          {saving ? 'กำลังเพิ่ม...' : '+ บันทึกตารางสอน'}
-        </button>
-      </div>
-    </form>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Room Edit Panel (Left Panel when room is selected)
-// ---------------------------------------------------------------------------
-
-interface RoomEditPanelProps {
-  room: Room
-  schedules: ScheduleSlot[]
-  onBack: () => void
-  onRoomDeleted: () => void
-  onRoomMutated: () => void
-  /** Refreshes the schedule list; resolves once the new list is shown. */
-  onSchedulesMutated: () => Promise<void> | void
-  /** All loaded rooms, offered as targets when moving a schedule row. */
-  rooms: Room[]
-  /** Opens another room's panel (used by the "moved to room X" link). */
-  onOpenRoom: (roomId: string) => void
-  isAdmin?: boolean
-}
-
-function RoomEditPanel({
-  room,
-  schedules,
-  onBack,
-  onRoomDeleted,
-  onRoomMutated,
-  onSchedulesMutated,
-  rooms,
-  onOpenRoom,
-  isAdmin = false,
-}: RoomEditPanelProps) {
-  const [movedNotice, setMovedNotice] = useState<{ eventCode: string; room: Room; refreshed: boolean } | null>(null)
-  const [nameInput, setNameInput] = useState(room.nameThai)
-  const [capacityInput, setCapacityInput] = useState(
-    room.capacity !== undefined ? String(room.capacity) : '',
-  )
-  const [saving, setSaving] = useState(false)
-  const [saveErr, setSaveErr] = useState<string | null>(null)
-  const [saveOk, setSaveOk] = useState(false)
-  const [deleting, setDeleting] = useState(false)
-  const [confirmDelete, setConfirmDelete] = useState(false)
-  const [isAddingSchedule, setIsAddingSchedule] = useState(false)
-  const [selectedDayFilter, setSelectedDayFilter] = useState<string>('all')
-
-  // Filter schedule slots for this room
-  const roomSchedules = useMemo(() => {
-    return schedules
-      .filter((s) => s.roomCode === room.code)
-      .map((s) => ({
-        ...s,
-        schedule_slot: `${s.dayOfWeek}#${s.startTime}#${s.eventCode}`,
-      }))
-  }, [schedules, room.code])
-
-  // Filtered schedules for day pill selection
-  const displayedSchedules = useMemo(() => {
-    if (selectedDayFilter === 'all') return roomSchedules
-    return roomSchedules.filter((s) => s.dayOfWeek.toUpperCase() === selectedDayFilter.toUpperCase())
-  }, [roomSchedules, selectedDayFilter])
-
-  // Unique days that exist in this room's schedules
-  const availableDays = useMemo(() => {
-    const set = new Set<string>()
-    roomSchedules.forEach((s) => set.add(s.dayOfWeek.toUpperCase()))
-    return Array.from(set).sort((a, b) => getDayInfo(a).order - getDayInfo(b).order)
-  }, [roomSchedules])
-
-  async function handleSave(e: React.FormEvent) {
-    e.preventDefault()
-    setSaving(true)
-    setSaveErr(null)
-    setSaveOk(false)
-    try {
-      const parsed = capacityInput.trim() !== '' ? Number(capacityInput) : undefined
-      await updateRoom(room.id, {
-        name_th: nameInput,
-        ...(parsed !== undefined && !isNaN(parsed) ? { capacity: parsed } : {}),
-      })
-      setSaveOk(true)
-      onRoomMutated()
-      setTimeout(() => setSaveOk(false), 4000)
-    } catch (e) {
-      setSaveErr(e instanceof Error ? e.message : 'เกิดข้อผิดพลาดในการบันทึก')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  async function handleDelete() {
-    setDeleting(true)
-    try {
-      await deleteRoom(room.id)
-      onRoomDeleted()
-    } catch (e) {
-      setSaveErr(e instanceof Error ? e.message : 'ลบห้องไม่สำเร็จ')
-    } finally {
-      setDeleting(false)
-      setConfirmDelete(false)
-    }
-  }
-
-  async function handleScheduleEdit(
-    slot: ScheduleSlot & { schedule_slot: string },
-    updated: ScheduleEditFields,
+function getWeekdayFromDateString(dateStr: string): DayOfWeek | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr)
+  if (!match) return null
+  const year = Number(match[1])
+  const month = Number(match[2])
+  const day = Number(match[3])
+  const d = new Date(Date.UTC(year, month - 1, day))
+  if (
+    d.getUTCFullYear() !== year ||
+    d.getUTCMonth() !== month - 1 ||
+    d.getUTCDate() !== day
   ) {
-    const finalType = updated.eventType ?? slot.eventType
-    const finalDate = updated.eventDate ?? slot.eventDate ?? ''
-    const targetRoom = updated.targetRoom && updated.targetRoom.code !== room.code ? updated.targetRoom : undefined
-    setMovedNotice(null)
-    // The path always names the current room; a new room_code in the body moves the row.
-    await updateSchedule(room.code, slot.schedule_slot, {
-      ...(targetRoom ? { room_code: targetRoom.code, location_id: targetRoom.id } : {}),
-      day_of_week: updated.dayOfWeek,
-      start_time: updated.startTime,
-      event_code: updated.eventCode,
-      end_time: updated.endTime,
-      event_name: updated.eventName,
-      event_type: updated.eventType,
-      // Dated rows send their date; other rows clear any stale date (null).
-      event_date: eventDateForPayload(finalType, finalDate) ?? null,
-    })
-    if (!targetRoom) {
-      onSchedulesMutated()
-      return
-    }
-    const eventCode = updated.eventCode ?? slot.eventCode
-    // Report the move only once the old room's list no longer shows the row.
-    try {
-      await onSchedulesMutated()
-      setMovedNotice({ eventCode, room: targetRoom, refreshed: true })
-    } catch {
-      setMovedNotice({ eventCode, room: targetRoom, refreshed: false })
-    }
+    return null
   }
-
-  async function handleScheduleDelete(slot: ScheduleSlot & { schedule_slot: string }) {
-    await deleteSchedule(room.code, slot.schedule_slot)
-    onSchedulesMutated()
-  }
-
-  const landmarkText =
-    room.landmarks && room.landmarks.length > 0
-      ? room.landmarks.map((l) => getLandmarkText(l)).join(' · ')
-      : ''
-  const roomDisplayName = room.roomNumber ? `ห้อง ${room.roomNumber}` : room.nameThai || room.code
-
-  return (
-    <div className="space-y-4">
-      {/* Room Hero Header with Persistent Back Button */}
-      <div className="card p-4 space-y-3">
-        {/* Back Button & Floor */}
-        <div className="flex items-center justify-between">
-          <button
-            type="button"
-            onClick={onBack}
-            className="btn btn-secondary btn-sm"
-          >
-            <CaretLeft size={14} weight="bold" />
-            <span>กลับไปรายการห้อง</span>
-          </button>
-          <span className="chip">
-            อาคาร LC3 · ชั้น {room.floor}
-          </span>
-        </div>
-
-        {/* Room Title */}
-        <div>
-          <div className="flex items-baseline gap-2">
-            <h2 className="font-display text-h3 font-bold text-ink">{roomDisplayName}</h2>
-            <span className="font-mono text-xs text-ink-3 font-medium">({room.code})</span>
-          </div>
-          {room.nameThai && room.nameThai !== roomDisplayName && (
-            <p className="mt-0.5 text-button text-ink-2">{room.nameThai}</p>
-          )}
-        </div>
-
-        {/* Category & Landmark */}
-        <div className="flex flex-wrap items-center gap-2">
-          <RoomCategoryBadge category={room.category} nameThai={room.nameThai} />
-          {room.capacity !== undefined && (
-            <span className="chip">
-              <Users size={12} weight="regular" />
-              ความจุ {room.capacity} ที่นั่ง
-            </span>
-          )}
-        </div>
-
-        {landmarkText && (
-          <div className="surface p-3 flex items-start gap-2 text-button text-ink-2">
-            <MapPin size={15} weight="fill" className="text-ink shrink-0 mt-0.5" />
-            <span className="leading-snug">{landmarkText}</span>
-          </div>
-        )}
-      </div>
-
-      {/* Section 1: Room Details Form */}
-      <div className="card p-4 space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="font-display text-h3-sm font-bold text-ink">
-            แก้ไขข้อมูลห้อง
-          </h3>
-          <span className="text-xs text-ink-3">ID: {room.id}</span>
-        </div>
-
-        <form onSubmit={handleSave} className="space-y-3">
-          {saveErr && (
-            <div className="card border-ink p-3 text-button text-ink">
-              {saveErr}
-            </div>
-          )}
-          {saveOk && (
-            <div className="card flex items-center gap-1.5 p-3 text-button font-medium text-ink">
-              <Check size={15} weight="bold" />
-              <span>บันทึกข้อมูลห้องสำเร็จเรียบร้อย</span>
-            </div>
-          )}
-
-          <div>
-            <label htmlFor="admin-room-name" className="label">
-              ชื่อห้องภาษาไทย (name_th)
-            </label>
-            <input
-              id="admin-room-name"
-              type="text"
-              value={nameInput}
-              onChange={(e) => {
-                setNameInput(e.target.value)
-                setSaveOk(false)
-              }}
-              placeholder="เช่น ห้องบรรยายเรียนรวม"
-              className="input-boxed"
-              disabled={saving}
-            />
-          </div>
-
-          <div>
-            <label htmlFor="admin-room-capacity" className="label">
-              ความจุที่นั่ง (คน)
-            </label>
-            <div className="relative flex items-center">
-              <div className="pointer-events-none absolute left-3 flex items-center text-ink-3">
-                <Users size={15} />
-              </div>
-              <input
-                id="admin-room-capacity"
-                type="number"
-                min="0"
-                value={capacityInput}
-                onChange={(e) => {
-                  setCapacityInput(e.target.value)
-                  setSaveOk(false)
-                }}
-                placeholder="ไม่ระบุความจุ"
-                className="input-boxed pl-9"
-                disabled={saving}
-              />
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            disabled={saving}
-            className="btn btn-primary w-full"
-          >
-            <FloppyDisk size={15} weight="bold" />
-            <span>{saving ? 'กำลังบันทึกข้อมูล...' : 'บันทึกข้อมูลห้อง'}</span>
-          </button>
-        </form>
-      </div>
-
-      {/* Section 2: Room Schedule Management */}
-      <div className="card p-4 space-y-3">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="font-display text-h3-sm font-bold text-ink">
-              ตารางการใช้ห้อง
-            </h3>
-            <p className="text-xs text-ink-3">มีทั้งหมด {roomSchedules.length} คาบ</p>
-          </div>
-
-          {!isAddingSchedule && (
-            <button
-              type="button"
-              onClick={() => setIsAddingSchedule(true)}
-              className="btn btn-tertiary btn-sm"
-            >
-              <Plus size={14} weight="bold" />
-              <span>เพิ่มตาราง</span>
-            </button>
-          )}
-        </div>
-
-        {/* Add schedule inline form */}
-        {isAddingSchedule && (
-          <CreateScheduleForm
-            roomCode={room.code}
-            onCreated={() => {
-              setIsAddingSchedule(false)
-              onSchedulesMutated()
-            }}
-            onCancel={() => setIsAddingSchedule(false)}
-          />
-        )}
-
-        {/* Day filter pills for room (with visible thin-scrollbar and mouse-wheel horizontal scrolling) */}
-        {availableDays.length > 1 && (
-          <div
-            className="flex items-center gap-1.5 overflow-x-auto thin-scrollbar pb-2 pt-0.5"
-            onWheel={(e) => {
-              if (e.deltaY !== 0) {
-                e.currentTarget.scrollLeft += e.deltaY
-              }
-            }}
-          >
-            <button
-              type="button"
-              onClick={() => setSelectedDayFilter('all')}
-              className={`btn btn-sm shrink-0 ${
-                selectedDayFilter === 'all'
-                  ? 'btn-primary'
-                  : 'btn-tertiary'
-              }`}
-            >
-              ทั้งหมด ({roomSchedules.length})
-            </button>
-            {availableDays.map((d) => {
-              const info = getDayInfo(d)
-              const count = roomSchedules.filter((s) => s.dayOfWeek.toUpperCase() === d).length
-              const isActive = selectedDayFilter.toUpperCase() === d
-              return (
-                <button
-                  key={d}
-                  type="button"
-                  onClick={() => setSelectedDayFilter(d)}
-                  className={`btn btn-sm shrink-0 ${
-                    isActive
-                      ? 'btn-primary'
-                      : 'btn-tertiary'
-                  }`}
-                >
-                  <span className={`h-1.5 w-1.5 rounded-full ${info.dotColor}`} />
-                  <span>
-                    {info.shortTh} ({count})
-                  </span>
-                </button>
-              )
-            })}
-          </div>
-        )}
-
-        {movedNotice && (
-          <div role="status" className="card flex items-center justify-between gap-2 p-3 text-button text-ink">
-            <span>
-              ย้าย <span className="font-mono font-bold">{movedNotice.eventCode}</span> ไปห้อง {movedNotice.room.code} แล้ว
-              {!movedNotice.refreshed && ' แต่โหลดรายการล่าสุดไม่สำเร็จ กรุณารีเฟรชหน้า'}
-            </span>
-            <button
-              type="button"
-              onClick={() => onOpenRoom(movedNotice.room.id)}
-              className="btn btn-ghost btn-sm"
-            >
-              ไปที่ห้อง {movedNotice.room.code}
-            </button>
-          </div>
-        )}
-
-        {/* Schedules list */}
-        {displayedSchedules.length === 0 ? (
-          <div className="card border-dashed p-6 text-center">
-            <p className="text-button text-ink-3">ยังไม่มีตารางสอนสำหรับห้องนี้</p>
-            {!isAddingSchedule && (
-              <button
-                type="button"
-                onClick={() => setIsAddingSchedule(true)}
-                className="btn btn-ghost btn-sm mt-2"
-              >
-                + เพิ่มตารางสอนแรก
-              </button>
-            )}
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {displayedSchedules.map((slot) => (
-              <ScheduleRow
-                key={slot.schedule_slot}
-                slot={slot}
-                onDelete={() => handleScheduleDelete(slot)}
-                onEdit={(updated) => handleScheduleEdit(slot, updated)}
-                rooms={rooms}
-              />
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Section 3: Danger Zone (Admin Only) */}
-      {isAdmin && (
-        <div className="card p-4 space-y-3">
-          <div className="flex items-center gap-2 text-ink">
-            <Warning size={16} weight="bold" />
-            <h3 className="font-display text-h3-sm font-bold">Danger Zone</h3>
-          </div>
-          <p className="text-button text-ink-2">
-            การลบห้องจะลบข้อมูลออกจากระบบผังอาคารและฐานข้อมูลอย่างถาวร
-          </p>
-
-          {!confirmDelete ? (
-            <button
-              type="button"
-              onClick={() => setConfirmDelete(true)}
-              className="btn btn-secondary"
-            >
-              ลบห้องนี้…
-            </button>
-          ) : (
-            <div className="card p-3 space-y-2">
-              <p className="text-button font-bold text-ink">
-                ยืนยันการลบห้อง <span className="font-mono">{room.code}</span>?
-              </p>
-              <p className="text-xs text-ink-3">ข้อมูลที่ถูกลบไม่สามารถกู้คืนได้</p>
-              <div className="flex gap-2 justify-end pt-1">
-                <button
-                  type="button"
-                  onClick={() => setConfirmDelete(false)}
-                  disabled={deleting}
-                  className="btn btn-ghost"
-                >
-                  ยกเลิก
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDelete}
-                  disabled={deleting}
-                  className="btn btn-secondary"
-                >
-                  {deleting ? 'กำลังลบ...' : 'ยืนยันลบ'}
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  )
+  return JS_DAY_TO_WEEKDAY[d.getUTCDay()]
 }
 
-// ---------------------------------------------------------------------------
-// All Schedules Explorer View
-// ---------------------------------------------------------------------------
-
-function AllSchedulesView({
-  schedules,
-  rooms,
-  onSelectRoom,
-}: {
-  schedules: ScheduleSlot[]
-  rooms: Room[]
-  onSelectRoom: (roomId: string) => void
-}) {
-  const [search, setSearch] = useState('')
-  const [dayFilter, setDayFilter] = useState('all')
-
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase().trim()
-    return schedules.filter((s) => {
-      const matchSearch =
-        !q ||
-        s.roomCode.toLowerCase().includes(q) ||
-        s.eventCode.toLowerCase().includes(q) ||
-        s.eventName.toLowerCase().includes(q)
-
-      const matchDay = dayFilter === 'all' || s.dayOfWeek.toUpperCase() === dayFilter.toUpperCase()
-
-      return matchSearch && matchDay
-    })
-  }, [schedules, search, dayFilter])
-
-  const DAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN']
-
-  return (
-    <div className="space-y-3">
-      <div>
-        <h2 className="font-display text-h3-sm font-bold text-ink">
-          สำรวจตารางเวลาทั้งหมด ({filtered.length} / {schedules.length})
-        </h2>
-      </div>
-
-      <AdminSearchBox
-        value={search}
-        onChange={setSearch}
-        placeholder="ค้นหารหัสวิชา, ชื่อวิชา, หรือห้อง เช่น CS333..."
-      />
-
-      {/* Day quick-filters (with visible thin-scrollbar and mouse-wheel horizontal scrolling) */}
-      <div
-        className="flex items-center gap-1.5 overflow-x-auto thin-scrollbar pb-2 pt-0.5"
-        onWheel={(e) => {
-          if (e.deltaY !== 0) {
-            e.currentTarget.scrollLeft += e.deltaY
-          }
-        }}
-      >
-        <button
-          type="button"
-          onClick={() => setDayFilter('all')}
-          className={`btn btn-sm shrink-0 ${
-            dayFilter === 'all'
-              ? 'btn-primary'
-              : 'btn-tertiary'
-          }`}
-        >
-          ทั้งหมด
-        </button>
-        {DAYS.map((d) => {
-          const info = getDayInfo(d)
-          const count = schedules.filter((s) => s.dayOfWeek.toUpperCase() === d).length
-          if (count === 0) return null
-          const isActive = dayFilter === d
-          return (
-            <button
-              key={d}
-              type="button"
-              onClick={() => setDayFilter(d)}
-              className={`btn btn-sm shrink-0 ${
-                isActive
-                  ? 'btn-primary'
-                  : 'btn-tertiary'
-              }`}
-            >
-              <span className={`h-1.5 w-1.5 rounded-full ${info.dotColor}`} />
-              <span>
-                {info.shortTh} ({count})
-              </span>
-            </button>
-          )
-        })}
-      </div>
-
-      {/* Card list of schedules */}
-      <div className="space-y-2">
-        {filtered.map((s, idx) => {
-          const room = rooms.find((r) => r.code === s.roomCode)
-          const dayInfo = getDayInfo(s.dayOfWeek)
-          return (
-            <div
-              key={`${s.roomCode}-${s.dayOfWeek}-${s.startTime}-${s.eventCode}-${idx}`}
-              className="group card card-hover p-3 flex items-center justify-between gap-3"
-            >
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`chip ${dayInfo.bgLight} ${dayInfo.color}`}
-                  >
-                    <span className={`h-1.5 w-1.5 rounded-full ${dayInfo.dotColor}`} />
-                    {dayInfo.shortTh}
-                  </span>
-                  <span className="inline-flex items-center gap-1 text-xs font-mono font-medium text-ink-3">
-                    <Clock size={12} />
-                    {s.startTime}–{s.endTime}
-                  </span>
-                  <EventTypeBadge type={s.eventType} />
-                </div>
-                <div className="mt-1">
-                  <span className="font-mono text-button font-bold text-ink">{s.eventCode}</span>
-                  {s.eventName && (
-                    <span className="text-button text-ink-2 ml-1.5 truncate">
-                      · {s.eventName}
-                    </span>
-                  )}
-                </div>
-                <div className="mt-1 text-xs text-ink-3 flex items-center gap-1">
-                  <Door size={12} />
-                  <span>
-                    ห้อง <strong className="text-ink">{s.roomCode}</strong>
-                    {room?.floor && ` · ชั้น ${room.floor}`}
-                    {room?.nameThai && ` (${room.nameThai})`}
-                  </span>
-                </div>
-              </div>
-
-              <div className="shrink-0">
-                <button
-                  type="button"
-                  onClick={() => room && onSelectRoom(room.id)}
-                  disabled={!room}
-                  className="btn btn-tertiary btn-sm"
-                  title="เปิดหน้าแก้ไขห้องนี้"
-                >
-                  <span>จัดการ</span>
-                  <CaretRight size={13} weight="bold" />
-                </button>
-              </div>
-            </div>
-          )
-        })}
-
-        {filtered.length === 0 && (
-          <div className="card border-dashed p-8 text-center">
-            <p className="text-button text-ink-3">ไม่พบตารางที่ตรงกับเงื่อนไขการค้นหา</p>
-          </div>
-        )}
-      </div>
-    </div>
-  )
+function parseMinutes(hhmm: string): number {
+  const [h, m] = hhmm.split(':').map(Number)
+  return (h || 0) * 60 + (m || 0)
 }
 
-// ---------------------------------------------------------------------------
-// Main AdminPage Component
-// ---------------------------------------------------------------------------
-
-type LeftPanelMode = 'list' | 'room'
 type LeftTab = 'rooms' | 'schedules' | 'closures'
 const LEFT_TABS: LeftTab[] = ['rooms', 'schedules', 'closures']
 
 export default function AdminPage() {
   const session = getSession()
+  const userIsAdmin = useMemo(() => isAdmin(session), [session])
 
-  const isUserAdmin = useMemo(() => isAdmin(session), [session])
-
-  const { rooms, loading: roomsLoading, error: roomsError, reload: reloadRooms } = useRooms()
   const {
-    schedules,
-    loading: schedulesLoading,
-    error: schedulesError,
-    reload: reloadSchedules,
-  } = useSchedules()
+    rooms,
+    loading: roomsLoading,
+    error: roomsError,
+    reload: reloadRooms,
+  } = useRooms()
+  const { schedules, reload: reloadSchedules } = useSchedules()
   const floorPlansReady = usePreloadImages(FLOOR_PLAN_ASSETS)
+  const dateInputId = useId()
+  const roomComboboxId = useId()
 
-  const [panelMode, setPanelMode] = useState<LeftPanelMode>('list')
-  const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null)
-  const [currentFloor, setCurrentFloor] = useState(1)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [leftTab, setLeftTab] = useState<LeftTab>('rooms')
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
-  const [mapView, setMapView] = useState<'2d' | '3d'>('3d')
-  const [floorFilter, setFloorFilter] = useState<'all' | '1' | '2'>('all')
+  const [activeTab, setActiveTab] = useState<LeftTab>('rooms')
+  const [currentFloor, setCurrentFloor] = useState(1)
+  const [floorFilter, setFloorFilter] = useState<number | null>(null)
   const [categoryFilterKey, setCategoryFilterKey] = useState<string>('all')
-  // Walkways drawn on the 2D map by the closure tab (#147).
+  const [mapView, setMapView] = useState<'2d' | '3d'>('3d')
+  const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
   const [closureOverlay, setClosureOverlay] = useState<MapOverlaySegment[]>([])
+
+  // Inline availability filter inside the Left Room Directory
+  const [timeFilterActive, setTimeFilterActive] = useState(false)
+  const [filterDay, setFilterDay] = useState<DayOfWeek>('MON')
+  const [filterStart, setFilterStart] = useState('09:00')
+  const [filterEnd, setFilterEnd] = useState('12:00')
+
+  // Progressive disclosure for room metadata editing & Danger Zone
+  const [isEditingRoom, setIsEditingRoom] = useState(false)
+  const [editNameTh, setEditNameTh] = useState('')
+  const [editCapacity, setEditCapacity] = useState('')
+  const [roomSaving, setRoomSaving] = useState(false)
+  const [roomFeedback, setRoomFeedback] = useState<string | null>(null)
+
+  // Right Inspector schedule display mode ('grid' = 5-day mini timetable, 'list' = card list)
+  const [inspectorScheduleView, setInspectorScheduleView] = useState<
+    'grid' | 'list'
+  >('grid')
+
+  // 2-Column Conflict-Aware Schedule & Room Picker Modal state
+  const [scheduleModalOpen, setScheduleModalOpen] = useState(false)
+  const [editingSlotId, setEditingSlotId] = useState<string | null>(null)
+  const [modalSourceRoomCode, setModalSourceRoomCode] = useState<string>('')
+  const [targetRoomCode, setTargetRoomCode] = useState<string>('')
+  const [formCode, setFormCode] = useState('')
+  const [formName, setFormName] = useState('')
+  const [formDay, setFormDay] = useState<DayOfWeek>('MON')
+  const [formStart, setFormStart] = useState('09:00')
+  const [formEnd, setFormEnd] = useState('12:00')
+  const [formType, setFormType] = useState<EventType>('lecture')
+  const [formDate, setFormDate] = useState('')
+  const [scheduleSaving, setScheduleSaving] = useState(false)
+  const [scheduleError, setScheduleError] = useState<string | null>(null)
+  const [pickerFloorFilter, setPickerFloorFilter] = useState<number | 'ALL'>(
+    'ALL',
+  )
+  const [pickerMinCapacity, setPickerMinCapacity] = useState<string>('')
+
+  // Post-move confirmation banner
+  const [moveNotice, setMoveNotice] = useState<{
+    eventCode: string
+    toRoom: string
+    refreshFailed?: boolean
+  } | null>(null)
+
+  // Master Timetable filter state
+  const [scheduleFloorFilter, setScheduleFloorFilter] = useState<number | null>(
+    null,
+  )
+  const [scheduleDayFilter, setScheduleDayFilter] = useState<'ALL' | DayOfWeek>(
+    'ALL',
+  )
+  const [scheduleSearchQuery, setScheduleSearchQuery] = useState('')
 
   const sidebarScrollRef = useRef<HTMLDivElement>(null)
 
-  const selectedRoom = useMemo(() => {
-    return rooms.find((r) => r.id === selectedRoomId) ?? null
-  }, [rooms, selectedRoomId])
-
-  // Count schedules per room
-  const scheduleCountByRoom = useMemo(() => {
-    const map = new Map<string, number>()
-    schedules.forEach((s) => {
-      map.set(s.roomCode, (map.get(s.roomCode) ?? 0) + 1)
-    })
-    return map
-  }, [schedules])
-
-  const handleAdminSelectRoom = useCallback(
-    (roomId: string) => {
-      setSelectedRoomId(roomId)
-      setPanelMode('room')
-      setIsSidebarCollapsed(false)
-      const room = rooms.find((r) => r.id === roomId)
-      if (room && room.floor !== currentFloor) {
-        setCurrentFloor(room.floor)
-      }
-      if (sidebarScrollRef.current) {
-        sidebarScrollRef.current.scrollTop = 0
-      }
-    },
-    [rooms, currentFloor],
+  const selectedRoom = useMemo(
+    () =>
+      rooms.find((r) => r.id === selectedRoomId || r.code === selectedRoomId) ??
+      null,
+    [rooms, selectedRoomId],
   )
 
-  function handleBack() {
-    setPanelMode('list')
-    setSelectedRoomId(null)
-    if (sidebarScrollRef.current) {
-      sidebarScrollRef.current.scrollTop = 0
+  const floors = useMemo(() => {
+    const set = new Set(rooms.map((r) => r.floor))
+    return Array.from(set).sort((a, b) => a - b)
+  }, [rooms])
+
+  const roomCountByFloor = useMemo(() => {
+    const counts: Record<number, number> = {}
+    for (const r of rooms) {
+      counts[r.floor] = (counts[r.floor] || 0) + 1
+    }
+    return counts
+  }, [rooms])
+
+  const scheduleCountByRoom = useMemo(() => {
+    const counts: Record<string, number> = {}
+    for (const s of schedules) {
+      counts[s.roomCode] = (counts[s.roomCode] || 0) + 1
+    }
+    return counts
+  }, [schedules])
+
+  const directoryConflictMap = useMemo(() => {
+    if (!timeFilterActive) return new Map<string, ScheduleSlot[]>()
+    return getRoomAvailabilityMap(schedules, {
+      dayOfWeek: filterDay,
+      startTime: filterStart,
+      endTime: filterEnd,
+    })
+  }, [schedules, timeFilterActive, filterDay, filterStart, filterEnd])
+
+  const filteredRooms = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase()
+    const activeCategory = CATEGORY_FILTERS.find(
+      (c) => c.key === categoryFilterKey,
+    )
+    return rooms.filter((r) => {
+      if (floorFilter !== null && r.floor !== floorFilter) return false
+      if (activeCategory && activeCategory.matchCategories.length > 0) {
+        if (!activeCategory.matchCategories.includes(r.category)) return false
+      }
+      if (!q) return true
+      return (
+        r.roomNumber.toLowerCase().includes(q) ||
+        r.code.toLowerCase().includes(q) ||
+        (r.nameThai && r.nameThai.toLowerCase().includes(q))
+      )
+    })
+  }, [rooms, floorFilter, categoryFilterKey, searchQuery])
+
+  const roomSchedules = useMemo(() => {
+    if (!selectedRoom) return []
+    return schedules
+      .filter((s) => s.roomCode === selectedRoom.code)
+      .sort((a, b) => {
+        const dayOrder =
+          DAYS.findIndex((d) => d.value === a.dayOfWeek) -
+          DAYS.findIndex((d) => d.value === b.dayOfWeek)
+        if (dayOrder !== 0) return dayOrder
+        return a.startTime.localeCompare(b.startTime)
+      })
+  }, [schedules, selectedRoom])
+
+  const masterTimetableRooms = useMemo(() => {
+    const q = scheduleSearchQuery.trim().toLowerCase()
+    return rooms.filter((r) => {
+      if (scheduleFloorFilter !== null && r.floor !== scheduleFloorFilter) {
+        return false
+      }
+      if (!q) return true
+      const roomMatches =
+        r.code.toLowerCase().includes(q) ||
+        r.roomNumber.toLowerCase().includes(q) ||
+        (r.nameThai && r.nameThai.toLowerCase().includes(q))
+      if (roomMatches) return true
+      return schedules.some(
+        (s) =>
+          s.roomCode === r.code &&
+          (s.eventCode.toLowerCase().includes(q) ||
+            s.eventName.toLowerCase().includes(q)),
+      )
+    })
+  }, [rooms, schedules, scheduleFloorFilter, scheduleSearchQuery])
+
+  const filteredMasterSchedules = useMemo(() => {
+    const q = scheduleSearchQuery.trim().toLowerCase()
+    const roomFloorMap = new Map(rooms.map((r) => [r.code, r.floor]))
+    return schedules.filter((s) => {
+      if (
+        scheduleFloorFilter !== null &&
+        roomFloorMap.get(s.roomCode) !== scheduleFloorFilter
+      ) {
+        return false
+      }
+      if (!q) return true
+      return (
+        s.eventCode.toLowerCase().includes(q) ||
+        s.eventName.toLowerCase().includes(q) ||
+        s.roomCode.toLowerCase().includes(q)
+      )
+    })
+  }, [schedules, rooms, scheduleFloorFilter, scheduleSearchQuery])
+
+  const candidateRoomConflictsMap = useMemo(() => {
+    if (!scheduleModalOpen) return new Map<string, ScheduleSlot[]>()
+    return getRoomAvailabilityMap(schedules, {
+      dayOfWeek: formDay,
+      startTime: formStart,
+      endTime: formEnd,
+      eventType: formType,
+      eventDate: DATE_REQUIRED_TYPES.has(formType) ? formDate || null : null,
+      excludeSlotId: editingSlotId,
+    })
+  }, [
+    schedules,
+    scheduleModalOpen,
+    formDay,
+    formStart,
+    formEnd,
+    formType,
+    formDate,
+    editingSlotId,
+  ])
+
+  const targetRoomConflicts = useMemo(() => {
+    if (!scheduleModalOpen || !targetRoomCode) return []
+    return findRoomConflicts(schedules, targetRoomCode, {
+      dayOfWeek: formDay,
+      startTime: formStart,
+      endTime: formEnd,
+      eventType: formType,
+      eventDate: DATE_REQUIRED_TYPES.has(formType) ? formDate || null : null,
+      excludeSlotId: editingSlotId,
+    })
+  }, [
+    schedules,
+    scheduleModalOpen,
+    targetRoomCode,
+    formDay,
+    formStart,
+    formEnd,
+    formType,
+    formDate,
+    editingSlotId,
+  ])
+
+  const pickerRooms = useMemo(() => {
+    const minCap = Number(pickerMinCapacity) || 0
+    return rooms.filter((r) => {
+      if (pickerFloorFilter !== 'ALL' && r.floor !== pickerFloorFilter) {
+        return false
+      }
+      if (minCap > 0 && (r.capacity ?? 0) < minCap) return false
+      return true
+    })
+  }, [rooms, pickerFloorFilter, pickerMinCapacity])
+
+  function selectRoom(room: Room | null) {
+    setSelectedRoomId(room ? room.id : null)
+    setRoomFeedback(null)
+    setMoveNotice(null)
+    setIsEditingRoom(false)
+    if (room) {
+      setEditNameTh(room.nameThai || '')
+      setEditCapacity(room.capacity?.toString() || '')
+      if (room.floor !== currentFloor) {
+        setCurrentFloor(room.floor)
+      }
     }
   }
 
-  function handleRoomDeleted() {
-    setPanelMode('list')
-    setSelectedRoomId(null)
-    reloadRooms(true)
+  function handleSelectRoomById(roomId: string) {
+    const room = rooms.find((r) => r.id === roomId || r.code === roomId)
+    if (room) {
+      setActiveTab('rooms')
+      selectRoom(room)
+    }
   }
 
-  // Filtered rooms logic
-  const filteredRooms = useMemo(() => {
-    const q = searchQuery.toLowerCase().trim()
-    const activeCategory = CATEGORY_FILTERS.find((c) => c.key === categoryFilterKey)
+  function openAddScheduleModal(prefill?: {
+    roomCode?: string
+    dayOfWeek?: DayOfWeek
+    startTime?: string
+    endTime?: string
+  }) {
+    const defaultRoom =
+      prefill?.roomCode || selectedRoom?.code || rooms[0]?.code || ''
+    setEditingSlotId(null)
+    setModalSourceRoomCode(defaultRoom)
+    setTargetRoomCode(defaultRoom)
+    setFormCode('')
+    setFormName('')
+    setFormDay(prefill?.dayOfWeek || 'MON')
+    setFormStart(prefill?.startTime || '')
+    setFormEnd(prefill?.endTime || '')
+    setFormType('lecture')
+    setFormDate('')
+    setScheduleError(null)
+    setMoveNotice(null)
+    setScheduleModalOpen(true)
+  }
 
-    return rooms.filter((r) => {
-      // 1. Search query
-      const matchSearch =
-        !q ||
-        r.code.toLowerCase().includes(q) ||
-        r.nameThai.toLowerCase().includes(q) ||
-        r.roomNumber.toLowerCase().includes(q)
+  function openEditScheduleModal(slot: ScheduleSlot) {
+    const slotId = buildScheduleSlotId(slot)
+    setEditingSlotId(slotId)
+    setModalSourceRoomCode(slot.roomCode)
+    setTargetRoomCode(slot.roomCode)
+    setFormCode(slot.eventCode)
+    setFormName(slot.eventName)
+    setFormDay((slot.dayOfWeek as DayOfWeek) || 'MON')
+    setFormStart(slot.startTime)
+    setFormEnd(slot.endTime)
+    setFormType((slot.eventType as EventType) || 'lecture')
+    setFormDate(slot.eventDate ?? '')
+    setScheduleError(null)
+    setMoveNotice(null)
+    setScheduleModalOpen(true)
+  }
 
-      // 2. Floor filter
-      const matchFloor = floorFilter === 'all' || String(r.floor) === floorFilter
+  function closeScheduleModal() {
+    setScheduleModalOpen(false)
+    setEditingSlotId(null)
+    setScheduleError(null)
+  }
 
-      // 3. Category filter
-      let matchCat = true
-      if (activeCategory && activeCategory.matchCategories.length > 0) {
-        matchCat = activeCategory.matchCategories.includes(r.category)
+  async function handleSaveRoom(e: React.FormEvent) {
+    e.preventDefault()
+    if (!selectedRoom) return
+    setRoomSaving(true)
+    setRoomFeedback(null)
+    try {
+      const updates: { name_th: string; capacity?: number } = {
+        name_th: editNameTh,
       }
+      if (editCapacity.trim() !== '') {
+        updates.capacity = Number(editCapacity)
+      }
+      await updateRoom(selectedRoom.id, updates)
+      reloadRooms()
+      setRoomFeedback('บันทึกข้อมูลห้องสำเร็จเรียบร้อย')
+      setIsEditingRoom(false)
+    } catch (err) {
+      setRoomFeedback(
+        err instanceof Error ? err.message : 'เกิดข้อผิดพลาดในการบันทึก',
+      )
+    } finally {
+      setRoomSaving(false)
+    }
+  }
 
-      return matchSearch && matchFloor && matchCat
-    })
-  }, [rooms, searchQuery, floorFilter, categoryFilterKey])
+  async function handleDeleteRoom() {
+    if (!selectedRoom) return
+    if (!window.confirm(`ยืนยันการลบห้อง ${selectedRoom.code} หรือไม่?`)) return
+    setRoomSaving(true)
+    try {
+      await deleteRoom(selectedRoom.id)
+      selectRoom(null)
+      reloadRooms(true)
+    } catch (err) {
+      setRoomFeedback(err instanceof Error ? err.message : 'ลบห้องไม่สำเร็จ')
+    } finally {
+      setRoomSaving(false)
+    }
+  }
 
-  const floor1Count = useMemo(() => rooms.filter((r) => r.floor === 1).length, [rooms])
-  const floor2Count = useMemo(() => rooms.filter((r) => r.floor === 2).length, [rooms])
+  async function handleSaveSchedule(e: React.FormEvent) {
+    e.preventDefault()
+    const sourceRoomCode = modalSourceRoomCode || selectedRoom?.code
+    if (!sourceRoomCode) return
+
+    const dateRequired = DATE_REQUIRED_TYPES.has(formType)
+    const trimmedDate = formDate.trim()
+    if (formType === 'exam' && !trimmedDate) {
+      setScheduleError('กรุณาเลือกวันสอบ (จำเป็นสำหรับการสอบ)')
+      return
+    }
+    const startTrimmed = formStart.trim()
+    const endTrimmed = formEnd.trim()
+    if (!STRICT_TIME_RE.test(startTrimmed) || !STRICT_TIME_RE.test(endTrimmed)) {
+      setScheduleError('กรุณาระบุเวลาเป็นรูปแบบ HH:MM (00:00–23:59)')
+      return
+    }
+    if (endTrimmed <= startTrimmed) {
+      setScheduleError('เวลาสิ้นสุดต้องมากกว่าเวลาเริ่ม')
+      return
+    }
+    let effectiveDay: DayOfWeek = formDay
+    if (dateRequired && trimmedDate) {
+      const derivedDay = getWeekdayFromDateString(trimmedDate)
+      if (!derivedDay) {
+        setScheduleError('วันที่ไม่ถูกต้อง กรุณาเลือกวันที่จากปฏิทิน')
+        return
+      }
+      effectiveDay = derivedDay
+      if (derivedDay !== formDay) {
+        setFormDay(derivedDay)
+      }
+    }
+
+    setScheduleSaving(true)
+    setScheduleError(null)
+    try {
+      if (editingSlotId) {
+        const destinationRoomCode = (targetRoomCode || sourceRoomCode).trim()
+        const movedRoom = destinationRoomCode !== sourceRoomCode
+        const destRoomObj = rooms.find((r) => r.code === destinationRoomCode)
+        await updateSchedule(sourceRoomCode, editingSlotId, {
+          day_of_week: effectiveDay,
+          start_time: startTrimmed,
+          end_time: endTrimmed,
+          event_code: formCode.trim(),
+          event_name: formName.trim(),
+          event_type: formType,
+          event_date: dateRequired && trimmedDate ? trimmedDate : null,
+          ...(movedRoom
+            ? {
+                room_code: destinationRoomCode,
+                location_id: destRoomObj?.id ?? destinationRoomCode,
+              }
+            : {}),
+        })
+        const movedNotice = movedRoom
+          ? { eventCode: formCode.trim(), toRoom: destinationRoomCode }
+          : null
+        closeScheduleModal()
+        try {
+          await reloadSchedules(true)
+          if (movedNotice) setMoveNotice(movedNotice)
+        } catch {
+          if (movedNotice) {
+            setMoveNotice({ ...movedNotice, refreshFailed: true })
+          }
+        }
+      } else {
+        const createRoom = (targetRoomCode || sourceRoomCode).trim()
+        await createSchedule({
+          room_code: createRoom,
+          day_of_week: effectiveDay,
+          start_time: startTrimmed,
+          end_time: endTrimmed,
+          event_code: formCode.trim(),
+          event_name: formName.trim(),
+          event_type: formType,
+          ...(dateRequired && trimmedDate ? { event_date: trimmedDate } : {}),
+        })
+        closeScheduleModal()
+        await reloadSchedules(true)
+      }
+    } catch (err) {
+      setScheduleError(
+        err instanceof Error ? err.message : 'บันทึกตารางไม่สำเร็จ',
+      )
+    } finally {
+      setScheduleSaving(false)
+    }
+  }
+
+  async function handleDeleteSchedule(slot: ScheduleSlot) {
+    const slotId = buildScheduleSlotId(slot)
+    if (
+      !window.confirm(
+        `ลบตาราง ${slot.eventCode} (${slot.dayOfWeek} ${slot.startTime}) หรือไม่?`,
+      )
+    ) {
+      return
+    }
+    try {
+      await deleteSchedule(slot.roomCode, slotId)
+      await reloadSchedules(true)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'ลบไม่สำเร็จ')
+    }
+  }
 
   if (roomsError) {
     return <LoadingScreen error={roomsError} onRetry={reloadRooms} />
   }
   if (roomsLoading || !floorPlansReady) return <LoadingScreen />
 
+  const activeTabIdx = LEFT_TABS.indexOf(activeTab)
+  const blobTransform = `translateX(${activeTabIdx * 100}%)`
+
+  const dockModeSwitcher = (
+    <div
+      role="group"
+      aria-label="โหมดจัดการอาคาร"
+      className="gooey-switch-group-3 rounded-full bg-surface-2 p-0.5"
+    >
+      <div aria-hidden="true" className="gooey-switch-blobs inset-0.5">
+        <span
+          className="gooey-pill-lead"
+          style={{
+            width: `${100 / LEFT_TABS.length}%`,
+            transform: blobTransform,
+          }}
+        />
+        <span
+          className="gooey-pill-drop"
+          style={{
+            width: `${100 / LEFT_TABS.length}%`,
+            transform: blobTransform,
+          }}
+        />
+        <span
+          className="gooey-pill-trail"
+          style={{
+            width: `${100 / LEFT_TABS.length}%`,
+            transform: blobTransform,
+          }}
+        />
+      </div>
+
+      <button
+        type="button"
+        onClick={() => setActiveTab('rooms')}
+        title="ห้องและพื้นที่"
+        className={`btn btn-sm gooey-switch-btn gap-1 px-2.5 text-xs ${
+          activeTab === 'rooms' ? 'text-white' : 'text-ink-2 hover:text-ink'
+        }`}
+      >
+        <Door size={14} weight="duotone" className="shrink-0" />
+        <span aria-hidden="true">ห้อง</span>
+        <span className="sr-only">ห้องและพื้นที่</span>
+      </button>
+
+      <button
+        type="button"
+        onClick={() => setActiveTab('schedules')}
+        title="ตารางเวลาทั้งหมด"
+        className={`btn btn-sm gooey-switch-btn gap-1 px-2.5 text-xs ${
+          activeTab === 'schedules' ? 'text-white' : 'text-ink-2 hover:text-ink'
+        }`}
+      >
+        <Calendar size={14} weight="duotone" className="shrink-0" />
+        <span aria-hidden="true">ตารางเวลา</span>
+        <span className="sr-only">ตารางเวลาทั้งหมด</span>
+      </button>
+
+      <button
+        type="button"
+        onClick={() => {
+          setActiveTab('closures')
+          setMapView('2d')
+        }}
+        title="ทางปิดชั่วคราว"
+        className={`btn btn-sm gooey-switch-btn gap-1 px-2.5 text-xs ${
+          activeTab === 'closures' ? 'text-white' : 'text-ink-2 hover:text-ink'
+        }`}
+      >
+        <Prohibit size={14} weight="duotone" className="shrink-0" />
+        <span aria-hidden="true">ทางปิด</span>
+        <span className="sr-only">ทางปิดชั่วคราว</span>
+      </button>
+    </div>
+  )
+
   return (
     <main className="relative h-[100dvh] w-screen overflow-hidden bg-surface-2 select-none">
-      {/* Shared Figma-Style Spatial TopBar */}
+      {/* Shared TopBar + Bottom Dock with merged mode switcher */}
       <TopBar
-        sidebarWidth={460}
+        sidebarWidth={activeTab === 'schedules' ? 0 : 380}
         isSidebarCollapsed={isSidebarCollapsed}
         onToggleSidebar={() => setIsSidebarCollapsed((prev) => !prev)}
-        currentFloor={currentFloor}
-        onFloorChange={setCurrentFloor}
-        mapView={mapView}
-        onToggleMapView={() => setMapView((prev) => (prev === '3d' ? '2d' : '3d'))}
+        currentFloor={activeTab === 'schedules' ? undefined : currentFloor}
+        onFloorChange={activeTab === 'schedules' ? undefined : setCurrentFloor}
+        mapView={activeTab === 'schedules' ? undefined : mapView}
+        onToggleMapView={
+          activeTab === 'schedules'
+            ? undefined
+            : () => setMapView((prev) => (prev === '3d' ? '2d' : '3d'))
+        }
+        dockExtra={dockModeSwitcher}
       />
 
-      {/* Map area below the fixed 64px TopBar: map, sidebar and floating panels */}
-      <div className="absolute inset-x-0 top-16 bottom-0 overflow-hidden">
-        {/* ------------------------------------------------------------------ */}
-        {/* Background Interactive Floor Plan Workspace                        */}
-        {/* ------------------------------------------------------------------ */}
-        <MapContainer
-          rooms={rooms}
-          currentFloor={currentFloor}
-          onFloorChange={setCurrentFloor}
-          selectedRoomId={selectedRoomId}
-          onSelectRoom={handleAdminSelectRoom}
-          onClearSelection={() => {
-            // Keep selection stable in admin mode unless back button is explicitly clicked
-          }}
-          mode="admin"
-          sidebarWidth={isSidebarCollapsed ? 0 : 460}
-          viewMode={mapView}
-          onViewModeChange={setMapView}
-          hideBottomControls
-          overlaySegments={leftTab === 'closures' ? closureOverlay : undefined}
-        />
-
-        {/* ------------------------------------------------------------------ */}
-        {/* Docked Full-Height Left Sidebar                                     */}
-        {/* ------------------------------------------------------------------ */}
-        <aside
-          className={`pointer-events-none absolute top-0 left-0 bottom-0 z-2 w-full sm:w-[440px] md:w-[460px] transition-transform duration-300 ease-in-out ${
-            isSidebarCollapsed ? '-translate-x-full' : 'translate-x-0'
-          }`}
-        >
-          <div className="relative pointer-events-auto flex flex-col h-full bg-white border-r border-line-soft">
-            {/* View Tab Switcher: ห้องและพื้นที่ vs ตารางเวลาทั้งหมด */}
-            <div className="shrink-0 p-3 border-b border-line-soft bg-white">
-              {/* Three equal columns (#147); labels shrink instead of wrapping to a second row. */}
-              <div className="gooey-switch-group-3 w-full rounded-full bg-surface-2 p-1">
-                {(() => {
-                  const activeTabIdx = LEFT_TABS.indexOf(leftTab)
-                  const blobTransform = `translateX(${activeTabIdx * 100}%)`
-                  return (
-                    <div aria-hidden="true" className="gooey-switch-blobs inset-1">
-                      <span
-                        className="gooey-pill-lead"
-                        style={{ width: `${100 / LEFT_TABS.length}%`, transform: blobTransform }}
-                      />
-                      <span
-                        className="gooey-pill-drop"
-                        style={{ width: `${100 / LEFT_TABS.length}%`, transform: blobTransform }}
-                      />
-                      <span
-                        className="gooey-pill-trail"
-                        style={{ width: `${100 / LEFT_TABS.length}%`, transform: blobTransform }}
-                      />
-                    </div>
-                  )
-                })()}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setLeftTab('rooms')
-                    setPanelMode('list')
-                    setSelectedRoomId(null)
-                  }}
-                  title="ห้องและพื้นที่"
-                  className={`btn btn-sm gooey-switch-btn min-w-0 gap-1 px-1.5 text-xs sm:text-[13px] ${
-                    leftTab === 'rooms'
-                      ? 'text-white'
-                      : 'text-ink-2 hover:text-ink'
-                  }`}
-                >
-                  <Door size={14} weight="duotone" className="shrink-0" />
-                  <span className="truncate">
-                    <span aria-hidden="true" className="sm:hidden">ห้อง</span>
-                    <span className="sr-only sm:not-sr-only">ห้องและพื้นที่</span>
-                  </span>
-                  <span className="shrink-0 rounded-full bg-white px-1.5 py-0.5 text-xs font-medium text-ink">
-                    {rooms.length}
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setLeftTab('schedules')}
-                  title="ตารางเวลาทั้งหมด"
-                  className={`btn btn-sm gooey-switch-btn min-w-0 gap-1 px-1.5 text-xs sm:text-[13px] ${
-                    leftTab === 'schedules'
-                      ? 'text-white'
-                      : 'text-ink-2 hover:text-ink'
-                  }`}
-                >
-                  <Calendar size={14} weight="duotone" className="shrink-0" />
-                  <span className="sr-only">ตารางเวลาทั้งหมด</span>
-                  <span aria-hidden="true" className="truncate">
-                    <span className="sm:hidden">ตาราง</span>
-                    <span className="hidden sm:inline">ตารางเวลา</span>
-                  </span>
-                  <span className="shrink-0 rounded-full bg-white px-1.5 py-0.5 text-xs font-medium text-ink">
-                    {schedules.length}
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setLeftTab('closures')
-                    // Walkways are drawn on the 2D plan, so the tab opens on it.
-                    setMapView('2d')
-                  }}
-                  title="ทางปิดชั่วคราว"
-                  className={`btn btn-sm gooey-switch-btn min-w-0 gap-1 px-1.5 text-xs sm:text-[13px] ${
-                    leftTab === 'closures'
-                      ? 'text-white'
-                      : 'text-ink-2 hover:text-ink'
-                  }`}
-                >
-                  <Prohibit size={14} weight="duotone" className="shrink-0" />
-                  <span className="truncate">
-                    <span aria-hidden="true" className="sm:hidden">ทางปิด</span>
-                    <span className="sr-only sm:not-sr-only">ทางปิดชั่วคราว</span>
-                  </span>
-                </button>
+      {/* Workspace below fixed 64px TopBar */}
+      <div className="absolute inset-x-0 top-16 bottom-0 flex overflow-hidden">
+        {/* LEFT SIDEBAR: Dedicated Room Directory ('rooms') or Closure Editor ('closures') */}
+        {activeTab !== 'schedules' && (
+          <aside
+            aria-label="แผงจัดการข้อมูลอาคาร"
+            className={`relative z-20 flex flex-col bg-surface border-r border-line transition-all duration-300 ease-out overflow-hidden shrink-0 ${
+              isSidebarCollapsed ? 'w-0 border-r-0' : 'w-full sm:w-[380px]'
+            }`}
+          >
+            {/* Sidebar Header */}
+            <div className="px-4 pt-3.5 pb-3 border-b border-line-soft bg-surface shrink-0">
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <h2 className="text-sm font-bold text-ink tracking-tight">
+                    {activeTab === 'rooms'
+                      ? `เลือกห้องเรียน (${rooms.length})`
+                      : 'ทางปิดชั่วคราว'}
+                  </h2>
+                  <p className="text-[11px] text-ink-2 mt-0.5">
+                    {activeTab === 'rooms'
+                      ? 'คลิกเลือกห้องเพื่อดูตารางเรียนหรือแก้ไขข้อมูล'
+                      : 'จัดการจุดปิดซ่อมบำรุงและทางเดินชั่วคราว'}
+                  </p>
+                </div>
+                {activeTab === 'rooms' && (
+                  <button
+                    type="button"
+                    aria-expanded={timeFilterActive}
+                    onClick={() => setTimeFilterActive((v) => !v)}
+                    className={`chip text-[11px] py-1 px-2.5 shrink-0 ${
+                      timeFilterActive ? 'chip-active' : ''
+                    }`}
+                  >
+                    <SlidersHorizontal size={13} weight="bold" />
+                    เช็คเวลาว่าง
+                  </button>
+                )}
               </div>
+
+              {/* Inline collapsible availability filter */}
+              {activeTab === 'rooms' && timeFilterActive && (
+                <div className="mt-3 p-2.5 bg-surface-2 border border-line-soft space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-ink flex items-center gap-1">
+                      <Clock size={13} weight="bold" className="text-accent" />
+                      กรองห้องว่างตามช่วงเวลา
+                    </span>
+                    <span className="text-[11px] font-semibold text-emerald-700">
+                      ว่าง{' '}
+                      {
+                        filteredRooms.filter(
+                          (r) => !(directoryConflictMap.get(r.code)?.length),
+                        ).length
+                      }
+                      /{filteredRooms.length} ห้อง
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    <select
+                      aria-label="วันตรวจสอบห้องว่าง"
+                      value={filterDay}
+                      onChange={(e) =>
+                        setFilterDay(e.target.value as DayOfWeek)
+                      }
+                      className="input-boxed text-xs py-1 px-2"
+                    >
+                      {DAYS.map((d) => (
+                        <option key={d.value} value={d.value}>
+                          {d.short}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      type="text"
+                      aria-label="เวลาเริ่มตรวจสอบห้องว่าง"
+                      value={filterStart}
+                      onChange={(e) => setFilterStart(e.target.value)}
+                      placeholder="09:00"
+                      className="input-boxed text-xs py-1 px-2 font-mono"
+                    />
+                    <input
+                      type="text"
+                      aria-label="เวลาสิ้นสุดตรวจสอบห้องว่าง"
+                      value={filterEnd}
+                      onChange={(e) => setFilterEnd(e.target.value)}
+                      placeholder="12:00"
+                      className="input-boxed text-xs py-1 px-2 font-mono"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* Sticky Search & Filter Header (Only in Room List mode — never scrolls away or clips!) */}
-            {leftTab === 'rooms' && !(panelMode === 'room' && selectedRoom) && (
-              <div className="shrink-0 px-4 pt-3 pb-2.5 border-b border-line-soft bg-white space-y-2.5">
-                {/* Search Bar */}
-                <AdminSearchBox
-                  value={searchQuery}
-                  onChange={setSearchQuery}
-                  placeholder="ค้นหาด้วยเลขห้อง, ชื่อ หรือรหัส เช่น 110, ELEC..."
-                />
-
-                {/* Floor Filter Quick Pills (syncs with map floor) */}
-                <div className="gooey-switch-group-3 rounded-full bg-tertiary p-0.5">
-                  {(() => {
-                    const activeFloorIdx = floorFilter === '1' ? 1 : floorFilter === '2' ? 2 : 0
-                    const blobTransform = `translateX(${activeFloorIdx * 100}%)`
-                    return (
-                      <div aria-hidden="true" className="gooey-switch-blobs inset-0.5">
-                        <span
-                          className="gooey-pill-lead"
-                          style={{ width: '33.3333%', transform: blobTransform }}
-                        />
-                        <span
-                          className="gooey-pill-drop"
-                          style={{ width: '33.3333%', transform: blobTransform }}
-                        />
-                        <span
-                          className="gooey-pill-trail"
-                          style={{ width: '33.3333%', transform: blobTransform }}
-                        />
-                      </div>
-                    )
-                  })()}
-                  <button
-                    type="button"
-                    onClick={() => setFloorFilter('all')}
-                    className={`btn btn-sm gooey-switch-btn ${
-                      floorFilter === 'all'
-                        ? 'text-white'
-                        : 'text-ink-2 hover:text-ink'
-                    }`}
-                  >
-                    ทั้งหมด ({rooms.length})
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFloorFilter('1')
-                      if (currentFloor !== 1) setCurrentFloor(1)
-                    }}
-                    className={`btn btn-sm gooey-switch-btn ${
-                      floorFilter === '1'
-                        ? 'text-white'
-                        : 'text-ink-2 hover:text-ink'
-                    }`}
-                  >
-                    ชั้น 1 ({floor1Count})
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFloorFilter('2')
-                      if (currentFloor !== 2) setCurrentFloor(2)
-                    }}
-                    className={`btn btn-sm gooey-switch-btn ${
-                      floorFilter === '2'
-                        ? 'text-white'
-                        : 'text-ink-2 hover:text-ink'
-                    }`}
-                  >
-                    ชั้น 2 ({floor2Count})
-                  </button>
-                </div>
-
-                {/* Category Filters Pills Horizontal Strip (with visible thin-scrollbar and mouse-wheel horizontal scrolling) */}
-                <div
-                  className="flex items-center gap-1.5 overflow-x-auto thin-scrollbar pb-1.5 pt-0.5"
-                  onWheel={(e) => {
-                    if (e.deltaY !== 0) {
-                      e.currentTarget.scrollLeft += e.deltaY
-                    }
-                  }}
-                >
-                  {CATEGORY_FILTERS.map((cat) => {
-                    const isActive = categoryFilterKey === cat.key
-                    return (
-                      <button
-                        key={cat.key}
-                        type="button"
-                        onClick={() => setCategoryFilterKey(cat.key)}
-                        className={`btn btn-sm shrink-0 ${
-                          isActive
-                            ? 'btn-primary'
-                            : 'btn-tertiary'
-                        }`}
-                      >
-                        {cat.label}
-                      </button>
-                    )
-                  })}
-                </div>
-
-                {/* Count indicator */}
-                <div className="flex items-center justify-between text-xs text-ink-3 font-medium px-0.5">
-                  <span>แสดง {filteredRooms.length} ห้อง</span>
-                  {searchQuery && (
-                    <button
-                      type="button"
-                      onClick={() => setSearchQuery('')}
-                      className="btn btn-ghost btn-sm"
-                    >
-                      ล้างคำค้น
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Main Sidebar Scrollable Content */}
-            <div ref={sidebarScrollRef} className="flex-1 overflow-y-auto thin-scrollbar p-4 space-y-4">
-              {leftTab === 'closures' ? (
+            {activeTab === 'closures' ? (
+              <div
+                ref={sidebarScrollRef}
+                className="flex-1 overflow-y-auto thin-scrollbar p-4"
+              >
                 <ClosureTab
                   rooms={rooms}
                   floor={currentFloor}
                   onFloorChange={setCurrentFloor}
                   onOverlayChange={setClosureOverlay}
                 />
-              ) : leftTab === 'schedules' ? (
-                schedulesLoading ? (
-                  <div className="flex flex-col items-center justify-center py-12 text-center text-ink-3">
-                    <div className="h-6 w-6 border-2 border-ink border-t-transparent rounded-full animate-spin mb-2" />
-                    <p className="text-xs">กำลังโหลดตารางสอน...</p>
-                  </div>
-                ) : schedulesError ? (
-                  <div className="card border-ink p-3 text-button text-ink">
-                    โหลดตารางไม่สำเร็จ: {schedulesError.message}
-                  </div>
-                ) : (
-                  <AllSchedulesView
-                    schedules={schedules}
-                    rooms={rooms}
-                    onSelectRoom={(roomId) => {
-                      handleAdminSelectRoom(roomId)
-                      setLeftTab('rooms')
-                    }}
-                  />
-                )
-              ) : panelMode === 'room' && selectedRoom ? (
-                <RoomEditPanel
-                  key={selectedRoom.id}
-                  room={selectedRoom}
-                  schedules={schedules}
-                  onBack={handleBack}
-                  onRoomDeleted={handleRoomDeleted}
-                  onRoomMutated={() => reloadRooms(true)}
-                  onSchedulesMutated={() => reloadSchedules(true)}
-                  rooms={rooms}
-                  onOpenRoom={handleAdminSelectRoom}
-                  isAdmin={isUserAdmin}
-                />
-              ) : (
-                /* ROOM LIST MODE */
-                <div className="space-y-2.5">
-                  {/* Rooms List */}
-                  <div className="space-y-2">
-                    {filteredRooms.map((room) => (
-                      <RoomListItem
-                        key={room.id}
-                        room={room}
-                        scheduleCount={scheduleCountByRoom.get(room.code) ?? 0}
-                        isSelected={room.id === selectedRoomId}
-                        onSelect={handleAdminSelectRoom}
-                      />
+              </div>
+            ) : (
+              <div className="flex-1 flex flex-col overflow-hidden">
+                {/* Floor Pills + Category Select + Search Input */}
+                <div className="px-4 py-3 border-b border-line-soft space-y-2.5 shrink-0 bg-surface">
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
+                    <button
+                      type="button"
+                      onClick={() => setFloorFilter(null)}
+                      className={`chip text-xs py-1 px-2.5 shrink-0 ${
+                        floorFilter === null ? 'chip-active' : ''
+                      }`}
+                    >
+                      ทั้งหมด ({rooms.length})
+                    </button>
+                    {floors.map((f) => (
+                      <button
+                        key={f}
+                        type="button"
+                        onClick={() => {
+                          setFloorFilter(f)
+                          setCurrentFloor(f)
+                        }}
+                        className={`chip text-xs py-1 px-2.5 shrink-0 ${
+                          floorFilter === f ? 'chip-active' : ''
+                        }`}
+                      >
+                        ชั้น {f} ({roomCountByFloor[f] || 0})
+                      </button>
                     ))}
+                  </div>
 
-                    {filteredRooms.length === 0 && (
-                      <div className="flex flex-col items-center justify-center py-10 text-center">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-tertiary text-ink-3 mb-2">
-                          <Sparkle size={20} />
-                        </div>
-                        <p className="text-button font-medium text-ink">ไม่พบห้องที่ตรงกับการค้นหา</p>
-                        <p className="text-xs text-ink-3 mt-0.5">
-                          ลองเปลี่ยนคำค้นหา หรือรีเซ็ตตัวกรองชั้นและหมวดหมู่
-                        </p>
-                      </div>
-                    )}
+                  <div className="grid grid-cols-1 gap-2">
+                    <select
+                      aria-label="กรองตามประเภทห้อง"
+                      value={categoryFilterKey}
+                      onChange={(e) => setCategoryFilterKey(e.target.value)}
+                      className="input-boxed text-xs py-1.5 px-2.5"
+                    >
+                      {CATEGORY_FILTERS.map((cat) => (
+                        <option key={cat.key} value={cat.key}>
+                          {cat.label}
+                        </option>
+                      ))}
+                    </select>
+
+                    <div className="relative">
+                      <MagnifyingGlass
+                        size={15}
+                        className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-3"
+                      />
+                      <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="ค้นหาเลขห้อง หรือ ชื่อห้อง..."
+                        className="input-boxed pl-9 py-1.5 text-xs"
+                      />
+                    </div>
                   </div>
                 </div>
-              )}
-            </div>
-          </div>
-        </aside>
 
-        {/* Floating Pinned Room Pill when sidebar is collapsed (positioned at bottom-left) */}
-        {isSidebarCollapsed && selectedRoom && (
-          <div className="card absolute bottom-6 left-6 z-2 flex items-center gap-3 px-3.5 py-2.5 shadow-floating animate-fade-in">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-ink text-white">
-              <Door size={16} weight="duotone" />
+                {/* Scrollable Room Directory Cards */}
+                <div
+                  ref={sidebarScrollRef}
+                  className="flex-1 overflow-y-auto px-4 py-3 space-y-2"
+                >
+                  {filteredRooms.length === 0 ? (
+                    <div className="py-12 text-center text-xs text-ink-3">
+                      ไม่พบห้องที่ตรงกับเงื่อนไข
+                    </div>
+                  ) : (
+                    filteredRooms.map((room) => {
+                      const count = scheduleCountByRoom[room.code] || 0
+                      const isSelected = selectedRoom?.code === room.code
+                      const roomConflicts =
+                        directoryConflictMap.get(room.code) || []
+                      const isBusy =
+                        timeFilterActive && roomConflicts.length > 0
+                      const roomDisplayName = room.roomNumber
+                        ? `ห้อง ${room.roomNumber}`
+                        : room.nameThai || room.code
+
+                      return (
+                        <button
+                          key={room.code}
+                          type="button"
+                          onClick={() => selectRoom(room)}
+                          className={`w-full text-left card card-interactive p-3 transition-colors ${
+                            isSelected
+                              ? 'border-ink ring-1 ring-ink bg-surface-2'
+                              : ''
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-bold text-ink">
+                                  {roomDisplayName}
+                                </span>
+                                <span className="text-[11px] font-mono text-ink-3">
+                                  {room.code}
+                                </span>
+                              </div>
+                              <p className="text-xs text-ink-2 truncate mt-0.5">
+                                {room.nameThai || '—'}
+                              </p>
+                            </div>
+                            <div className="flex flex-col items-end gap-1 shrink-0">
+                              {timeFilterActive ? (
+                                isBusy ? (
+                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200">
+                                    ไม่ว่าง: {roomConflicts[0].eventCode}
+                                  </span>
+                                ) : (
+                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                    ว่าง
+                                  </span>
+                                )
+                              ) : (
+                                <span
+                                  className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                                    count > 0
+                                      ? 'bg-ink text-white'
+                                      : 'bg-surface-2 text-ink-3'
+                                  }`}
+                                >
+                                  {count} คาบ
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 mt-2 text-[11px] text-ink-3">
+                            <span>ชั้น {room.floor}</span>
+                            <span>·</span>
+                            <span>{getCategoryLabel(room.category)}</span>
+                            {room.capacity !== undefined && (
+                              <>
+                                <span>·</span>
+                                <span className="inline-flex items-center gap-1">
+                                  <Users size={11} weight="bold" />
+                                  {room.capacity} ที่นั่ง
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        </button>
+                      )
+                    })
+                  )}
+                </div>
+              </div>
+            )}
+          </aside>
+        )}
+
+        {/* CENTER WORKSPACE: Full-Viewport Master Timetable ('schedules') OR Interactive Map */}
+        {activeTab === 'schedules' ? (
+          <section
+            aria-label="ตารางเวลาแม่บททั้งอาคาร"
+            className="flex-1 flex flex-col bg-surface overflow-hidden"
+          >
+            {/* Master Timetable Toolbar */}
+            <div className="px-6 py-3.5 border-b border-line bg-surface flex flex-wrap items-center justify-between gap-3 shrink-0">
+              <div>
+                <h2 className="text-base font-bold text-ink tracking-tight">
+                  สำรวจตารางเวลาทั้งหมด ({filteredMasterSchedules.length}/
+                  {schedules.length})
+                </h2>
+                <p className="text-xs text-ink-2">
+                  เปรียบเทียบห้องว่างและคาบเรียนรายชั่วโมง (คลิกช่องว่างเพื่อเพิ่มตาราง หรือคลิกวิชาเพื่อแก้ไข)
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Day Pills */}
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setScheduleDayFilter('ALL')}
+                    className={`chip text-xs py-1 px-2.5 ${
+                      scheduleDayFilter === 'ALL' ? 'chip-active' : ''
+                    }`}
+                  >
+                    ทั้งหมด
+                  </button>
+                  {DAYS.map((d) => (
+                    <button
+                      key={d.value}
+                      type="button"
+                      onClick={() => setScheduleDayFilter(d.value)}
+                      className={`chip text-xs py-1 px-2.5 ${
+                        scheduleDayFilter === d.value ? 'chip-active' : ''
+                      }`}
+                    >
+                      {d.short}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Floor Filter */}
+                <select
+                  aria-label="กรองชั้นตารางเวลา"
+                  value={scheduleFloorFilter ?? 'ALL'}
+                  onChange={(e) =>
+                    setScheduleFloorFilter(
+                      e.target.value === 'ALL' ? null : Number(e.target.value),
+                    )
+                  }
+                  className="input-boxed text-xs py-1.5 px-2.5 w-auto"
+                >
+                  <option value="ALL">ทุกชั้น</option>
+                  {floors.map((f) => (
+                    <option key={f} value={f}>
+                      ชั้น {f}
+                    </option>
+                  ))}
+                </select>
+
+                {/* Search Input */}
+                <div className="relative w-56">
+                  <MagnifyingGlass
+                    size={14}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-3"
+                  />
+                  <input
+                    type="text"
+                    value={scheduleSearchQuery}
+                    onChange={(e) => setScheduleSearchQuery(e.target.value)}
+                    placeholder="ค้นหารหัสวิชา, ชื่อวิชา หรือเลขห้อง..."
+                    className="input-boxed pl-8 py-1.5 text-xs"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    openAddScheduleModal({
+                      dayOfWeek:
+                        scheduleDayFilter === 'ALL' ? 'MON' : scheduleDayFilter,
+                    })
+                  }
+                  className="btn btn-primary btn-sm"
+                >
+                  <Plus size={14} weight="bold" />
+                  เพิ่มตาราง
+                </button>
+              </div>
             </div>
-            <div className="min-w-0 pr-2">
-              <span className="block text-xs font-medium text-ink-3">
-                กำลังเลือก · ชั้น {selectedRoom.floor}
-              </span>
-              <span className="block truncate text-button font-bold text-ink">
-                {selectedRoom.roomNumber ? `ห้อง ${selectedRoom.roomNumber}` : selectedRoom.nameThai || selectedRoom.code}
-              </span>
+
+            {/* Room x Hour Matrix Grid */}
+            <div className="flex-1 overflow-auto bg-surface-2">
+              <div className="min-w-[1100px]">
+                {/* Sticky Hour Header */}
+                <div className="sticky top-0 z-20 flex bg-surface border-b border-line">
+                  <div className="w-[220px] shrink-0 px-4 py-2.5 border-r border-line text-xs font-bold text-ink bg-surface sticky left-0 z-30">
+                    ห้องเรียน ({masterTimetableRooms.length})
+                  </div>
+                  <div className="flex-1 grid grid-cols-12">
+                    {HOURS.map((hr) => (
+                      <div
+                        key={hr}
+                        className="px-2 py-2.5 border-r border-line-soft text-[11px] font-mono font-semibold text-ink-2 text-center"
+                      >
+                        {String(hr).padStart(2, '0')}:00
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Room Rows */}
+                {masterTimetableRooms.map((room) => {
+                  const rowSlots = filteredMasterSchedules.filter(
+                    (s) =>
+                      s.roomCode === room.code &&
+                      (scheduleDayFilter === 'ALL' ||
+                        s.dayOfWeek === scheduleDayFilter),
+                  )
+                  return (
+                    <div
+                      key={room.code}
+                      className="flex border-b border-line-soft bg-surface hover:bg-surface-2/40 transition-colors"
+                    >
+                      {/* Sticky Left Room Cell */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveTab('rooms')
+                          selectRoom(room)
+                        }}
+                        className="w-[220px] shrink-0 px-4 py-3 border-r border-line text-left bg-surface sticky left-0 z-10 hover:bg-surface-2 transition-colors"
+                      >
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="text-xs font-bold text-ink">
+                            {room.code}
+                          </span>
+                          <span className="text-[10px] text-ink-3">
+                            ชั้น {room.floor}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-ink-2 truncate">
+                          {room.nameThai || getCategoryLabel(room.category)}
+                        </p>
+                      </button>
+
+                      {/* 12-Hour Timeline Track */}
+                      <div className="relative flex-1 h-16 grid grid-cols-12">
+                        {HOURS.map((hr) => {
+                          const startStr = `${String(hr).padStart(2, '0')}:00`
+                          const endStr = `${String(hr + 1).padStart(2, '0')}:00`
+                          return (
+                            <button
+                              key={hr}
+                              type="button"
+                              aria-label={`เพิ่มตาราง ${room.code} เวลา ${startStr}`}
+                              onClick={() =>
+                                openAddScheduleModal({
+                                  roomCode: room.code,
+                                  dayOfWeek:
+                                    scheduleDayFilter === 'ALL'
+                                      ? 'MON'
+                                      : scheduleDayFilter,
+                                  startTime: startStr,
+                                  endTime: endStr,
+                                })
+                              }
+                              className="border-r border-line-soft hover:bg-accent/5 transition-colors"
+                            />
+                          )
+                        })}
+
+                        {/* Positioned Schedule Blocks */}
+                        {rowSlots.map((slot) => {
+                          const startMins = Math.max(
+                            0,
+                            parseMinutes(slot.startTime) - GRID_START_HOUR * 60,
+                          )
+                          const endMins = Math.min(
+                            GRID_TOTAL_MINUTES,
+                            parseMinutes(slot.endTime) - GRID_START_HOUR * 60,
+                          )
+                          const leftPct = (startMins / GRID_TOTAL_MINUTES) * 100
+                          const widthPct = Math.max(
+                            ((endMins - startMins) / GRID_TOTAL_MINUTES) * 100,
+                            4,
+                          )
+                          const isExam = slot.eventType === 'exam'
+
+                          return (
+                            <div
+                              key={buildScheduleSlotId(slot)}
+                              onClick={() => openEditScheduleModal(slot)}
+                              role="button"
+                              tabIndex={0}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  openEditScheduleModal(slot)
+                                }
+                              }}
+                              style={{
+                                left: `${leftPct}%`,
+                                width: `${widthPct}%`,
+                              }}
+                              className={`group absolute top-1.5 bottom-1.5 z-10 px-2 py-1 overflow-hidden border text-left transition-shadow hover:shadow-md cursor-pointer ${
+                                isExam
+                                  ? 'bg-tertiary border-line text-ink border-l-4 border-l-ink'
+                                  : 'bg-surface-2 border-line-soft text-ink border-l-4 border-l-accent'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between gap-1">
+                                <span className="text-[11px] font-bold truncate">
+                                  {slot.eventCode}
+                                </span>
+                                <span className="text-[10px] font-mono text-ink-3 shrink-0">
+                                  {slot.startTime}–{slot.endTime}
+                                </span>
+                              </div>
+                              <p className="text-[10px] text-ink-2 truncate">
+                                {slot.eventName}
+                              </p>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
-            <button
-              type="button"
-              onClick={() => setIsSidebarCollapsed(false)}
-              className="btn btn-primary btn-sm"
+          </section>
+        ) : (
+          <div className="relative flex-1 h-full overflow-hidden">
+            <MapContainer
+              rooms={rooms}
+              currentFloor={currentFloor}
+              onFloorChange={setCurrentFloor}
+              selectedRoomId={selectedRoomId}
+              onSelectRoom={handleSelectRoomById}
+              onClearSelection={() => {}}
+              mode="admin"
+              sidebarWidth={isSidebarCollapsed ? 0 : 380}
+              viewMode={mapView}
+              onViewModeChange={setMapView}
+              hideBottomControls
+              overlaySegments={
+                activeTab === 'closures' ? closureOverlay : undefined
+              }
+            />
+          </div>
+        )}
+
+        {/* SLIDE-OVER RIGHT ROOM INSPECTOR (440px Desktop Drawer / Mobile Sheet) */}
+        {activeTab === 'rooms' && selectedRoom && (
+          <aside
+            aria-label={`ข้อมูลห้อง ${selectedRoom.code}`}
+            className="fixed right-0 bottom-0 top-16 z-30 w-full sm:w-[440px] bg-surface border-l border-line shadow-floating flex flex-col overflow-hidden"
+          >
+            {/* Inspector Top Bar */}
+            <div className="px-4 py-3 border-b border-line-soft flex items-center justify-between gap-2 bg-surface shrink-0">
+              <button
+                type="button"
+                onClick={() => selectRoom(null)}
+                className="flex items-center gap-1.5 text-xs font-semibold text-ink-2 hover:text-ink transition-colors"
+              >
+                <CaretLeft size={14} weight="bold" />
+                กลับไปรายการห้อง
+              </button>
+
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  aria-expanded={isEditingRoom}
+                  onClick={() => setIsEditingRoom((v) => !v)}
+                  className={`chip text-xs py-1 px-2.5 ${
+                    isEditingRoom ? 'chip-active' : ''
+                  }`}
+                >
+                  <PencilSimple size={13} weight="bold" />
+                  แก้ไขข้อมูลห้อง
+                </button>
+                <button
+                  type="button"
+                  aria-label="ปิดแผงข้อมูลห้อง"
+                  onClick={() => selectRoom(null)}
+                  className="p-1.5 text-ink-2 hover:text-ink hover:bg-surface-2 transition-colors"
+                >
+                  <X size={16} weight="bold" />
+                </button>
+              </div>
+            </div>
+
+            {/* Scrollable Inspector Body */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {/* Read-Only Room Summary Card */}
+              <div className="card p-4 space-y-2.5">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-lg font-bold text-ink leading-tight">
+                        {selectedRoom.roomNumber
+                          ? `ห้อง ${selectedRoom.roomNumber}`
+                          : selectedRoom.nameThai || selectedRoom.code}
+                      </h3>
+                      <span className="text-xs font-mono text-ink-3">
+                        {selectedRoom.code}
+                      </span>
+                    </div>
+                    <p className="text-xs text-ink-2 mt-0.5">
+                      {selectedRoom.nameThai || 'ไม่มีชื่อภาษาไทย'}
+                    </p>
+                  </div>
+                  <span className="chip text-[11px] py-0.5 px-2.5 pointer-events-none">
+                    ชั้น {selectedRoom.floor}
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-ink-2 pt-1">
+                  <span className="px-2 py-0.5 bg-surface-2 border border-line-soft font-medium">
+                    {getCategoryLabel(selectedRoom.category)}
+                  </span>
+                  <span className="px-2 py-0.5 bg-surface-2 border border-line-soft font-medium inline-flex items-center gap-1">
+                    <Users size={12} weight="bold" />
+                    {selectedRoom.capacity
+                      ? `${selectedRoom.capacity} ที่นั่ง`
+                      : 'ไม่ระบุความจุ'}
+                  </span>
+                </div>
+
+                {/* Preserved Room Landmarks */}
+                {selectedRoom.landmarks && selectedRoom.landmarks.length > 0 && (
+                  <div className="pt-2 border-t border-line-soft flex items-start gap-1.5 text-xs text-ink-2">
+                    <MapPin
+                      size={14}
+                      weight="fill"
+                      className="text-ink shrink-0 mt-0.5"
+                    />
+                    <span>
+                      {selectedRoom.landmarks
+                        .map((l) => getLandmarkText(l))
+                        .join(' · ')}
+                    </span>
+                  </div>
+                )}
+
+                {roomFeedback && (
+                  <div className="flex items-center gap-1.5 text-xs text-emerald-700 font-medium pt-1">
+                    <CheckCircle size={14} weight="fill" />
+                    {roomFeedback}
+                  </div>
+                )}
+              </div>
+
+              {/* Progressive Disclosure: Room Edit Form + Admin Danger Zone */}
+              {isEditingRoom && (
+                <div className="card p-4 space-y-4 bg-surface-2/50">
+                  <form onSubmit={handleSaveRoom} className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-ink-2">
+                        แก้ไขข้อมูลห้อง {selectedRoom.code}
+                      </h4>
+                    </div>
+
+                    <div>
+                      <label
+                        htmlFor="admin-room-name"
+                        className="block text-xs font-medium text-ink-2 mb-1"
+                      >
+                        ชื่อห้องภาษาไทย (name_th)
+                      </label>
+                      <input
+                        id="admin-room-name"
+                        type="text"
+                        value={editNameTh}
+                        onChange={(e) => setEditNameTh(e.target.value)}
+                        className="input-boxed text-sm py-2"
+                        placeholder="เช่น ห้องบรรยาย 101"
+                      />
+                    </div>
+
+                    <div>
+                      <label
+                        htmlFor="admin-room-capacity"
+                        className="block text-xs font-medium text-ink-2 mb-1"
+                      >
+                        ความจุที่นั่ง (คน)
+                      </label>
+                      <input
+                        id="admin-room-capacity"
+                        type="number"
+                        value={editCapacity}
+                        onChange={(e) => setEditCapacity(e.target.value)}
+                        className="input-boxed text-sm py-2"
+                        placeholder="เช่น 50"
+                      />
+                    </div>
+
+                    <div className="flex gap-2">
+                      <button
+                        type="submit"
+                        disabled={roomSaving}
+                        className="btn btn-primary flex-1 py-2 text-xs"
+                      >
+                        <PencilSimple size={14} weight="bold" />
+                        {roomSaving ? 'กำลังบันทึก...' : 'บันทึกข้อมูลห้อง'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsEditingRoom(false)}
+                        className="btn btn-secondary py-2 px-4 text-xs"
+                      >
+                        ยกเลิก
+                      </button>
+                    </div>
+                  </form>
+
+                  {/* Admin-Only Tucked Danger Zone */}
+                  {userIsAdmin && (
+                    <div className="pt-3 border-t border-red-200 space-y-2">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-red-700">
+                        <Warning size={14} weight="bold" />
+                        Danger Zone
+                      </div>
+                      <p className="text-[11px] text-red-600">
+                        การลบห้องจะลบข้อมูลห้องออกจากฐานข้อมูลอย่างถาวร (เฉพาะ Admin)
+                      </p>
+                      <button
+                        type="button"
+                        onClick={handleDeleteRoom}
+                        disabled={roomSaving}
+                        className="w-full py-2 px-3 rounded-full border border-red-300 bg-white text-red-700 text-xs font-semibold hover:bg-red-100 transition-colors flex items-center justify-center gap-1.5"
+                      >
+                        <Trash size={14} weight="bold" />
+                        ลบห้องนี้…
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Post-Move Confirmation Banner */}
+              {moveNotice && (
+                <div
+                  role="status"
+                  className={`p-3 border text-xs flex items-center justify-between gap-2 ${
+                    moveNotice.refreshFailed
+                      ? 'border-amber-300 bg-amber-50 text-amber-900'
+                      : 'border-emerald-200 bg-emerald-50 text-emerald-900'
+                  }`}
+                >
+                  <span>
+                    ย้าย <span className="font-mono font-bold">{moveNotice.eventCode}</span> ไปห้อง {moveNotice.toRoom} แล้ว
+                    {moveNotice.refreshFailed &&
+                      ' แต่โหลดรายการล่าสุดไม่สำเร็จ กรุณารีเฟรชหน้า'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const dest = rooms.find(
+                        (r) => r.code === moveNotice.toRoom,
+                      )
+                      if (dest) selectRoom(dest)
+                    }}
+                    className="font-semibold underline shrink-0"
+                  >
+                    ไปที่ห้อง {moveNotice.toRoom}
+                  </button>
+                </div>
+              )}
+
+              {/* Room Timetable Section */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-ink-2 flex items-center gap-1.5">
+                    <Calendar size={14} weight="bold" />
+                    ตารางการใช้ห้อง ({roomSchedules.length})
+                  </h4>
+
+                  <div className="flex items-center gap-1.5">
+                    <div className="inline-flex border border-line bg-surface-2 p-0.5">
+                      <button
+                        type="button"
+                        onClick={() => setInspectorScheduleView('grid')}
+                        className={`px-2 py-1 text-[11px] font-semibold flex items-center gap-1 ${
+                          inspectorScheduleView === 'grid'
+                            ? 'bg-ink text-white'
+                            : 'text-ink-2 hover:text-ink'
+                        }`}
+                      >
+                        <SquaresFour size={12} weight="bold" />
+                        ตาราง 5 วัน
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setInspectorScheduleView('list')}
+                        className={`px-2 py-1 text-[11px] font-semibold flex items-center gap-1 ${
+                          inspectorScheduleView === 'list'
+                            ? 'bg-ink text-white'
+                            : 'text-ink-2 hover:text-ink'
+                        }`}
+                      >
+                        <ListBullets size={12} weight="bold" />
+                        รายการ
+                      </button>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        openAddScheduleModal({ roomCode: selectedRoom.code })
+                      }
+                      className="btn btn-primary btn-sm text-xs"
+                    >
+                      <Plus size={12} weight="bold" />
+                      เพิ่มตาราง
+                    </button>
+                  </div>
+                </div>
+
+                {/* 5-Day Mini Timetable Grid View */}
+                {inspectorScheduleView === 'grid' && (
+                  <div className="card p-3 space-y-2">
+                    <div className="flex items-center justify-between text-[10px] font-mono text-ink-3 pl-12 pr-1">
+                      <span>08:00</span>
+                      <span>11:00</span>
+                      <span>14:00</span>
+                      <span>17:00</span>
+                      <span>20:00</span>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      {MINI_GRID_DAYS.map((day) => {
+                        const daySlots = roomSchedules.filter(
+                          (s) => s.dayOfWeek === day,
+                        )
+                        return (
+                          <div key={day} className="flex items-center gap-2">
+                            <span className="w-10 shrink-0 text-[11px] font-bold text-ink-2">
+                              {DAY_LABELS_SHORT_TH[day]}
+                            </span>
+                            <div
+                              onClick={() =>
+                                openAddScheduleModal({
+                                  roomCode: selectedRoom.code,
+                                  dayOfWeek: day,
+                                  startTime: '09:00',
+                                  endTime: '12:00',
+                                })
+                              }
+                              className="relative flex-1 h-12 bg-surface-2/60 border border-line-soft cursor-pointer hover:bg-surface-2 transition-colors"
+                            >
+                              {daySlots.map((slot) => {
+                                const startMins = Math.max(
+                                  0,
+                                  parseMinutes(slot.startTime) -
+                                    GRID_START_HOUR * 60,
+                                )
+                                const endMins = Math.min(
+                                  GRID_TOTAL_MINUTES,
+                                  parseMinutes(slot.endTime) -
+                                    GRID_START_HOUR * 60,
+                                )
+                                const leftPct =
+                                  (startMins / GRID_TOTAL_MINUTES) * 100
+                                const widthPct = Math.max(
+                                  ((endMins - startMins) / GRID_TOTAL_MINUTES) *
+                                    100,
+                                  12,
+                                )
+                                const isExam = slot.eventType === 'exam'
+
+                                return (
+                                  <div
+                                    key={buildScheduleSlotId(slot)}
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      openEditScheduleModal(slot)
+                                    }}
+                                    style={{
+                                      left: `${leftPct}%`,
+                                      width: `${widthPct}%`,
+                                    }}
+                                    className={`group absolute top-1 bottom-1 z-10 px-1.5 py-0.5 overflow-hidden border flex items-center justify-between gap-1 ${
+                                      isExam
+                                        ? 'bg-tertiary border-line text-ink border-l-4 border-l-ink'
+                                        : 'bg-surface-2 border-line-soft text-ink border-l-4 border-l-accent'
+                                    }`}
+                                  >
+                                    <div className="min-w-0">
+                                      <p className="text-[10px] font-bold truncate leading-tight">
+                                        {slot.eventCode}
+                                      </p>
+                                      <p className="text-[9px] font-mono text-ink-3 truncate leading-tight">
+                                        {slot.startTime}–{slot.endTime}
+                                      </p>
+                                    </div>
+                                    <div className="flex items-center gap-0.5 shrink-0">
+                                      <button
+                                        type="button"
+                                        aria-label="แก้ไขตาราง"
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          openEditScheduleModal(slot)
+                                        }}
+                                        className="p-0.5 text-ink-3 hover:text-ink"
+                                      >
+                                        <PencilSimple size={12} weight="bold" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        aria-label="ลบตาราง"
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          handleDeleteSchedule(slot)
+                                        }}
+                                        className="p-0.5 text-ink-3 hover:text-red-600"
+                                      >
+                                        <Trash size={12} weight="bold" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Detailed Schedule List Cards */}
+                {inspectorScheduleView === 'list' && (
+                  <div className="space-y-2">
+                    {roomSchedules.length === 0 ? (
+                      <div className="py-8 text-center text-xs text-ink-3 bg-surface-2 border border-line-soft">
+                        ไม่มีตารางเรียนในห้องนี้
+                      </div>
+                    ) : (
+                      roomSchedules.map((slot) => {
+                        const isExam = slot.eventType === 'exam'
+                        return (
+                          <div
+                            key={buildScheduleSlotId(slot)}
+                            className={`group p-3 border flex items-start justify-between gap-2 ${
+                              isExam
+                                ? 'bg-tertiary border-line text-ink border-l-4 border-l-ink'
+                                : 'bg-surface-2 border-line-soft text-ink border-l-4 border-l-accent'
+                            }`}
+                          >
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-xs font-bold text-ink">
+                                  {slot.eventCode}
+                                </span>
+                                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-surface text-ink-2 border border-line-soft">
+                                  {DAY_LABELS_SHORT_TH[slot.dayOfWeek] ??
+                                    slot.dayOfWeek}{' '}
+                                  {slot.startTime}–{slot.endTime}
+                                </span>
+                                {slot.eventDate && (
+                                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900">
+                                    {slot.eventDate}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs text-ink-2 mt-1 truncate">
+                                {slot.eventName}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button
+                                type="button"
+                                aria-label="แก้ไขตาราง"
+                                onClick={() => openEditScheduleModal(slot)}
+                                className="p-1.5 text-ink-3 hover:text-ink transition-colors"
+                              >
+                                <PencilSimple size={14} weight="bold" />
+                              </button>
+                              <button
+                                type="button"
+                                aria-label="ลบตาราง"
+                                onClick={() => handleDeleteSchedule(slot)}
+                                className="p-1.5 text-ink-3 hover:text-red-600 transition-colors"
+                              >
+                                <Trash size={14} weight="bold" />
+                              </button>
+                            </div>
+                          </div>
+                        )
+                      })
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </aside>
+        )}
+
+        {/* 2-COLUMN CONFLICT-AWARE SCHEDULE & ROOM PICKER MODAL */}
+        {scheduleModalOpen && (
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={
+              editingSlotId ? 'แก้ไขข้อมูลตาราง' : 'เพิ่มตารางสอนใหม่'
+            }
+            className="fixed inset-0 z-110 bg-ink/40 backdrop-blur-[2px] flex items-center justify-center p-4"
+          >
+            <form
+              onSubmit={handleSaveSchedule}
+              className="w-full max-w-[780px] max-h-[90vh] bg-surface border border-line shadow-floating flex flex-col overflow-hidden"
             >
-              เปิดแผงแก้ไข
-            </button>
+              {/* Modal Header */}
+              <div className="px-6 py-4 border-b border-line flex items-center justify-between bg-surface shrink-0">
+                <div>
+                  <h3 className="text-base font-bold text-ink">
+                    {editingSlotId ? 'แก้ไขข้อมูลตาราง' : 'เพิ่มตารางสอนใหม่'}
+                  </h3>
+                  <p className="text-xs text-ink-2 mt-0.5">
+                    ห้องที่เลือก:{' '}
+                    <span className="font-mono font-semibold text-ink">
+                      {targetRoomCode}
+                    </span>
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  aria-label="ปิดหน้าต่างตารางสอน"
+                  onClick={closeScheduleModal}
+                  className="p-1.5 text-ink-2 hover:text-ink hover:bg-surface-2 transition-colors"
+                >
+                  <X size={18} weight="bold" />
+                </button>
+              </div>
+
+              {/* 2-Column Modal Body */}
+              <div className="flex-1 overflow-y-auto grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-line">
+                {/* LEFT COLUMN: Schedule Details Form */}
+                <div className="p-6 space-y-3.5">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-medium text-ink-2 mb-1">
+                        รหัสวิชา *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={formCode}
+                        onChange={(e) => setFormCode(e.target.value)}
+                        className="input-boxed py-2 text-xs"
+                        placeholder="CS333"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-medium text-ink-2 mb-1">
+                        วัน *
+                      </label>
+                      <select
+                        value={formDay}
+                        onChange={(e) =>
+                          setFormDay(e.target.value as DayOfWeek)
+                        }
+                        className="input-boxed py-2 text-xs"
+                      >
+                        {DAYS.map((d) => (
+                          <option key={d.value} value={d.value}>
+                            {d.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-medium text-ink-2 mb-1">
+                      ชื่อวิชา / กิจกรรม
+                    </label>
+                    <input
+                      type="text"
+                      value={formName}
+                      onChange={(e) => setFormName(e.target.value)}
+                      className="input-boxed py-2 text-xs"
+                      placeholder="Computer Science"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <label className="block text-[11px] font-medium text-ink-2 mb-1">
+                        เวลาเริ่ม *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={formStart}
+                        onChange={(e) => setFormStart(e.target.value)}
+                        className="input-boxed py-2 text-xs font-mono"
+                        placeholder="09:00"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-medium text-ink-2 mb-1">
+                        เวลาสิ้นสุด *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={formEnd}
+                        onChange={(e) => setFormEnd(e.target.value)}
+                        className="input-boxed py-2 text-xs font-mono"
+                        placeholder="12:00"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-medium text-ink-2 mb-1">
+                        ประเภท
+                      </label>
+                      <select
+                        value={formType}
+                        onChange={(e) => {
+                          const next = e.target.value as EventType
+                          setFormType(next)
+                          if (!DATE_REQUIRED_TYPES.has(next)) setFormDate('')
+                        }}
+                        className="input-boxed py-2 text-xs"
+                      >
+                        <option value="lecture">บรรยาย (Lecture)</option>
+                        <option value="lab">ปฏิบัติการ (Lab)</option>
+                        <option value="exam">การสอบ (Exam)</option>
+                        <option value="other">อื่นๆ (Other)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {DATE_REQUIRED_TYPES.has(formType) && (
+                    <div>
+                      <label
+                        htmlFor={dateInputId}
+                        className="block text-[11px] font-medium text-ink-2 mb-1"
+                      >
+                        {formType === 'exam' ? 'วันสอบ *' : 'วันที่จัด'}
+                      </label>
+                      <input
+                        id={dateInputId}
+                        type="date"
+                        required={!editingSlotId && formType === 'exam'}
+                        value={formDate}
+                        onChange={(e) => {
+                          const nextDate = e.target.value
+                          setFormDate(nextDate)
+                          const derived = getWeekdayFromDateString(nextDate)
+                          if (derived) setFormDay(derived)
+                        }}
+                        className="input-boxed py-2 text-xs font-mono"
+                      />
+                    </div>
+                  )}
+
+                  {/* Conflict Warning Banner for Selected Target Room */}
+                  {targetRoomConflicts.length > 0 && (
+                    <div
+                      role="alert"
+                      className="p-3 border border-red-300 bg-red-50 text-red-800 text-xs space-y-1"
+                    >
+                      <div className="font-bold flex items-center gap-1.5">
+                        <Warning size={14} weight="bold" />
+                        คำเตือน: ห้อง {targetRoomCode} มีตารางชน
+                      </div>
+                      <p className="text-[11px]">
+                        ชนกับวิชา:{' '}
+                        {targetRoomConflicts
+                          .map(
+                            (c) =>
+                              `${c.eventCode} (${c.startTime}–${c.endTime})`,
+                          )
+                          .join(', ')}
+                      </p>
+                    </div>
+                  )}
+
+                  {scheduleError && (
+                    <p
+                      role="alert"
+                      className="text-xs text-red-600 font-medium"
+                    >
+                      {scheduleError}
+                    </p>
+                  )}
+                </div>
+
+                {/* RIGHT COLUMN: Conflict-Aware Room Picker */}
+                <div className="p-6 bg-surface-2/40 flex flex-col space-y-3 overflow-hidden">
+                  <div>
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-ink-2">
+                      เลือกห้องเรียน (ตรวจสอบเวลาว่างอัตโนมัติ)
+                    </h4>
+                    <p className="text-[11px] text-ink-3 mt-0.5">
+                      แสดงสถานะห้องว่างตามวันและเวลาที่เลือกด้านซ้ายแบบเรียลไทม์
+                    </p>
+                  </div>
+
+                  {/* Accessible RoomCombobox for keyboard search & quick jump when editing */}
+                  {editingSlotId && (
+                    <div className="space-y-1.5">
+                      <label
+                        htmlFor={roomComboboxId}
+                        className="block text-[11px] font-medium text-ink-2"
+                      >
+                        ย้ายไปห้อง
+                      </label>
+                      <RoomCombobox
+                        id={roomComboboxId}
+                        rooms={rooms}
+                        currentRoomCode={modalSourceRoomCode}
+                        value={targetRoomCode}
+                        onChange={setTargetRoomCode}
+                      />
+                      {targetRoomCode !== modalSourceRoomCode && (
+                        <p className="text-xs font-medium text-amber-800">
+                          จะถูกย้ายจาก {modalSourceRoomCode} ไป {targetRoomCode}{' '}
+                          เมื่อบันทึก
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Floor & Capacity Quick Filters */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <select
+                      aria-label="กรองชั้นในหน้าต่างเลือกห้อง"
+                      value={pickerFloorFilter}
+                      onChange={(e) =>
+                        setPickerFloorFilter(
+                          e.target.value === 'ALL'
+                            ? 'ALL'
+                            : Number(e.target.value),
+                        )
+                      }
+                      className="input-boxed py-1.5 px-2 text-xs bg-surface"
+                    >
+                      <option value="ALL">ทุกชั้น</option>
+                      {floors.map((f) => (
+                        <option key={f} value={f}>
+                          ชั้น {f}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      type="number"
+                      aria-label="ความจุขั้นต่ำ"
+                      value={pickerMinCapacity}
+                      onChange={(e) => setPickerMinCapacity(e.target.value)}
+                      placeholder="ความจุขั้นต่ำ (ที่นั่ง)"
+                      className="input-boxed py-1.5 px-2 text-xs bg-surface"
+                    />
+                  </div>
+
+                  {/* Interactive Conflict-Aware Candidate Room Cards */}
+                  <div className="flex-1 max-h-56 overflow-y-auto space-y-1.5 pr-1">
+                    {pickerRooms.map((room) => {
+                      const conflicts =
+                        candidateRoomConflictsMap.get(room.code) || []
+                      const hasConflict = conflicts.length > 0
+                      const isSelected = targetRoomCode === room.code
+
+                      return (
+                        <button
+                          key={room.code}
+                          type="button"
+                          onClick={() => setTargetRoomCode(room.code)}
+                          className={`w-full text-left p-2.5 border transition-colors flex items-center justify-between gap-2 ${
+                            isSelected
+                              ? 'border-ink ring-1 ring-ink bg-surface'
+                              : 'border-line-soft bg-surface hover:bg-surface-2'
+                          }`}
+                        >
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs font-bold text-ink">
+                                {room.code}
+                              </span>
+                              <span className="text-[10px] text-ink-3">
+                                ชั้น {room.floor}
+                              </span>
+                              {room.capacity !== undefined && (
+                                <span className="text-[10px] text-ink-2">
+                                  · {room.capacity} ที่นั่ง
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[11px] text-ink-2 truncate">
+                              {room.nameThai || getCategoryLabel(room.category)}
+                            </p>
+                          </div>
+
+                          <div className="shrink-0">
+                            {hasConflict ? (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200">
+                                ชน: {conflicts[0].eventCode} (
+                                {conflicts[0].startTime}–{conflicts[0].endTime})
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                ว่าง
+                              </span>
+                            )}
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="px-6 py-3.5 border-t border-line bg-surface flex items-center justify-end gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={closeScheduleModal}
+                  className="btn btn-secondary py-2 px-5 text-xs"
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  type="submit"
+                  disabled={scheduleSaving}
+                  className="btn btn-primary py-2 px-6 text-xs"
+                >
+                  {scheduleSaving
+                    ? 'กำลังบันทึก...'
+                    : editingSlotId
+                      ? 'บันทึกการแก้ไข'
+                      : 'บันทึกตารางสอน'}
+                </button>
+              </div>
+            </form>
           </div>
         )}
       </div>

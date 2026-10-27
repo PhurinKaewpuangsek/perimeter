@@ -111,7 +111,10 @@ vi.mock('../../services/authService', () => ({
     currentSession = null
   }),
   isAdmin: () => currentSession?.user.groups.includes('admin') ?? false,
-  isStaff: () => (currentSession?.user.groups.includes('staff') || currentSession?.user.groups.includes('admin')) ?? false,
+  isStaff: () =>
+    (currentSession?.user.groups.includes('staff') ||
+      currentSession?.user.groups.includes('admin')) ??
+    false,
   getUserRole: () => {
     if (currentSession?.user.groups.includes('admin')) return 'admin'
     if (currentSession?.user.groups.includes('staff')) return 'staff'
@@ -152,9 +155,18 @@ vi.mock('../../hooks/usePreloadImages', () => ({
 }))
 
 vi.mock('../map/MapContainer', () => ({
-  default: ({ currentFloor, onSelectRoom }: { currentFloor: number; onSelectRoom: (id: string) => void }) => (
+  default: ({
+    currentFloor,
+    onSelectRoom,
+  }: {
+    currentFloor: number
+    onSelectRoom: (id: string) => void
+  }) => (
     <div data-testid="map-container" data-floor={currentFloor}>
-      <button data-testid="select-marker-button" onClick={() => onSelectRoom('LC3-101')}>
+      <button
+        data-testid="select-marker-button"
+        onClick={() => onSelectRoom('LC3-101')}
+      >
         Click Room 101
       </button>
     </div>
@@ -183,7 +195,9 @@ describe('AdminPage', () => {
     )
 
     expect(screen.getByText('Staff Console')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /บัญชีผู้ใช้ admin@torch.dev/i })).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: /บัญชีผู้ใช้ admin@torch.dev/i }),
+    ).toBeInTheDocument()
     expect(screen.getByText('ห้องและพื้นที่')).toBeInTheDocument()
     expect(screen.getByText('ตารางเวลาทั้งหมด')).toBeInTheDocument()
     expect(screen.getByText('ห้อง 101')).toBeInTheDocument()
@@ -198,18 +212,15 @@ describe('AdminPage', () => {
       </MemoryRouter>,
     )
 
-    // Initially both rooms are visible
     expect(screen.getByText('ห้อง 101')).toBeInTheDocument()
     expect(screen.getByText('ห้อง 201')).toBeInTheDocument()
 
-    // Click Floor 1 pill
     const floor1Pill = screen.getByRole('button', { name: /^ชั้น 1/ })
     await user.click(floor1Pill)
 
     expect(screen.getByText('ห้อง 101')).toBeInTheDocument()
     expect(screen.queryByText('ห้อง 201')).not.toBeInTheDocument()
 
-    // Click Floor 2 pill
     const floor2Pill = screen.getByRole('button', { name: /^ชั้น 2/ })
     await user.click(floor2Pill)
 
@@ -217,7 +228,7 @@ describe('AdminPage', () => {
     expect(screen.getByText('ห้อง 201')).toBeInTheDocument()
   })
 
-  it('shows Danger Zone and schedule delete buttons when logged in as admin', async () => {
+  it('shows Danger Zone and schedule delete buttons when logged in as admin via progressive disclosure', async () => {
     const user = userEvent.setup()
     render(
       <MemoryRouter>
@@ -229,14 +240,16 @@ describe('AdminPage', () => {
     await user.click(roomButton)
 
     expect(screen.getByText('กลับไปรายการห้อง')).toBeInTheDocument()
-    expect(screen.getByText('แก้ไขข้อมูลห้อง')).toBeInTheDocument()
+    expect(screen.getByText('CS101')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'ลบตาราง' })).toBeInTheDocument()
+
+    // Read-only by default until "แก้ไขข้อมูลห้อง" is clicked
+    expect(screen.queryByDisplayValue('ห้องบรรยาย 101')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /แก้ไขข้อมูลห้อง/ }))
+
     expect(screen.getByDisplayValue('ห้องบรรยาย 101')).toBeInTheDocument()
     expect(screen.getByDisplayValue('50')).toBeInTheDocument()
-    expect(screen.getByText('CS101')).toBeInTheDocument()
-
-    // Admin sees Danger Zone and delete button for schedule
     expect(screen.getByText('Danger Zone')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'ลบตาราง' })).toBeInTheDocument()
   })
 
   it('hides Danger Zone when logged in as staff while allowing schedule deletion (BUG-09)', async () => {
@@ -258,20 +271,25 @@ describe('AdminPage', () => {
       </MemoryRouter>,
     )
 
-    expect(screen.getByRole('button', { name: /บัญชีผู้ใช้ staff@torch.dev/i })).toHaveTextContent('staff')
+    expect(
+      screen.getByRole('button', { name: /บัญชีผู้ใช้ staff@torch.dev/i }),
+    ).toHaveTextContent('staff')
 
     const roomButton = screen.getByText('ห้อง 101').closest('button')!
     await user.click(roomButton)
 
-    expect(screen.getByText('แก้ไขข้อมูลห้อง')).toBeInTheDocument()
-    // Room deletion Danger Zone remains restricted to admin
+    await user.click(screen.getByRole('button', { name: /แก้ไขข้อมูลห้อง/ }))
     expect(screen.queryByText('Danger Zone')).not.toBeInTheDocument()
-    // Staff can both edit and delete schedule rows (BUG-09)
-    expect(screen.getByRole('button', { name: 'แก้ไขตาราง' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'แก้ไขตาราง' }),
+    ).toBeInTheDocument()
     const deleteBtn = screen.getByRole('button', { name: 'ลบตาราง' })
     expect(deleteBtn).toBeInTheDocument()
     await user.click(deleteBtn)
-    expect(adminServiceMock.deleteSchedule).toHaveBeenCalledWith('LC3-101', 'MON#09:30#CS101')
+    expect(adminServiceMock.deleteSchedule).toHaveBeenCalledWith(
+      'LC3-101',
+      'MON#09:30#CS101',
+    )
     confirmSpy.mockRestore()
   })
 
@@ -287,7 +305,7 @@ describe('AdminPage', () => {
     expect(screen.getByText('ยังไม่มีห้องหรือทางเดินที่ปิด')).toBeInTheDocument()
   })
 
-  it('switches to All Schedules view tab', async () => {
+  it('switches to All Schedules Master Timetable view tab', async () => {
     const user = userEvent.setup()
     render(
       <MemoryRouter>
@@ -303,6 +321,30 @@ describe('AdminPage', () => {
     expect(screen.getByText('CS201')).toBeInTheDocument()
   })
 
+  it('shows live conflict badges in the 2-column schedule modal room picker', async () => {
+    const user = userEvent.setup()
+    render(
+      <MemoryRouter>
+        <AdminPage />
+      </MemoryRouter>,
+    )
+
+    await user.click(screen.getByText('ห้อง 101').closest('button')!)
+    await user.click(screen.getByRole('button', { name: /เพิ่มตาราง/ }))
+
+    const dialog = screen.getByRole('dialog', { name: 'เพิ่มตารางสอนใหม่' })
+    // Fill a Monday 10:00-11:00 slot, which overlaps CS101 (MON 09:30-12:30) in LC3-101
+    await user.type(within(dialog).getByPlaceholderText('09:00'), '10:00')
+    await user.type(within(dialog).getByPlaceholderText('12:00'), '11:00')
+
+    expect(
+      within(dialog).getByText(/ชน: CS101 \(09:30–12:30\)/),
+    ).toBeInTheDocument()
+    expect(
+      within(dialog).getByText(/คำเตือน: ห้อง LC3-101 มีตารางชน/),
+    ).toBeInTheDocument()
+  })
+
   it('signs out via AccountMenu', async () => {
     const { signOut } = await import('../../services/authService')
     const user = userEvent.setup()
@@ -312,7 +354,9 @@ describe('AdminPage', () => {
       </MemoryRouter>,
     )
 
-    const accountTrigger = screen.getByRole('button', { name: /บัญชีผู้ใช้ admin@torch.dev/i })
+    const accountTrigger = screen.getByRole('button', {
+      name: /บัญชีผู้ใช้ admin@torch.dev/i,
+    })
     await user.click(accountTrigger)
 
     const signOutBtn = screen.getByRole('button', { name: /ออกจากระบบ/i })
@@ -346,7 +390,10 @@ describe('AdminPage exam date (event_date)', () => {
     return { user, form: within(form) }
   }
 
-  async function fillRequired(user: ReturnType<typeof userEvent.setup>, form: ReturnType<typeof within>) {
+  async function fillRequired(
+    user: ReturnType<typeof userEvent.setup>,
+    form: ReturnType<typeof within>,
+  ) {
     await user.type(form.getByPlaceholderText('CS333'), 'BAS350')
     await user.type(form.getByPlaceholderText('09:00'), '13:00')
     await user.type(form.getByPlaceholderText('12:00'), '16:00')
@@ -403,7 +450,11 @@ describe('AdminPage exam date (event_date)', () => {
     await user.click(form.getByRole('button', { name: /บันทึกตารางสอน/ }))
 
     expect(adminServiceMock.createSchedule).toHaveBeenCalledWith(
-      expect.objectContaining({ event_code: 'BAS350', event_type: 'exam', event_date: '2026-05-18' }),
+      expect.objectContaining({
+        event_code: 'BAS350',
+        event_type: 'exam',
+        event_date: '2026-05-18',
+      }),
     )
   })
 
@@ -420,7 +471,9 @@ describe('AdminPage exam date (event_date)', () => {
 
   it('shows the error message returned by the API', async () => {
     adminServiceMock.createSchedule.mockRejectedValueOnce(
-      new Error('Invalid event_date: use a real calendar date in YYYY-MM-DD format'),
+      new Error(
+        'Invalid event_date: use a real calendar date in YYYY-MM-DD format',
+      ),
     )
     const { user, form } = await openCreateForm()
     await fillRequired(user, form)
@@ -440,7 +493,9 @@ describe('AdminPage exam date (event_date)', () => {
     )
     await user.click(screen.getByText('ห้อง 201').closest('button')!)
     const examRow = screen.getByText('BAS350').closest('div.group') as HTMLElement
-    await user.click(within(examRow).getByRole('button', { name: 'แก้ไขตาราง' }))
+    await user.click(
+      within(examRow).getByRole('button', { name: 'แก้ไขตาราง' }),
+    )
 
     expect(screen.getByLabelText(/วันสอบ/)).toHaveValue('2026-05-18')
     await user.click(screen.getByRole('button', { name: 'บันทึกการแก้ไข' }))
@@ -461,7 +516,9 @@ describe('AdminPage exam date (event_date)', () => {
     )
     await user.click(screen.getByText('ห้อง 201').closest('button')!)
     const examRow = screen.getByText('BAS350').closest('div.group') as HTMLElement
-    await user.click(within(examRow).getByRole('button', { name: 'แก้ไขตาราง' }))
+    await user.click(
+      within(examRow).getByRole('button', { name: 'แก้ไขตาราง' }),
+    )
     await user.selectOptions(screen.getByDisplayValue('การสอบ (Exam)'), 'lab')
     await user.click(screen.getByRole('button', { name: 'บันทึกการแก้ไข' }))
 
@@ -479,7 +536,9 @@ describe('AdminPage exam date (event_date)', () => {
     await user.type(form.getByPlaceholderText('12:00'), '16:00')
     await user.click(form.getByRole('button', { name: /บันทึกตารางสอน/ }))
 
-    expect(form.getByText(/กรุณาระบุเวลาเป็นรูปแบบ HH:MM/)).toBeInTheDocument()
+    expect(
+      form.getByText(/กรุณาระบุเวลาเป็นรูปแบบ HH:MM/),
+    ).toBeInTheDocument()
     expect(adminServiceMock.createSchedule).not.toHaveBeenCalled()
 
     await user.clear(form.getByPlaceholderText('09:00'))
@@ -488,7 +547,9 @@ describe('AdminPage exam date (event_date)', () => {
     await user.type(form.getByPlaceholderText('12:00'), '09:00')
     await user.click(form.getByRole('button', { name: /บันทึกตารางสอน/ }))
 
-    expect(form.getByText(/เวลาสิ้นสุดต้องมากกว่าเวลาเริ่ม/)).toBeInTheDocument()
+    expect(
+      form.getByText(/เวลาสิ้นสุดต้องมากกว่าเวลาเริ่ม/),
+    ).toBeInTheDocument()
     expect(adminServiceMock.createSchedule).not.toHaveBeenCalled()
   })
 
@@ -547,7 +608,11 @@ describe('AdminPage move schedule to another room (#153)', () => {
       .map((o) => o.textContent)
 
   /** Opens the room field, types the query and picks the option whose text starts with label. */
-  async function moveTo(user: ReturnType<typeof userEvent.setup>, query: string, label: RegExp) {
+  async function moveTo(
+    user: ReturnType<typeof userEvent.setup>,
+    query: string,
+    label: RegExp,
+  ) {
     await user.click(roomBox())
     await user.type(roomBox(), query)
     await user.click(screen.getByRole('option', { name: label }))
@@ -555,7 +620,9 @@ describe('AdminPage move schedule to another room (#153)', () => {
 
   it('shows the room field only while editing; it opens as a dropdown of every room', async () => {
     const user = await openRoom101()
-    expect(screen.queryByRole('combobox', { name: 'ย้ายไปห้อง' })).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('combobox', { name: 'ย้ายไปห้อง' }),
+    ).not.toBeInTheDocument()
 
     await editCs101(user)
     expect(roomBox()).toHaveValue('LC3-101 · ห้องบรรยาย 101')
@@ -603,7 +670,9 @@ describe('AdminPage move schedule to another room (#153)', () => {
 
     await user.type(roomBox(), '201{Enter}')
     expect(roomBox()).toHaveValue('LC3-201 · ห้องปฏิบัติการ 201')
-    expect(screen.getByText(/จะถูกย้ายจาก LC3-101 ไป LC3-201/)).toBeInTheDocument()
+    expect(
+      screen.getByText(/จะถูกย้ายจาก LC3-101 ไป LC3-201/),
+    ).toBeInTheDocument()
   })
 
   it('does not send room_code when the room is unchanged', async () => {
@@ -612,7 +681,8 @@ describe('AdminPage move schedule to another room (#153)', () => {
     await user.click(screen.getByRole('button', { name: 'บันทึกการแก้ไข' }))
 
     expect(adminServiceMock.updateSchedule).toHaveBeenCalledTimes(1)
-    const [, , payload] = adminServiceMock.updateSchedule.mock.calls[0] as unknown as [string, string, object]
+    const [, , payload] = adminServiceMock.updateSchedule.mock
+      .calls[0] as unknown as [string, string, object]
     expect(payload).not.toHaveProperty('room_code')
     expect(payload).not.toHaveProperty('location_id')
   })
@@ -621,7 +691,9 @@ describe('AdminPage move schedule to another room (#153)', () => {
     const user = await openRoom101()
     await editCs101(user)
     await moveTo(user, '201', /^LC3-201/)
-    expect(screen.getByText(/จะถูกย้ายจาก LC3-101 ไป LC3-201/)).toBeInTheDocument()
+    expect(
+      screen.getByText(/จะถูกย้ายจาก LC3-101 ไป LC3-201/),
+    ).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'บันทึกการแก้ไข' }))
 
@@ -633,13 +705,20 @@ describe('AdminPage move schedule to another room (#153)', () => {
     expect(await screen.findByText(/ไปห้อง LC3-201 แล้ว/)).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'ไปที่ห้อง LC3-201' }))
+    expect(
+      screen.getByRole('complementary', { name: 'ข้อมูลห้อง LC3-201' }),
+    ).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /แก้ไขข้อมูลห้อง/ }))
     expect(screen.getByDisplayValue('ห้องปฏิบัติการ 201')).toBeInTheDocument()
   })
 
   it('shows the move notice only after the schedule list has refreshed', async () => {
     let finishRefresh: () => void = () => {}
     reloadSchedulesMock.mockImplementationOnce(
-      () => new Promise<void>((resolve) => { finishRefresh = resolve }),
+      () =>
+        new Promise<void>((resolve) => {
+          finishRefresh = resolve
+        }),
     )
     const user = await openRoom101()
     await editCs101(user)
@@ -651,7 +730,9 @@ describe('AdminPage move schedule to another room (#153)', () => {
 
     finishRefresh()
     expect(await screen.findByText(/ไปห้อง LC3-201 แล้ว/)).toBeInTheDocument()
-    expect(screen.queryByText(/โหลดรายการล่าสุดไม่สำเร็จ/)).not.toBeInTheDocument()
+    expect(
+      screen.queryByText(/โหลดรายการล่าสุดไม่สำเร็จ/),
+    ).not.toBeInTheDocument()
   })
 
   it('says the list could not refresh when the reload after a move fails', async () => {
@@ -662,18 +743,24 @@ describe('AdminPage move schedule to another room (#153)', () => {
     await user.click(screen.getByRole('button', { name: 'บันทึกการแก้ไข' }))
 
     expect(
-      await screen.findByText(/ไปห้อง LC3-201 แล้ว แต่โหลดรายการล่าสุดไม่สำเร็จ กรุณารีเฟรชหน้า/),
+      await screen.findByText(
+        /ไปห้อง LC3-201 แล้ว แต่โหลดรายการล่าสุดไม่สำเร็จ กรุณารีเฟรชหน้า/,
+      ),
     ).toBeInTheDocument()
   })
 
   it('shows the 409 conflict message and keeps the editor open', async () => {
-    adminServiceMock.updateSchedule.mockRejectedValueOnce(new Error('มีรายการเวลา/รหัสเดียวกันในห้องนั้นแล้ว'))
+    adminServiceMock.updateSchedule.mockRejectedValueOnce(
+      new Error('มีรายการเวลา/รหัสเดียวกันในห้องนั้นแล้ว'),
+    )
     const user = await openRoom101()
     await editCs101(user)
     await moveTo(user, '201', /^LC3-201/)
     await user.click(screen.getByRole('button', { name: 'บันทึกการแก้ไข' }))
 
-    expect(await screen.findByText('มีรายการเวลา/รหัสเดียวกันในห้องนั้นแล้ว')).toBeInTheDocument()
+    expect(
+      await screen.findByText('มีรายการเวลา/รหัสเดียวกันในห้องนั้นแล้ว'),
+    ).toBeInTheDocument()
     expect(roomBox()).toHaveValue('LC3-201 · ห้องปฏิบัติการ 201')
     expect(screen.queryByText(/ไปห้อง LC3-201 แล้ว/)).not.toBeInTheDocument()
   })

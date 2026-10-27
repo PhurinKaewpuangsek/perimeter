@@ -29,6 +29,8 @@ export interface TopBarProps {
   onFloorChange?: (floor: number) => void
   mapView?: '2d' | '3d'
   onToggleMapView?: () => void
+  /** Optional control group rendered inside the bottom-center dock (e.g. /staff mode switcher). */
+  dockExtra?: ReactNode
 }
 
 /** Height of the fixed top bar in px. Pages offset their content with `top-16` / `pt-16`. */
@@ -98,8 +100,8 @@ function WorkspaceLink({
  *
  * - Left: back-to-home brand lockup, console title, sidebar toggle.
  * - Right: My Schedule link and the account menu / sign-in button.
- * - Bottom-centre dock (>= sm): workspace switcher (staff/admin), floor switcher, 2D/3D toggle,
- *   centred over the visible map canvas (offset by the sidebar width when it is open).
+ * - Bottom-centre dock (>= sm): workspace switcher (staff/admin), optional dockExtra,
+ *   floor switcher, 2D/3D toggle, centred over the visible map canvas.
  */
 export default function TopBar({
   className = '',
@@ -110,6 +112,7 @@ export default function TopBar({
   onFloorChange,
   mapView,
   onToggleMapView,
+  dockExtra,
 }: TopBarProps) {
   const [session, setSession] = useState<AuthSession | null>(() => getSession())
   const [isWorkspaceOpen, setIsWorkspaceOpen] = useState(false)
@@ -166,7 +169,7 @@ export default function TopBar({
   const hasFloorSwitcher = currentFloor !== undefined && Boolean(onFloorChange)
   const hasViewToggle = mapView !== undefined && Boolean(onToggleMapView)
   // The My Schedule drawer sits below the top bar (z-95 < z-100), so the dock hides while it is open.
-  const showDock = (isStaffOrAdmin || hasFloorSwitcher || hasViewToggle) && !isDrawerOpen
+  const showDock = (isStaffOrAdmin || Boolean(dockExtra) || hasFloorSwitcher || hasViewToggle) && !isDrawerOpen
 
   function closeWorkspace() {
     setIsWorkspaceOpen(false)
@@ -320,9 +323,18 @@ export default function TopBar({
             </div>
           )}
 
-          {hasFloorSwitcher && onFloorChange && (
+          {dockExtra && (
             <>
               {isStaffOrAdmin && <span aria-hidden="true" className="mx-1 h-5 w-px shrink-0 bg-line-soft" />}
+              {dockExtra}
+            </>
+          )}
+
+          {hasFloorSwitcher && onFloorChange && (
+            <>
+              {(isStaffOrAdmin || Boolean(dockExtra)) && (
+                <span aria-hidden="true" className="mx-1 h-5 w-px shrink-0 bg-line-soft" />
+              )}
               <div role="group" aria-label="Floor switcher" className="gooey-switch-group">
                 {(() => {
                   const activeIdx = Math.max(

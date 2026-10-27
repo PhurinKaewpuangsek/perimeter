@@ -1,3 +1,6 @@
+export type DayOfWeek = 'MON' | 'TUE' | 'WED' | 'THU' | 'FRI' | 'SAT' | 'SUN'
+export type EventType = 'lecture' | 'lab' | 'exam' | 'other'
+
 export interface ScheduleSlot {
   roomCode: string
   eventCode: string
