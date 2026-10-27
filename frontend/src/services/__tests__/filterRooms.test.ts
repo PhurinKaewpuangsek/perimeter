@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert'
-import { filterRooms } from '../filterRooms.ts'
+import { filterRooms, findExams, isExamSearchQuery } from '../filterRooms.ts'
 import type { Room } from '../../types/room.ts'
 import type { ScheduleSlot } from '../../types/schedule.ts'
 
@@ -71,10 +71,161 @@ const sampleSchedules: ScheduleSlot[] = [
   },
 ]
 
+const examSchedules: ScheduleSlot[] = [
+  {
+    roomCode: 'LC3-103',
+    eventCode: 'BAS350',
+    eventName: 'Exam - BAS350',
+    dayOfWeek: 'MON',
+    startTime: '13:00',
+    endTime: '16:00',
+    eventType: 'exam',
+    eventDate: '2026-05-18',
+  },
+  {
+    roomCode: 'LC3-201',
+    eventCode: 'BAS350',
+    eventName: 'BAS 350',
+    dayOfWeek: 'TUE',
+    startTime: '09:00',
+    endTime: '12:00',
+    eventType: 'exam',
+    eventDate: '2026-05-20',
+  },
+  {
+    roomCode: 'LC3-102',
+    eventCode: 'BAS350',
+    eventName: 'BAS350',
+    dayOfWeek: 'FRI',
+    startTime: '08:00',
+    endTime: '10:00',
+    eventType: 'exam',
+    eventDate: '2026-04-30',
+  },
+  {
+    roomCode: 'LC3-103',
+    eventCode: 'BAS350',
+    eventName: 'BAS350',
+    dayOfWeek: 'MON',
+    startTime: '13:00',
+    endTime: '16:00',
+    eventType: 'class',
+    eventDate: '2026-05-18',
+  },
+]
+
 describe('filterRooms()', () => {
+  it('distinguishes course searches from exact room codes and known class-only subjects', () => {
+    assert.strictEqual(isExamSearchQuery('bas 350', sampleRooms), true)
+    assert.strictEqual(isExamSearchQuery('LC3-103', sampleRooms), false)
+    assert.strictEqual(isExamSearchQuery('ห้องเรียน 1', sampleRooms), false)
+    assert.strictEqual(isExamSearchQuery('lab 1', sampleRooms), false)
+    assert.strictEqual(isExamSearchQuery('CS361', sampleRooms, sampleSchedules), false)
+    assert.strictEqual(isExamSearchQuery('CS361 13:00', sampleRooms, sampleSchedules), true)
+    assert.strictEqual(isExamSearchQuery('MISSING123', sampleRooms), true)
+  })
+
   it('returns every room when query is empty and category is "all"', () => {
     const result = filterRooms(sampleRooms, '', 'all')
     assert.strictEqual(result.length, sampleRooms.length)
+  })
+
+  describe('findExams()', () => {
+    it('matches course codes without regard to case or spaces', () => {
+      assert.deepStrictEqual(
+        findExams(examSchedules, 'bas 350', { today: '2026-05-01' }).map((exam) => exam.roomCode),
+        ['LC3-103', 'LC3-201']
+      )
+    })
+
+    it('supports course-only searches and optional exact dates', () => {
+      const allMatches = findExams(examSchedules, 'BAS350', { today: '2026-05-01' })
+      const datedMatch = findExams(examSchedules, 'BAS350 2026-05-20', {
+        today: '2026-05-01',
+      })
+
+      assert.strictEqual(allMatches.length, 2)
+      assert.deepStrictEqual(datedMatch.map((exam) => exam.roomCode), ['LC3-201'])
+    })
+
+    it('accepts slash dates and Thai abbreviated dates', () => {
+      for (const dateQuery of ['18/05/2026', '18/5/2026', '18 พ.ค.', '18 พ.ค. 2569']) {
+        assert.deepStrictEqual(
+          findExams(examSchedules, `BAS350 ${dateQuery}`, {
+            today: '2026-04-01',
+            includePast: true,
+          }).map((exam) => exam.roomCode),
+          ['LC3-103']
+        )
+      }
+    })
+
+    it('supports the two-argument call and defaults to upcoming exams', () => {
+      const futureExam: ScheduleSlot = {
+        ...examSchedules[0],
+        eventDate: '2099-05-18',
+      }
+
+      assert.deepStrictEqual(findExams([futureExam], 'BAS350'), [futureExam])
+    })
+
+    it('accepts dot or colon time notation and matches start times or times during the exam', () => {
+      assert.deepStrictEqual(
+        findExams(examSchedules, 'BAS350 13.00', { today: '2026-05-01' }).map(
+          (exam) => exam.roomCode
+        ),
+        ['LC3-103']
+      )
+      assert.deepStrictEqual(
+        findExams(examSchedules, 'BAS350 14:30', { today: '2026-05-01' }).map(
+          (exam) => exam.roomCode
+        ),
+        ['LC3-103']
+      )
+    })
+
+    it('returns all rooms and sittings ordered by date then start time', () => {
+      const result = findExams(examSchedules, 'BAS350', {
+        includePast: true,
+        today: '2026-05-01',
+      })
+
+      assert.deepStrictEqual(
+        result.map((exam) => `${exam.eventDate} ${exam.startTime} ${exam.roomCode}`),
+        [
+          '2026-04-30 08:00 LC3-102',
+          '2026-05-18 13:00 LC3-103',
+          '2026-05-20 09:00 LC3-201',
+        ]
+      )
+    })
+
+    it('excludes past exams by default but can include them explicitly', () => {
+      assert.strictEqual(findExams(examSchedules, 'BAS350', { today: '2026-05-01' }).length, 2)
+      assert.strictEqual(
+        findExams(examSchedules, 'BAS350', { includePast: true, today: '2026-05-01' }).length,
+        3
+      )
+    })
+
+    it('returns no results for a missing course or time/date combination', () => {
+      assert.deepStrictEqual(findExams(examSchedules, 'MISSING101', { today: '2026-05-01' }), [])
+      assert.deepStrictEqual(
+        findExams(examSchedules, 'BAS350 17:00', { today: '2026-05-01' }),
+        []
+      )
+    })
+
+    it('uses only the supplied reference date when deciding which exams are past', () => {
+      const asOfMayFirst = findExams(examSchedules, 'BAS350', { today: '2026-05-01' })
+      const asOfMayTwentyFirst = findExams(examSchedules, 'BAS350', { today: '2026-05-21' })
+
+      assert.deepStrictEqual(asOfMayFirst.map((exam) => exam.eventDate), [
+        '2026-05-18',
+        '2026-05-20',
+      ])
+      assert.deepStrictEqual(asOfMayTwentyFirst, [])
+    })
   })
 
   it('matches by room code, case-insensitively', () => {

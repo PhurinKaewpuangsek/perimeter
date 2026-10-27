@@ -10,3 +10,67 @@ export function getExamDateLabel(
   if (!isExamSchedule(schedule)) return null
   return schedule.eventDate || 'date to be announced'
 }
+
+const THAI_SHORT_MONTHS = [
+  'ม.ค.',
+  'ก.พ.',
+  'มี.ค.',
+  'เม.ย.',
+  'พ.ค.',
+  'มิ.ย.',
+  'ก.ค.',
+  'ส.ค.',
+  'ก.ย.',
+  'ต.ค.',
+  'พ.ย.',
+  'ธ.ค.',
+]
+
+const THAI_SHORT_DAYS = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.']
+const THAI_SHORT_DAY_LABELS: Record<string, string> = {
+  MON: 'จ.',
+  MONDAY: 'จ.',
+  TUE: 'อ.',
+  TUESDAY: 'อ.',
+  WED: 'พ.',
+  WEDNESDAY: 'พ.',
+  THU: 'พฤ.',
+  THURSDAY: 'พฤ.',
+  FRI: 'ศ.',
+  FRIDAY: 'ศ.',
+  SAT: 'ส.',
+  SATURDAY: 'ส.',
+  SUN: 'อา.',
+  SUNDAY: 'อา.',
+}
+
+export function formatLocalDate(date: Date): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+export function getThaiShortDayLabel(dayOfWeek: string): string {
+  const day = dayOfWeek.toUpperCase()
+  return THAI_SHORT_DAY_LABELS[day] ?? dayOfWeek
+}
+
+export function formatExamDateTime(
+  schedule: Pick<ScheduleSlot, 'eventDate' | 'dayOfWeek' | 'startTime' | 'endTime'>
+): string {
+  const timeRange = `${schedule.startTime}–${schedule.endTime}`
+  const dateMatch = schedule.eventDate?.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+
+  if (!dateMatch) {
+    const dayLabel = getThaiShortDayLabel(schedule.dayOfWeek)
+    return `${dayLabel === schedule.dayOfWeek ? 'วันสอบยังไม่ประกาศ' : dayLabel} ${timeRange}`
+  }
+
+  const [, year, month, date] = dateMatch
+  const dateObject = new Date(Date.UTC(Number(year), Number(month) - 1, Number(date)))
+  const day = THAI_SHORT_DAYS[dateObject.getUTCDay()]
+  const monthLabel = THAI_SHORT_MONTHS[Number(month) - 1]
+
+  return `${day} ${Number(date)} ${monthLabel} ${Number(year) + 543} ${timeRange}`
+}

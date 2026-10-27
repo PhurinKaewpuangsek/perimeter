@@ -48,6 +48,7 @@ import {
   scheduleMatchesQuery,
   DEFAULT_CATEGORY_KEY,
 } from '../services/filterRooms'
+import { useExamSearch } from '../hooks/useExamSearch'
 import {
   getBuildingLabel,
   getCategoryLabel,
@@ -57,7 +58,7 @@ import {
 import { getCategoryIcon } from './categoryIcon'
 import { buildGoogleCalendarUrl } from '../services/calendarExport'
 import { computeScheduleSlot } from '../hooks/usePins'
-import { isExamSchedule } from '../services/scheduleDisplay'
+import { formatLocalDate, isExamSchedule } from '../services/scheduleDisplay'
 import { useRoomSchedules } from '../hooks/useRoomSchedules'
 import type { Room } from '../types/room'
 import type { ScheduleSlot } from '../types/schedule'
@@ -353,6 +354,7 @@ export default function MapPage() {
   const [searchParams] = useSearchParams()
   const initialQuery = searchParams.get('q') ?? ''
   const initialRoomId = searchParams.get('room') ?? null
+  const initialDestinationId = searchParams.get('navigate') ?? null
 
   const isDesktop = useIsDesktop()
 
@@ -384,19 +386,27 @@ export default function MapPage() {
   // Resolve a cold deep link after the room response arrives, until the user
   // explicitly chooses a floor. useState(initialRoom.floor) misses async data.
   const [floorOverride, setCurrentFloor] = useState<number | null>(null)
-  const currentFloor = floorOverride ?? targetInitialRoom?.floor ?? 1
-  const [selectedRoomId, setSelectedRoomId] = useState<string | null>(initialRoomId)
+  const currentFloor =
+    floorOverride ??
+    (initialDestinationId
+      ? BUILDING_ENTRANCE_FLOOR
+      : targetInitialRoom?.floor ?? 1)
+  const [selectedRoomId, setSelectedRoomId] = useState<string | null>(
+    initialRoomId ?? initialDestinationId
+  )
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false)
   const [mapView, setMapView] = useState<'2d' | '3d'>('3d')
   const [query, setQuery] = useState(initialQuery)
   const [categoryKey, setCategoryKey] = useState(DEFAULT_CATEGORY_KEY)
-  const [isDropdownOpen, setIsDropdownOpen] = useState(Boolean(initialQuery && !initialRoomId))
+  const [isDropdownOpen, setIsDropdownOpen] = useState(
+    Boolean(initialQuery && !initialRoomId && !initialDestinationId)
+  )
   const [isFilterExpanded, setIsFilterExpanded] = useState(false)
   const [activeScheduleTab, setActiveScheduleTab] = useState<'class' | 'exam'>('class')
   // Navigation (#145): active while a destination is set. Indoors there is no usable
   // GPS, so the start is picked by hand and defaults to the building entrance.
   const [routeFrom, setRouteFrom] = useState(BUILDING_ENTRANCE_ID)
-  const [routeTo, setRouteTo] = useState<string | null>(null)
+  const [routeTo, setRouteTo] = useState<string | null>(initialDestinationId)
   const isNavigating = routeTo !== null
   const routeState = useRoute(isNavigating ? routeFrom : null, routeTo)
 
@@ -446,6 +456,13 @@ export default function MapPage() {
     const searchTerms = getExpandedSearchTerms(query)
     return schedules.filter((schedule) => scheduleMatchesQuery(schedule, searchTerms))
   }, [query, schedules])
+  const {
+    examResults,
+    examSearchActive,
+    pastExamsAvailable,
+    showPastExams,
+    toggleShowPastExams,
+  } = useExamSearch(query, rooms, schedules, formatLocalDate(now))
 
   function handleSelectRoom(roomId: string) {
     setSelectedRoomId(roomId)
@@ -790,12 +807,19 @@ export default function MapPage() {
                     <div>
                       <SearchResultList
                         rooms={searchResults}
+                        allRooms={rooms}
                         schedules={matchedSchedules}
+                        examResults={examResults}
+                        examSearchActive={examSearchActive}
+                        pastExamsAvailable={pastExamsAvailable}
+                        showPastExams={showPastExams}
+                        onToggleShowPastExams={toggleShowPastExams}
                         schedulesLoading={schedulesLoading}
                         schedulesError={schedulesError}
                         loading={loading}
                         error={error}
                         onSelectRoom={handleSelectRoom}
+                        onNavigateToRoom={handleNavigate}
                       />
                     </div>
                   ) : (
@@ -931,7 +955,7 @@ export default function MapPage() {
                   >
                     <div className="mb-2 flex items-center justify-between border-b border-line-soft pb-2">
                       <span className="text-xs font-bold text-ink-2">
-                        ผลการค้นหา ({searchResults.length})
+                        ผลการค้นหา ({examSearchActive ? examResults.length : searchResults.length})
                       </span>
                       <button
                         type="button"
@@ -943,12 +967,19 @@ export default function MapPage() {
                     </div>
                     <SearchResultList
                       rooms={searchResults}
+                      allRooms={rooms}
                       schedules={matchedSchedules}
+                      examResults={examResults}
+                      examSearchActive={examSearchActive}
+                      pastExamsAvailable={pastExamsAvailable}
+                      showPastExams={showPastExams}
+                      onToggleShowPastExams={toggleShowPastExams}
                       schedulesLoading={schedulesLoading}
                       schedulesError={schedulesError}
                       loading={loading}
                       error={error}
                       onSelectRoom={handleSelectRoom}
+                      onNavigateToRoom={handleNavigate}
                     />
                   </div>
                 </>

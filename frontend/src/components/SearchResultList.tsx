@@ -1,15 +1,29 @@
 import type { Room } from '../types/room.ts'
 import type { ScheduleSlot } from '../types/schedule.ts'
-import { getExamDateLabel, isExamSchedule } from '../services/scheduleDisplay.ts'
+import {
+  getExamDateLabel,
+  formatExamDateTime,
+  getThaiShortDayLabel,
+  isExamSchedule,
+} from '../services/scheduleDisplay.ts'
+import { getSession } from '../services/authService.ts'
+import PinButton from './PinButton.tsx'
 
 interface SearchResultListProps {
   rooms: Room[]
+  allRooms?: Room[]
   schedules: ScheduleSlot[]
+  examResults?: ScheduleSlot[]
+  examSearchActive?: boolean
+  pastExamsAvailable?: boolean
+  showPastExams?: boolean
+  onToggleShowPastExams?: () => void
   schedulesLoading: boolean
   schedulesError: Error | null
   loading: boolean
   error: Error | null
   onSelectRoom: (roomId: string) => void
+  onNavigateToRoom?: (roomId: string) => void
   /**
    * 'preview' (default): Modern Top 2 Preview + more badge for sidebar & landing
    * 'legacy': Raw text strings for backwards-compatibility with existing unit tests
@@ -34,33 +48,92 @@ const DAY_ORDER: Record<string, number> = {
   SUNDAY: 7,
 }
 
-const DAY_SHORT_TH: Record<string, string> = {
-  MON: 'จ.',
-  MONDAY: 'จ.',
-  TUE: 'อ.',
-  TUESDAY: 'อ.',
-  WED: 'พ.',
-  WEDNESDAY: 'พ.',
-  THU: 'พฤ.',
-  THURSDAY: 'พฤ.',
-  FRI: 'ศ.',
-  FRIDAY: 'ศ.',
-  SAT: 'ส.',
-  SATURDAY: 'ส.',
-  SUN: 'อา.',
-  SUNDAY: 'อา.',
-}
-
 export default function SearchResultList({
   rooms,
+  allRooms = rooms,
   schedules,
+  examResults = [],
+  examSearchActive = false,
+  pastExamsAvailable = false,
+  showPastExams = false,
+  onToggleShowPastExams,
   schedulesLoading,
   schedulesError,
   loading,
   error,
   onSelectRoom,
+  onNavigateToRoom,
   variant = 'preview',
 }: SearchResultListProps) {
+  const examResultsSection = examSearchActive ? (
+    <section className="space-y-2" aria-label="ผลการค้นหาการสอบ">
+      {examResults.length > 0 ? (
+        <ul className="space-y-2">
+          {examResults.map((schedule) => {
+            const room = allRooms.find(
+              (candidate) => candidate.code.toLowerCase() === schedule.roomCode.toLowerCase()
+            )
+
+            return (
+              <li
+                key={`${schedule.roomCode}-${schedule.eventCode}-${schedule.eventDate}-${schedule.startTime}`}
+                className="card space-y-2 p-3"
+              >
+                <div>
+                  <h3 className="text-button font-bold text-ink">สอบ: {schedule.eventCode}</h3>
+                  <p className="mt-1 text-button text-ink-2">{formatExamDateTime(schedule)}</p>
+                  <p className="mt-1 text-xs text-ink-3">
+                    {room
+                      ? `อาคาร ${room.building} · ห้อง ${room.code} ชั้น ${room.floor}`
+                      : `ห้อง ${schedule.roomCode} · ไม่พบข้อมูลตำแหน่งห้อง`}
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={!room}
+                    onClick={() => {
+                      if (!room) return
+                      if (onNavigateToRoom) onNavigateToRoom(room.id)
+                      else onSelectRoom(room.id)
+                    }}
+                    className="btn btn-primary btn-sm"
+                    aria-label={`นำทางไปห้องสอบ ${schedule.roomCode}`}
+                  >
+                    นำทางไปห้องสอบ
+                  </button>
+                  {Boolean(getSession()) && <PinButton slot={schedule} />}
+                </div>
+              </li>
+            )
+          })}
+        </ul>
+      ) : (
+        <p className="px-4 py-4 text-center text-button text-ink-3">
+          {schedulesLoading
+            ? 'กำลังโหลดตารางสอบ...'
+            : pastExamsAvailable
+              ? 'ไม่พบการสอบที่กำลังจะมาถึง'
+              : 'ไม่พบการสอบที่ตรงกับรหัสวิชา ลองตรวจสอบรหัสวิชาอีกครั้ง'}
+        </p>
+      )}
+      {pastExamsAvailable && onToggleShowPastExams && (
+        <button
+          type="button"
+          onClick={onToggleShowPastExams}
+          className="btn btn-ghost btn-sm w-full"
+        >
+          {showPastExams ? 'แสดงเฉพาะการสอบที่ยังไม่ผ่าน' : 'แสดงการสอบทั้งหมด รวมการสอบที่ผ่านมา'}
+        </button>
+      )}
+      {schedulesError && (
+        <p className="px-4 py-2 text-center text-xs text-ink">
+          ไม่สามารถโหลดรายละเอียดตารางสอบได้
+        </p>
+      )}
+    </section>
+  ) : null
+
   if (loading) {
     return (
       <p className="px-4 py-6 text-center text-button text-ink-3">กำลังโหลดข้อมูลห้อง...</p>
@@ -76,6 +149,7 @@ export default function SearchResultList({
   }
 
   if (rooms.length === 0) {
+    if (examSearchActive) return examResultsSection
     if (schedulesLoading) {
       return (
         <p className="px-4 py-6 text-center text-button text-ink-3">
@@ -97,6 +171,7 @@ export default function SearchResultList({
   if (variant === 'legacy') {
     return (
       <>
+        {examResultsSection}
         <ul className="max-h-72 divide-y divide-line-soft overflow-y-auto">
           {rooms.map((room) => (
             <li key={room.id}>
@@ -143,6 +218,7 @@ export default function SearchResultList({
   // ---------------------------------------------------------------------------
   return (
     <div className="space-y-2">
+      {examResultsSection}
       <ul className="space-y-2">
         {rooms.map((room) => {
           // Find matching schedules for this room and sort chronologically
@@ -191,8 +267,7 @@ export default function SearchResultList({
                         schedule.eventName &&
                         schedule.eventName.replace(/\s+/g, '').toLowerCase() ===
                           schedule.eventCode.replace(/\s+/g, '').toLowerCase()
-                      const dayTh =
-                        DAY_SHORT_TH[schedule.dayOfWeek.toUpperCase()] ?? schedule.dayOfWeek
+                      const dayTh = getThaiShortDayLabel(schedule.dayOfWeek)
 
                       return (
                         <div

@@ -6,6 +6,7 @@ import {
   scheduleMatchesQuery,
   DEFAULT_CATEGORY_KEY,
 } from '../services/filterRooms.ts'
+import { useExamSearch } from '../hooks/useExamSearch.ts'
 import torchLogo from '../assets/torchv1.PNG'
 import SearchBar from './SearchBar.tsx'
 import CategoryFilter from './CategoryFilter.tsx'
@@ -22,6 +23,8 @@ export interface RoomSearchPanelProps {
   error?: Error | null
   /** ยิง event ออกไปเมื่อผู้ใช้กดเลือกห้องจากผลลัพธ์ ให้ parent ไปปักหมุด SVG / เปิด Room Detail Modal ต่อ */
   onSelectRoom: (roomId: string) => void
+  /** เริ่มนำทางไปยังห้องสอบโดยตรง */
+  onNavigateToRoom?: (roomId: string) => void
 }
 
 /**
@@ -37,6 +40,7 @@ export default function RoomSearchPanel({
   loading = false,
   error = null,
   onSelectRoom,
+  onNavigateToRoom,
 }: RoomSearchPanelProps) {
   const [query, setQuery] = useState('')
   const [categoryKey, setCategoryKey] = useState(DEFAULT_CATEGORY_KEY)
@@ -63,6 +67,13 @@ export default function RoomSearchPanel({
     const searchTerms = getExpandedSearchTerms(query)
     return schedules.filter((schedule) => scheduleMatchesQuery(schedule, searchTerms))
   }, [query, schedules])
+  const {
+    examResults,
+    examSearchActive,
+    pastExamsAvailable,
+    showPastExams,
+    toggleShowPastExams,
+  } = useExamSearch(query, rooms, schedules)
 
   const showDropdown = isDropdownOpen && hasActiveQueryOrFilter
 
@@ -87,6 +98,16 @@ export default function RoomSearchPanel({
     }
     // 4. Trigger room selection
     onSelectRoom(roomId)
+  }
+
+  function handleNavigateToRoom(roomId: string) {
+    setIsDropdownOpen(false)
+    inputRef.current?.blur()
+    if (typeof window !== 'undefined' && window.innerWidth < 640) {
+      setIsFilterExpanded(false)
+    }
+    if (onNavigateToRoom) onNavigateToRoom(roomId)
+    else onSelectRoom(roomId)
   }
 
   function handleInputFocus() {
@@ -160,12 +181,19 @@ export default function RoomSearchPanel({
       {showDropdown && (
         <SearchResultList
           rooms={results}
+          allRooms={rooms}
           schedules={matchedSchedules}
+          examResults={examResults}
+          examSearchActive={examSearchActive}
+          pastExamsAvailable={pastExamsAvailable}
+          showPastExams={showPastExams}
+          onToggleShowPastExams={toggleShowPastExams}
           schedulesLoading={schedulesLoading}
           schedulesError={schedulesError}
           loading={loading}
           error={error}
           onSelectRoom={handleSelect}
+          onNavigateToRoom={handleNavigateToRoom}
           variant="legacy"
         />
       )}
