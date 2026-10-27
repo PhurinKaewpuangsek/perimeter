@@ -118,6 +118,8 @@ describe('filterRooms()', () => {
   it('distinguishes course searches from exact room codes and known class-only subjects', () => {
     assert.strictEqual(isExamSearchQuery('bas 350', sampleRooms), true)
     assert.strictEqual(isExamSearchQuery('LC3-103', sampleRooms), false)
+    assert.strictEqual(isExamSearchQuery('ห้องเรียน 1', sampleRooms), false)
+    assert.strictEqual(isExamSearchQuery('lab 1', sampleRooms), false)
     assert.strictEqual(isExamSearchQuery('CS361', sampleRooms, sampleSchedules), false)
     assert.strictEqual(isExamSearchQuery('CS361 13:00', sampleRooms, sampleSchedules), true)
     assert.strictEqual(isExamSearchQuery('MISSING123', sampleRooms), true)

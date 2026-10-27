@@ -251,7 +251,7 @@ export function isExamSearchQuery(
 ): boolean {
   const parsed = parseExamQuery(query)
   const courseCode = parsed.courseCode
-  if (!/^[A-Zก-๛]+\d+[A-Z0-9ก-๛]*$/i.test(courseCode)) return false
+  if (!/^[A-Z]+\d+[A-Z0-9]*$/i.test(courseCode)) return false
 
   const exactRoomSearch = rooms.some((room) =>
     [room.code, room.roomNumber, room.id, ...room.aliases].some(
@@ -260,6 +260,14 @@ export function isExamSearchQuery(
   )
 
   if (exactRoomSearch) return false
+
+  const hasMatchingExam = schedules.some(
+    (schedule) => isExamSchedule(schedule) && matchesCourseCode(schedule, courseCode)
+  )
+  const matchesRoomText = rooms.some((room) =>
+    roomMatchesQuery(room, getExpandedSearchTerms(query))
+  )
+  if (!hasMatchingExam && matchesRoomText) return false
 
   const hasDateOrTimeFilter = parsed.date !== null || parsed.time !== null
   const matchesOnlyClassSchedules =
