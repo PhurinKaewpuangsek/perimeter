@@ -242,29 +242,13 @@ export default function SearchResultList({
     )
   }
 
-  if (activityResults.length > 0) {
-    return (
-      <>
-        {activityResultsSection}
-        {examResultsSection}
-        {schedulesLoading && (
-          <p className="px-4 py-2 text-center text-xs text-ink-3">กำลังโหลดตารางเรียน...</p>
-        )}
-        {schedulesError && (
-          <p className="px-4 py-2 text-center text-xs text-ink">
-            ไม่สามารถโหลดรายละเอียดตารางเรียนได้
-          </p>
-        )}
-      </>
-    )
-  }
-
   // ---------------------------------------------------------------------------
   // LEGACY VARIANT (Preserves exact raw text strings for existing unit tests)
   // ---------------------------------------------------------------------------
   if (variant === 'legacy') {
     return (
       <>
+        {activityResultsSection}
         {examResultsSection}
         <ul className="max-h-72 divide-y divide-line-soft overflow-y-auto">
           {rooms.map((room) => (
@@ -312,6 +296,7 @@ export default function SearchResultList({
   // ---------------------------------------------------------------------------
   return (
     <div className="space-y-2">
+      {activityResultsSection}
       {examResultsSection}
       <ul className="space-y-2">
         {rooms.map((room) => {

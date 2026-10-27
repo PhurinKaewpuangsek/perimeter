@@ -23,6 +23,7 @@ export function useRoomSchedules(roomCode: string | null | undefined): UseRoomSc
   }))
   const [attempt, setAttempt] = useState(0)
   const latestRequestIdRef = useRef(0)
+  const lastFetchedAtRef = useRef(0)
 
   useEffect(() => {
     let isMounted = true
@@ -33,6 +34,7 @@ export function useRoomSchedules(roomCode: string | null | undefined): UseRoomSc
     const fetchRoomSchedules = (bypassCache = false) => {
       if (bypassInFlight) return
       const requestId = ++latestRequestIdRef.current
+      lastFetchedAtRef.current = Date.now()
       if (bypassCache) {
         bypassInFlight = true
       }
@@ -61,8 +63,13 @@ export function useRoomSchedules(roomCode: string | null | undefined): UseRoomSc
 
     fetchRoomSchedules(true)
 
-    const onFocus = () => fetchRoomSchedules(true)
-    const refreshTimer = window.setInterval(() => fetchRoomSchedules(true), SCHEDULES_CACHE_TTL_MS)
+    const refreshIfStale = () => {
+      if (Date.now() - lastFetchedAtRef.current >= SCHEDULES_CACHE_TTL_MS) {
+        fetchRoomSchedules(true)
+      }
+    }
+    const onFocus = () => refreshIfStale()
+    const refreshTimer = window.setInterval(refreshIfStale, SCHEDULES_CACHE_TTL_MS)
     if (typeof window !== 'undefined') {
       window.addEventListener('focus', onFocus)
     }

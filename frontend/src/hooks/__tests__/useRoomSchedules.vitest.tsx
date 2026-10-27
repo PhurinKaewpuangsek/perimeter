@@ -27,6 +27,7 @@ const roomSchedule: ScheduleSlot = {
 describe('useRoomSchedules', () => {
   afterEach(() => {
     getSchedules.mockReset()
+    vi.useRealTimers()
   })
 
   it('loads only the requested room schedule', async () => {
@@ -67,6 +68,38 @@ describe('useRoomSchedules', () => {
     vi.useRealTimers()
   })
 
+  it('does not refresh on focus again until the last fetch reaches the TTL', async () => {
+    vi.useFakeTimers()
+    getSchedules
+      .mockResolvedValueOnce([roomSchedule])
+      .mockResolvedValueOnce([{ ...roomSchedule, eventCode: 'UPDATED101' }])
+    const { result, unmount } = renderHook(() => useRoomSchedules('LC3-103'))
+
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    act(() => {
+      window.dispatchEvent(new Event('focus'))
+      vi.setSystemTime(Date.now() + SCHEDULES_CACHE_TTL_MS - 1)
+      window.dispatchEvent(new Event('focus'))
+    })
+    expect(getSchedules).toHaveBeenCalledTimes(1)
+
+    act(() => {
+      vi.setSystemTime(Date.now() + 1)
+      window.dispatchEvent(new Event('focus'))
+    })
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(getSchedules).toHaveBeenCalledTimes(2)
+    expect(result.current.schedules[0]?.eventCode).toBe('UPDATED101')
+    unmount()
+  })
+
   it('does not fetch when no room is selected', () => {
     const { result } = renderHook(() => useRoomSchedules(null))
 
@@ -104,23 +137,33 @@ describe('useRoomSchedules', () => {
   })
 
   it('keeps the loaded timetable when a focus refresh fails', async () => {
+    vi.useFakeTimers()
     getSchedules.mockResolvedValueOnce([roomSchedule]).mockRejectedValueOnce(new Error('Network unavailable'))
 
     const { result } = renderHook(() => useRoomSchedules('LC3-103'))
-    await waitFor(() => expect(result.current.loading).toBe(false))
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    expect(result.current.loading).toBe(false)
 
     act(() => {
+      vi.setSystemTime(Date.now() + SCHEDULES_CACHE_TTL_MS)
       window.dispatchEvent(new Event('focus'))
     })
 
-    await waitFor(() => expect(getSchedules).toHaveBeenCalledTimes(2))
-    await waitFor(() => expect(result.current.loading).toBe(false))
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
 
+    expect(getSchedules).toHaveBeenCalledTimes(2)
     expect(result.current.schedules).toEqual([roomSchedule])
     expect(result.current.error).toBeNull()
   })
 
   it('prevents a focus event or older request from replacing a fresh reload()', async () => {
+    vi.useFakeTimers()
     let resolveFocus!: (schedules: ScheduleSlot[]) => void
     let resolveReload!: (schedules: ScheduleSlot[]) => void
     const freshSchedule: ScheduleSlot = { ...roomSchedule, eventCode: 'FRESH101' }
@@ -132,9 +175,13 @@ describe('useRoomSchedules', () => {
       .mockImplementationOnce(() => new Promise((resolve) => { resolveReload = resolve }))
 
     const { result } = renderHook(() => useRoomSchedules('LC3-103'))
-    await waitFor(() => expect(result.current.loading).toBe(false))
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
 
     act(() => {
+      vi.setSystemTime(Date.now() + SCHEDULES_CACHE_TTL_MS)
       window.dispatchEvent(new Event('focus'))
     })
     act(() => {
@@ -148,11 +195,15 @@ describe('useRoomSchedules', () => {
 
     await act(async () => {
       resolveReload([freshSchedule])
+      await Promise.resolve()
+      await Promise.resolve()
     })
-    await waitFor(() => expect(result.current.schedules).toEqual([freshSchedule]))
+    expect(result.current.schedules).toEqual([freshSchedule])
 
     await act(async () => {
       resolveFocus([staleSchedule])
+      await Promise.resolve()
+      await Promise.resolve()
     })
     expect(result.current.schedules).toEqual([freshSchedule])
   })
