@@ -30,6 +30,17 @@ const exam = (eventCode: string, eventDate?: string): ScheduleSlot => ({
   ...(eventDate ? { eventDate } : {}),
 })
 
+const activity: ScheduleSlot = {
+  roomCode: 'LC3-105',
+  eventCode: 'OPEN-HOUSE',
+  eventName: 'Open House',
+  dayOfWeek: 'FRI',
+  startTime: '13:00',
+  endTime: '15:00',
+  eventType: 'other',
+  eventDate: '2026-10-30',
+}
+
 describe('SearchResultList exam dates', () => {
   it('shows a direct exam card with date, time, room and navigation action', async () => {
     const onNavigateToRoom = vi.fn()
@@ -106,6 +117,71 @@ describe('SearchResultList exam dates', () => {
 
     expect(screen.getByText('2026-05-18')).toBeInTheDocument()
     expect(screen.getByText('date to be announced')).toBeInTheDocument()
+  })
+
+  it('shows the updated room for an activity and navigates to its current room', async () => {
+    const updatedRoom: Room = {
+      ...room,
+      id: 'LC3-F1-R105',
+      code: 'LC3-105',
+      roomNumber: '105',
+      nameThai: 'ห้องใหม่',
+    }
+    const onNavigateToRoom = vi.fn()
+    const user = userEvent.setup()
+
+    render(
+      <SearchResultList
+        rooms={[updatedRoom]}
+        allRooms={[room, updatedRoom]}
+        schedules={[]}
+        activityResults={[activity]}
+        schedulesLoading={false}
+        schedulesError={null}
+        loading={false}
+        error={null}
+        onSelectRoom={vi.fn()}
+        onNavigateToRoom={onNavigateToRoom}
+      />
+    )
+
+    expect(screen.getByText('Open House')).toBeInTheDocument()
+    expect(screen.getByText('อาคาร LC3 · ห้อง LC3-105 ชั้น 1')).toBeInTheDocument()
+    expect(screen.queryByText('อาคาร LC3 · ห้อง LC3-103 ชั้น 1')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /ดูห้อง/ })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'นำทางไปกิจกรรม Open House' }))
+    expect(onNavigateToRoom).toHaveBeenCalledWith(updatedRoom.id)
+  })
+
+  it('shows a closed room reason and prevents navigation to an activity', () => {
+    const updatedRoom: Room = {
+      ...room,
+      id: 'LC3-F1-R105',
+      code: 'LC3-105',
+      roomNumber: '105',
+    }
+    const onNavigateToRoom = vi.fn()
+
+    render(
+      <SearchResultList
+        rooms={[updatedRoom]}
+        allRooms={[updatedRoom]}
+        schedules={[]}
+        activityResults={[activity]}
+        roomClosures={new Map([[updatedRoom.id, { closed: true, closedReason: 'ปรับปรุงห้อง' }]])}
+        schedulesLoading={false}
+        schedulesError={null}
+        loading={false}
+        error={null}
+        onSelectRoom={vi.fn()}
+        onNavigateToRoom={onNavigateToRoom}
+      />
+    )
+
+    expect(screen.getByText('ห้องนี้ปิดชั่วคราว')).toBeInTheDocument()
+    expect(screen.getByText('เหตุผล: ปรับปรุงห้อง')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'นำทางไปกิจกรรม Open House' })).toBeDisabled()
+    expect(onNavigateToRoom).not.toHaveBeenCalled()
   })
 
   it('shows an exam date in the legacy search result format', () => {

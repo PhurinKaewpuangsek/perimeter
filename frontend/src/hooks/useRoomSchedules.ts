@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { getSchedules } from '../services/schedulesService.ts'
+import { getSchedules, SCHEDULES_CACHE_TTL_MS } from '../services/schedulesService.ts'
 import type { ScheduleSlot } from '../types/schedule.ts'
 
 export interface UseRoomSchedulesResult {
@@ -31,7 +31,7 @@ export function useRoomSchedules(roomCode: string | null | undefined): UseRoomSc
     if (!roomCode) return
 
     const fetchRoomSchedules = (bypassCache = false) => {
-      if (!bypassCache && bypassInFlight) return
+      if (bypassInFlight) return
       const requestId = ++latestRequestIdRef.current
       if (bypassCache) {
         bypassInFlight = true
@@ -59,15 +59,17 @@ export function useRoomSchedules(roomCode: string | null | undefined): UseRoomSc
         })
     }
 
-    fetchRoomSchedules(attempt > 0)
+    fetchRoomSchedules(true)
 
-    const onFocus = () => fetchRoomSchedules(false)
+    const onFocus = () => fetchRoomSchedules(true)
+    const refreshTimer = window.setInterval(() => fetchRoomSchedules(true), SCHEDULES_CACHE_TTL_MS)
     if (typeof window !== 'undefined') {
       window.addEventListener('focus', onFocus)
     }
 
     return () => {
       isMounted = false
+      window.clearInterval(refreshTimer)
       if (typeof window !== 'undefined') {
         window.removeEventListener('focus', onFocus)
       }

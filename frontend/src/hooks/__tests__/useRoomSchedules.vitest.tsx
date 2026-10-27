@@ -6,9 +6,13 @@ const { getSchedules } = vi.hoisted(() => ({
   getSchedules: vi.fn<(options?: { roomCode?: string; bypassCache?: boolean }) => Promise<ScheduleSlot[]>>(),
 }))
 
-vi.mock('../../services/schedulesService.ts', () => ({ getSchedules }))
+vi.mock('../../services/schedulesService.ts', () => ({
+  getSchedules,
+  SCHEDULES_CACHE_TTL_MS: 60_000,
+}))
 
 import { useRoomSchedules } from '../useRoomSchedules'
+import { SCHEDULES_CACHE_TTL_MS } from '../../services/schedulesService'
 
 const roomSchedule: ScheduleSlot = {
   roomCode: 'LC3-103',
@@ -31,9 +35,36 @@ describe('useRoomSchedules', () => {
     const { result } = renderHook(() => useRoomSchedules('LC3-103'))
 
     await waitFor(() => expect(result.current.loading).toBe(false))
-    expect(getSchedules).toHaveBeenCalledWith({ roomCode: 'LC3-103' })
+    expect(getSchedules).toHaveBeenCalledWith({ roomCode: 'LC3-103', bypassCache: true })
     expect(result.current.schedules).toEqual([roomSchedule])
     expect(result.current.error).toBeNull()
+  })
+
+  it('refreshes room schedules at the 60-second cache TTL', async () => {
+    vi.useFakeTimers()
+    getSchedules.mockResolvedValueOnce([roomSchedule]).mockResolvedValueOnce([
+      { ...roomSchedule, eventCode: 'UPDATED101' },
+    ])
+    const { result, unmount } = renderHook(() => useRoomSchedules('LC3-103'))
+
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    expect(result.current.schedules[0]?.eventCode).toBe('CS101')
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(SCHEDULES_CACHE_TTL_MS)
+    })
+
+    expect(result.current.schedules[0]?.eventCode).toBe('UPDATED101')
+    expect(getSchedules).toHaveBeenLastCalledWith({
+      roomCode: 'LC3-103',
+      bypassCache: true,
+    })
+    unmount()
+    vi.useRealTimers()
   })
 
   it('does not fetch when no room is selected', () => {

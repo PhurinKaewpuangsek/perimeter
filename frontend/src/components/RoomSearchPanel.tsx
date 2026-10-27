@@ -13,12 +13,15 @@ import CategoryFilter from './CategoryFilter.tsx'
 import SearchResultList from './SearchResultList.tsx'
 import type { Room } from '../types/room.ts'
 import type { ScheduleSlot } from '../types/schedule.ts'
+import type { Closure } from '../types/graph.ts'
 
 export interface RoomSearchPanelProps {
   rooms: Room[]
   schedules?: ScheduleSlot[]
   schedulesLoading?: boolean
   schedulesError?: Error | null
+  roomClosures?: ReadonlyMap<string, Closure>
+  closureStatusUnavailable?: boolean
   loading?: boolean
   error?: Error | null
   /** ยิง event ออกไปเมื่อผู้ใช้กดเลือกห้องจากผลลัพธ์ ให้ parent ไปปักหมุด SVG / เปิด Room Detail Modal ต่อ */
@@ -37,6 +40,8 @@ export default function RoomSearchPanel({
   schedules = [],
   schedulesLoading = false,
   schedulesError = null,
+  roomClosures,
+  closureStatusUnavailable = false,
   loading = false,
   error = null,
   onSelectRoom,
@@ -67,6 +72,10 @@ export default function RoomSearchPanel({
     const searchTerms = getExpandedSearchTerms(query)
     return schedules.filter((schedule) => scheduleMatchesQuery(schedule, searchTerms))
   }, [query, schedules])
+  const matchedActivities = useMemo(
+    () => matchedSchedules.filter((schedule) => schedule.eventType.toLowerCase() === 'other'),
+    [matchedSchedules]
+  )
   const {
     examResults,
     examSearchActive,
@@ -183,6 +192,9 @@ export default function RoomSearchPanel({
           rooms={results}
           allRooms={rooms}
           schedules={matchedSchedules}
+          activityResults={matchedActivities}
+          roomClosures={roomClosures}
+          closureStatusUnavailable={closureStatusUnavailable}
           examResults={examResults}
           examSearchActive={examSearchActive}
           pastExamsAvailable={pastExamsAvailable}

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { getSchedules } from '../services/schedulesService.ts'
+import { getSchedules, SCHEDULES_CACHE_TTL_MS } from '../services/schedulesService.ts'
 import type { ScheduleSlot } from '../types/schedule.ts'
 
 export interface UseSchedulesResult {
@@ -14,26 +14,29 @@ export interface UseSchedulesResult {
   reload: (background?: boolean) => Promise<void>
 }
 
-const SCHEDULES_CACHE_TTL_MS = 60 * 1000 // 60 seconds TTL
-
 let inFlightSchedulesPromise: Promise<ScheduleSlot[]> | null = null
+let inFlightSchedulesIsFresh = false
 let inMemorySchedules: ScheduleSlot[] | null = null
 let inMemorySchedulesFetchedAt = 0
 let schedulesRequestId = 0
 
 export function _resetSchedulesCacheForTesting(): void {
   inFlightSchedulesPromise = null
+  inFlightSchedulesIsFresh = false
   inMemorySchedules = null
   inMemorySchedulesFetchedAt = 0
   schedulesRequestId = 0
 }
 
-function fetchSchedulesDeduplicated(force = false): Promise<ScheduleSlot[]> {
+function fetchSchedulesDeduplicated(force = false, deduplicateFresh = false): Promise<ScheduleSlot[]> {
   const now = Date.now()
   if (!force && inMemorySchedules && now - inMemorySchedulesFetchedAt < SCHEDULES_CACHE_TTL_MS) {
     return Promise.resolve(inMemorySchedules)
   }
-  if (!force && inFlightSchedulesPromise) {
+  if (
+    inFlightSchedulesPromise &&
+    (!force || (deduplicateFresh && inFlightSchedulesIsFresh))
+  ) {
     return inFlightSchedulesPromise
   }
 
@@ -49,10 +52,12 @@ function fetchSchedulesDeduplicated(force = false): Promise<ScheduleSlot[]> {
     .finally(() => {
       if (inFlightSchedulesPromise === promise) {
         inFlightSchedulesPromise = null
+        inFlightSchedulesIsFresh = false
       }
     })
 
   inFlightSchedulesPromise = promise
+  inFlightSchedulesIsFresh = force
   return promise
 }
 
@@ -69,9 +74,9 @@ export function useSchedules(): UseSchedulesResult {
   useEffect(() => {
     let isMounted = true
 
-    const fetchSchedules = (force = false) => {
+    const fetchSchedules = (force = false, deduplicateFresh = false) => {
       const currentHookId = ++hookRequestIdRef.current
-      fetchSchedulesDeduplicated(force)
+      fetchSchedulesDeduplicated(force, deduplicateFresh)
         .then((data) => {
           if (currentHookId !== hookRequestIdRef.current) return
           if (isMounted) {
@@ -98,21 +103,38 @@ export function useSchedules(): UseSchedulesResult {
         })
     }
 
-    fetchSchedules(attempt > 0)
+    const cacheExpired =
+      inMemorySchedules === null ||
+      Date.now() - inMemorySchedulesFetchedAt >= SCHEDULES_CACHE_TTL_MS
+    fetchSchedules(attempt > 0 || cacheExpired, attempt === 0 && cacheExpired)
 
-    const onFocus = () => {
+    const refreshIfExpired = () => {
       if (Date.now() - inMemorySchedulesFetchedAt >= SCHEDULES_CACHE_TTL_MS) {
-        fetchSchedules(false)
+        fetchSchedules(true, true)
       }
     }
+    const refreshDelay =
+      attempt > 0 || inMemorySchedules === null
+        ? SCHEDULES_CACHE_TTL_MS
+        : Math.max(0, SCHEDULES_CACHE_TTL_MS - (Date.now() - inMemorySchedulesFetchedAt))
+    let refreshInterval: number | undefined
+    const refreshTimer = window.setTimeout(() => {
+      fetchSchedules(true, true)
+      refreshInterval = window.setInterval(
+        () => fetchSchedules(true),
+        SCHEDULES_CACHE_TTL_MS
+      )
+    }, refreshDelay)
     if (typeof window !== 'undefined') {
-      window.addEventListener('focus', onFocus)
+      window.addEventListener('focus', refreshIfExpired)
     }
 
     return () => {
       isMounted = false
+      window.clearTimeout(refreshTimer)
+      if (refreshInterval !== undefined) window.clearInterval(refreshInterval)
       if (typeof window !== 'undefined') {
-        window.removeEventListener('focus', onFocus)
+        window.removeEventListener('focus', refreshIfExpired)
       }
     }
   }, [attempt])

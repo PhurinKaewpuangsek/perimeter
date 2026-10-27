@@ -456,6 +456,10 @@ export default function MapPage() {
     const searchTerms = getExpandedSearchTerms(query)
     return schedules.filter((schedule) => scheduleMatchesQuery(schedule, searchTerms))
   }, [query, schedules])
+  const matchedActivities = useMemo(
+    () => matchedSchedules.filter((schedule) => schedule.eventType.toLowerCase() === 'other'),
+    [matchedSchedules]
+  )
   const {
     examResults,
     examSearchActive,
@@ -809,6 +813,9 @@ export default function MapPage() {
                         rooms={searchResults}
                         allRooms={rooms}
                         schedules={matchedSchedules}
+                        activityResults={matchedActivities}
+                        roomClosures={roomClosures}
+                        closureStatusUnavailable={graph === null && Boolean(graphError)}
                         examResults={examResults}
                         examSearchActive={examSearchActive}
                         pastExamsAvailable={pastExamsAvailable}
@@ -969,6 +976,9 @@ export default function MapPage() {
                       rooms={searchResults}
                       allRooms={rooms}
                       schedules={matchedSchedules}
+                      activityResults={matchedActivities}
+                      roomClosures={roomClosures}
+                      closureStatusUnavailable={graph === null && Boolean(graphError)}
                       examResults={examResults}
                       examSearchActive={examSearchActive}
                       pastExamsAvailable={pastExamsAvailable}
