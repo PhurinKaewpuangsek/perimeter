@@ -148,6 +148,27 @@ describe('filterRooms()', () => {
       assert.deepStrictEqual(datedMatch.map((exam) => exam.roomCode), ['LC3-201'])
     })
 
+    it('accepts slash dates and Thai abbreviated dates', () => {
+      for (const dateQuery of ['18/05/2026', '18/5/2026', '18 พ.ค.', '18 พ.ค. 2569']) {
+        assert.deepStrictEqual(
+          findExams(examSchedules, `BAS350 ${dateQuery}`, {
+            today: '2026-04-01',
+            includePast: true,
+          }).map((exam) => exam.roomCode),
+          ['LC3-103']
+        )
+      }
+    })
+
+    it('supports the two-argument call and defaults to upcoming exams', () => {
+      const futureExam: ScheduleSlot = {
+        ...examSchedules[0],
+        eventDate: '2099-05-18',
+      }
+
+      assert.deepStrictEqual(findExams([futureExam], 'BAS350'), [futureExam])
+    })
+
     it('accepts dot or colon time notation and matches start times or times during the exam', () => {
       assert.deepStrictEqual(
         findExams(examSchedules, 'BAS350 13.00', { today: '2026-05-01' }).map(

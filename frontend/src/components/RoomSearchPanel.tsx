@@ -2,19 +2,17 @@ import { useMemo, useState, useRef, useEffect } from 'react'
 import type { KeyboardEvent } from 'react'
 import {
   filterRooms,
-  findExams,
   getExpandedSearchTerms,
-  isExamSearchQuery,
   scheduleMatchesQuery,
   DEFAULT_CATEGORY_KEY,
 } from '../services/filterRooms.ts'
+import { useExamSearch } from '../hooks/useExamSearch.ts'
 import torchLogo from '../assets/torchv1.PNG'
 import SearchBar from './SearchBar.tsx'
 import CategoryFilter from './CategoryFilter.tsx'
 import SearchResultList from './SearchResultList.tsx'
 import type { Room } from '../types/room.ts'
 import type { ScheduleSlot } from '../types/schedule.ts'
-import { formatLocalDate } from '../services/scheduleDisplay.ts'
 
 export interface RoomSearchPanelProps {
   rooms: Room[]
@@ -47,7 +45,6 @@ export default function RoomSearchPanel({
   const [query, setQuery] = useState('')
   const [categoryKey, setCategoryKey] = useState(DEFAULT_CATEGORY_KEY)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
-  const [showPastExams, setShowPastExams] = useState(false)
   const [isFilterExpanded, setIsFilterExpanded] = useState(() => {
     if (typeof window !== 'undefined') {
       return window.innerWidth >= 640
@@ -70,17 +67,13 @@ export default function RoomSearchPanel({
     const searchTerms = getExpandedSearchTerms(query)
     return schedules.filter((schedule) => scheduleMatchesQuery(schedule, searchTerms))
   }, [query, schedules])
-  const today = formatLocalDate(new Date())
-  const allExamResults = useMemo(
-    () => findExams(schedules, query, { includePast: true, today }),
-    [query, schedules, today]
-  )
-  const examResults = useMemo(
-    () => (showPastExams ? allExamResults : findExams(schedules, query, { today })),
-    [allExamResults, query, schedules, showPastExams, today]
-  )
-  const examSearchActive = isExamSearchQuery(query, rooms, schedules)
-  const pastExamsAvailable = allExamResults.length > examResults.length
+  const {
+    examResults,
+    examSearchActive,
+    pastExamsAvailable,
+    showPastExams,
+    toggleShowPastExams,
+  } = useExamSearch(query, rooms, schedules)
 
   const showDropdown = isDropdownOpen && hasActiveQueryOrFilter
 
@@ -194,7 +187,7 @@ export default function RoomSearchPanel({
           examSearchActive={examSearchActive}
           pastExamsAvailable={pastExamsAvailable}
           showPastExams={showPastExams}
-          onToggleShowPastExams={() => setShowPastExams((current) => !current)}
+          onToggleShowPastExams={toggleShowPastExams}
           schedulesLoading={schedulesLoading}
           schedulesError={schedulesError}
           loading={loading}

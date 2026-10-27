@@ -27,12 +27,33 @@ const THAI_SHORT_MONTHS = [
 ]
 
 const THAI_SHORT_DAYS = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.']
+const THAI_SHORT_DAY_LABELS: Record<string, string> = {
+  MON: 'จ.',
+  MONDAY: 'จ.',
+  TUE: 'อ.',
+  TUESDAY: 'อ.',
+  WED: 'พ.',
+  WEDNESDAY: 'พ.',
+  THU: 'พฤ.',
+  THURSDAY: 'พฤ.',
+  FRI: 'ศ.',
+  FRIDAY: 'ศ.',
+  SAT: 'ส.',
+  SATURDAY: 'ส.',
+  SUN: 'อา.',
+  SUNDAY: 'อา.',
+}
 
 export function formatLocalDate(date: Date): string {
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const day = String(date.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
+}
+
+export function getThaiShortDayLabel(dayOfWeek: string): string {
+  const day = dayOfWeek.toUpperCase()
+  return THAI_SHORT_DAY_LABELS[day] ?? dayOfWeek
 }
 
 export function formatExamDateTime(
@@ -42,24 +63,8 @@ export function formatExamDateTime(
   const dateMatch = schedule.eventDate?.match(/^(\d{4})-(\d{2})-(\d{2})$/)
 
   if (!dateMatch) {
-    const day = schedule.dayOfWeek.toUpperCase()
-    const dayLabels: Record<string, string> = {
-      MON: 'จ.',
-      MONDAY: 'จ.',
-      TUE: 'อ.',
-      TUESDAY: 'อ.',
-      WED: 'พ.',
-      WEDNESDAY: 'พ.',
-      THU: 'พฤ.',
-      THURSDAY: 'พฤ.',
-      FRI: 'ศ.',
-      FRIDAY: 'ศ.',
-      SAT: 'ส.',
-      SATURDAY: 'ส.',
-      SUN: 'อา.',
-      SUNDAY: 'อา.',
-    }
-    return `${dayLabels[day] ?? 'วันสอบยังไม่ประกาศ'} ${timeRange}`
+    const dayLabel = getThaiShortDayLabel(schedule.dayOfWeek)
+    return `${dayLabel === schedule.dayOfWeek ? 'วันสอบยังไม่ประกาศ' : dayLabel} ${timeRange}`
   }
 
   const [, year, month, date] = dateMatch

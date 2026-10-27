@@ -1,6 +1,6 @@
 import type { Room } from '../types/room.ts'
 import type { ScheduleSlot } from '../types/schedule.ts'
-import { isExamSchedule } from './scheduleDisplay.ts'
+import { formatLocalDate, isExamSchedule } from './scheduleDisplay.ts'
 
 export interface CategoryFilterOption {
   /** ค่าที่ใช้อ้างอิงปุ่มนี้ภายในแอป (ส่งเข้า filterRooms เป็นพารามิเตอร์ category) */
@@ -200,11 +200,77 @@ export interface FindExamsOptions {
   includePast?: boolean
 }
 
-function parseExamQuery(query: string): ParsedExamQuery {
+const THAI_MONTH_NUMBERS: Record<string, number> = {
+  'ม.ค.': 1,
+  'ก.พ.': 2,
+  'มี.ค.': 3,
+  'เม.ย.': 4,
+  'พ.ค.': 5,
+  'มิ.ย.': 6,
+  'ก.ค.': 7,
+  'ส.ค.': 8,
+  'ก.ย.': 9,
+  'ต.ค.': 10,
+  'พ.ย.': 11,
+  'ธ.ค.': 12,
+}
+
+function normalizeDate(year: number, month: number, day: number): string | null {
+  if (year >= 2400) year -= 543
+  const date = new Date(Date.UTC(year, month - 1, day))
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  ) {
+    return null
+  }
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+}
+
+function parseExamQuery(
+  query: string,
+  defaultYear = Number(formatLocalDate(new Date()).slice(0, 4))
+): ParsedExamQuery {
   let remaining = query.trim()
-  const dateMatch = remaining.match(/\b\d{4}-\d{2}-\d{2}\b/)
-  const date = dateMatch?.[0] ?? null
-  if (date) remaining = remaining.replace(date, ' ')
+  let date: string | null = null
+  const datePatterns = [
+    /\b(\d{4})-(\d{1,2})-(\d{1,2})\b/,
+    /\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/,
+    new RegExp(
+      `(?:^|\\s)(\\d{1,2})\\s*(${Object.keys(THAI_MONTH_NUMBERS)
+        .map((month) => month.replaceAll('.', '\\.'))
+        .join('|')})(?:\\s*(\\d{4}))?(?=\\s|$)`,
+      'i'
+    ),
+  ]
+
+  for (const [index, pattern] of datePatterns.entries()) {
+    const dateMatch = remaining.match(pattern)
+    if (!dateMatch) continue
+
+    if (index === 0) {
+      date =
+        normalizeDate(Number(dateMatch[1]), Number(dateMatch[2]), Number(dateMatch[3])) ??
+        dateMatch[0]
+    } else if (index === 1) {
+      date =
+        normalizeDate(Number(dateMatch[3]), Number(dateMatch[2]), Number(dateMatch[1])) ??
+        dateMatch[0]
+    } else {
+      const month = Object.entries(THAI_MONTH_NUMBERS).find(
+        ([label]) => label.toLowerCase() === dateMatch[2].toLowerCase()
+      )?.[1]
+      if (month) {
+        date =
+          normalizeDate(Number(dateMatch[3] ?? defaultYear), month, Number(dateMatch[1])) ??
+          dateMatch[0]
+      }
+    }
+
+    remaining = remaining.replace(dateMatch[0], ' ')
+    break
+  }
 
   const timeMatch = remaining.match(/\b([01]?\d|2[0-3])([:.])([0-5]\d)\b/)
   const time = timeMatch ? `${timeMatch[1].padStart(2, '0')}:${timeMatch[3]}` : null
@@ -289,17 +355,19 @@ export function isExamSearchQuery(
 export function findExams(
   schedules: ScheduleSlot[],
   query: string,
-  options: FindExamsOptions
+  options: Partial<FindExamsOptions> = {}
 ): ScheduleSlot[] {
-  const parsed = parseExamQuery(query)
-  if (!parsed.courseCode || !isExamSearchQuery(query)) return []
+  const today = options.today ?? formatLocalDate(new Date())
+  const includePast = options.includePast ?? false
+  const parsed = parseExamQuery(query, Number(today.slice(0, 4)))
+  if (!/^[A-Z]+\d+[A-Z0-9]*$/i.test(parsed.courseCode)) return []
 
   return schedules
     .filter((schedule) => {
       if (!isExamSchedule(schedule) || !matchesCourseCode(schedule, parsed.courseCode)) return false
       if (parsed.date && schedule.eventDate !== parsed.date) return false
       if (parsed.time && !timeIsWithinSchedule(parsed.time, schedule)) return false
-      if (!options.includePast && schedule.eventDate && schedule.eventDate < options.today) return false
+      if (!includePast && schedule.eventDate && schedule.eventDate < today) return false
       return true
     })
     .sort((a, b) => {

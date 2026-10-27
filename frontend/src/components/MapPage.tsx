@@ -44,12 +44,11 @@ import PinButton from './PinButton'
 import WeeklyTimetable from './WeeklyTimetable'
 import {
   filterRooms,
-  findExams,
   getExpandedSearchTerms,
-  isExamSearchQuery,
   scheduleMatchesQuery,
   DEFAULT_CATEGORY_KEY,
 } from '../services/filterRooms'
+import { useExamSearch } from '../hooks/useExamSearch'
 import {
   getBuildingLabel,
   getCategoryLabel,
@@ -403,7 +402,6 @@ export default function MapPage() {
     Boolean(initialQuery && !initialRoomId && !initialDestinationId)
   )
   const [isFilterExpanded, setIsFilterExpanded] = useState(false)
-  const [showPastExams, setShowPastExams] = useState(false)
   const [activeScheduleTab, setActiveScheduleTab] = useState<'class' | 'exam'>('class')
   // Navigation (#145): active while a destination is set. Indoors there is no usable
   // GPS, so the start is picked by hand and defaults to the building entrance.
@@ -458,17 +456,13 @@ export default function MapPage() {
     const searchTerms = getExpandedSearchTerms(query)
     return schedules.filter((schedule) => scheduleMatchesQuery(schedule, searchTerms))
   }, [query, schedules])
-  const today = formatLocalDate(now)
-  const allExamResults = useMemo(
-    () => findExams(schedules, query, { includePast: true, today }),
-    [query, schedules, today]
-  )
-  const examResults = useMemo(
-    () => (showPastExams ? allExamResults : findExams(schedules, query, { today })),
-    [allExamResults, query, schedules, showPastExams, today]
-  )
-  const examSearchActive = isExamSearchQuery(query, rooms, schedules)
-  const pastExamsAvailable = allExamResults.length > examResults.length
+  const {
+    examResults,
+    examSearchActive,
+    pastExamsAvailable,
+    showPastExams,
+    toggleShowPastExams,
+  } = useExamSearch(query, rooms, schedules, formatLocalDate(now))
 
   function handleSelectRoom(roomId: string) {
     setSelectedRoomId(roomId)
@@ -819,7 +813,7 @@ export default function MapPage() {
                         examSearchActive={examSearchActive}
                         pastExamsAvailable={pastExamsAvailable}
                         showPastExams={showPastExams}
-                        onToggleShowPastExams={() => setShowPastExams((current) => !current)}
+                        onToggleShowPastExams={toggleShowPastExams}
                         schedulesLoading={schedulesLoading}
                         schedulesError={schedulesError}
                         loading={loading}
@@ -979,7 +973,7 @@ export default function MapPage() {
                       examSearchActive={examSearchActive}
                       pastExamsAvailable={pastExamsAvailable}
                       showPastExams={showPastExams}
-                      onToggleShowPastExams={() => setShowPastExams((current) => !current)}
+                      onToggleShowPastExams={toggleShowPastExams}
                       schedulesLoading={schedulesLoading}
                       schedulesError={schedulesError}
                       loading={loading}

@@ -188,6 +188,33 @@ describe('RoomSearchPanel Component', () => {
     expect(onNavigateToRoom).toHaveBeenCalledWith('LC3-F1-R103')
   })
 
+  it('keeps class room results visible when all matching exams are past', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2027-06-01T12:00:00'))
+    render(
+      <RoomSearchPanel
+        rooms={mockRooms}
+        schedules={[
+          examSchedule,
+          {
+            ...examSchedule,
+            eventType: 'class',
+            eventDate: undefined,
+          },
+        ]}
+        onSelectRoom={vi.fn()}
+      />
+    )
+
+    fireEvent.change(screen.getByPlaceholderText(/ค้นหาห้อง/i), {
+      target: { value: 'BAS350' },
+    })
+
+    expect(screen.getByText('ไม่พบการสอบที่กำลังจะมาถึง')).toBeInTheDocument()
+    expect(screen.getByText('LC3-103')).toBeInTheDocument()
+    expect(screen.getByText('BAS350 · Exam - BAS350 · TUE 13:00-16:00 · LC3-103')).toBeInTheDocument()
+  })
+
   it('shows the exam-specific empty state for an unknown course code', async () => {
     const user = userEvent.setup()
     render(
