@@ -11,14 +11,18 @@ import {
 } from '@phosphor-icons/react'
 import { useRooms } from '../hooks/useRooms'
 import { useSchedules } from '../hooks/useSchedules'
+import { useGraph } from '../hooks/useGraph'
 import { useIsDesktop } from '../hooks/useIsDesktop'
 import { usePreloadImages } from '../hooks/usePreloadImages'
+import { activeRoomClosures } from '../services/closureModel'
 import MapContainer from './map/MapContainer'
 import { FLOOR_CONFIGS } from './map/floorConfig'
 import SearchResultList from './SearchResultList'
 import { PlaceholdersAndVanishInput } from './ui/PlaceholdersAndVanishInput'
 import {
   filterRooms,
+  getExpandedSearchTerms,
+  scheduleMatchesQuery,
   DEFAULT_CATEGORY_KEY,
 } from '../services/filterRooms'
 import { useExamSearch } from '../hooks/useExamSearch'
@@ -32,6 +36,7 @@ import { getCategoryIcon } from './categoryIcon'
 import perimeterLogoNoBg from '../assets/perimeter_logo_negative_nobg.png'
 
 const FLOOR_PLAN_ASSETS = FLOOR_CONFIGS.map((config) => config.asset)
+const CLOSURE_REFRESH_MS = 60_000
 
 const SEARCH_PLACEHOLDERS = [
   'รหัสวิชาหรือห้อง เช่น BAS350, LC3-101',
@@ -60,6 +65,19 @@ export default function LandingPage() {
     loading: schedulesLoading,
     error: schedulesError,
   } = useSchedules()
+  const { graph, error: graphError, reload: reloadGraph } = useGraph()
+  const [closureCheckAt, setClosureCheckAt] = useState(() => new Date())
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setClosureCheckAt(new Date())
+      reloadGraph().catch(() => {})
+    }, CLOSURE_REFRESH_MS)
+    return () => window.clearInterval(timer)
+  }, [reloadGraph])
+  const roomClosures = useMemo(
+    () => activeRoomClosures(graph, closureCheckAt),
+    [graph, closureCheckAt]
+  )
   usePreloadImages(FLOOR_PLAN_ASSETS)
 
   const isDesktop = useIsDesktop()
@@ -80,6 +98,14 @@ export default function LandingPage() {
     if (!quickQuery.trim()) return []
     return filterRooms(rooms, quickQuery, DEFAULT_CATEGORY_KEY, schedules)
   }, [rooms, quickQuery, schedules])
+  const matchedActivities = useMemo(() => {
+    const searchTerms = getExpandedSearchTerms(quickQuery)
+    return schedules.filter(
+      (schedule) =>
+        schedule.eventType.toLowerCase() === 'other' &&
+        scheduleMatchesQuery(schedule, searchTerms)
+    )
+  }, [quickQuery, schedules])
 
   const {
     examResults,
@@ -121,7 +147,7 @@ export default function LandingPage() {
     e.preventDefault()
     if (!quickQuery.trim()) return
 
-    if (examSearchActive) {
+    if (examSearchActive || matchedActivities.length > 0) {
       setIsDropdownOpen(true)
       return
     }
@@ -281,6 +307,9 @@ export default function LandingPage() {
                     rooms={searchResults}
                     allRooms={rooms}
                     schedules={schedules}
+                    activityResults={matchedActivities}
+                    roomClosures={roomClosures}
+                    closureStatusUnavailable={graph === null && Boolean(graphError)}
                     examResults={examResults}
                     examSearchActive={examSearchActive}
                     pastExamsAvailable={pastExamsAvailable}

@@ -31,6 +31,7 @@ const mocks = vi.hoisted(() => ({
       eventDate: '2027-05-18',
     },
   ],
+  reloadGraph: vi.fn(async () => {}),
 }))
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom')
@@ -56,6 +57,10 @@ vi.mock('../../hooks/useSchedules', () => ({
   }),
 }))
 
+vi.mock('../../hooks/useGraph', () => ({
+  useGraph: () => ({ graph: null, loading: false, error: null, reload: mocks.reloadGraph }),
+}))
+
 vi.mock('../../hooks/usePreloadImages', () => ({
   usePreloadImages: () => true,
 }))
@@ -67,6 +72,17 @@ vi.mock('../map/MapContainer', () => ({
 describe('LandingPage', () => {
   beforeEach(() => {
     mocks.navigate.mockReset()
+    mocks.reloadGraph.mockReset()
+    mocks.schedules = [{
+      roomCode: 'LC3-103',
+      eventCode: 'BAS350',
+      eventName: 'Exam - BAS350',
+      dayOfWeek: 'MON',
+      startTime: '13:00',
+      endTime: '16:00',
+      eventType: 'exam',
+      eventDate: '2027-05-18',
+    }]
     vi.clearAllMocks()
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2027-01-01T12:00:00'))
@@ -142,6 +158,36 @@ describe('LandingPage', () => {
       vi.advanceTimersByTime(500)
     })
     expect(mocks.navigate).toHaveBeenCalledWith('/map?q=BAS350+13%3A00&navigate=LC3-F1-R103')
+  })
+
+  it('finds an activity by name and sends its current room to map navigation', () => {
+    mocks.schedules = [{
+      roomCode: 'LC3-103',
+      eventCode: 'OPEN-HOUSE',
+      eventName: 'Open House',
+      dayOfWeek: 'FRI',
+      startTime: '13:00',
+      endTime: '15:00',
+      eventType: 'other',
+      eventDate: '2027-05-21',
+    }]
+    render(
+      <MemoryRouter>
+        <LandingPage />
+      </MemoryRouter>,
+    )
+
+    fireEvent.change(screen.getByRole('textbox', { name: /ค้นหา/i }), {
+      target: { value: 'Open House' },
+    })
+
+    expect(screen.getByRole('region', { name: 'ผลการค้นหากิจกรรม' })).toHaveTextContent('Open House')
+    expect(screen.getByText('อาคาร LC3 · ห้อง LC3-103 ชั้น 1')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'นำทางไปกิจกรรม Open House' }))
+    act(() => {
+      vi.advanceTimersByTime(500)
+    })
+    expect(mocks.navigate).toHaveBeenCalledWith('/map?q=Open+House&navigate=LC3-F1-R103')
   })
 
   it('shows an exam-specific empty state for a course code without exam rows', () => {

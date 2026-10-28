@@ -1,5 +1,6 @@
 import type { Room } from '../types/room.ts'
 import type { ScheduleSlot } from '../types/schedule.ts'
+import type { Closure } from '../types/graph.ts'
 import {
   getExamDateLabel,
   formatExamDateTime,
@@ -13,6 +14,9 @@ interface SearchResultListProps {
   rooms: Room[]
   allRooms?: Room[]
   schedules: ScheduleSlot[]
+  activityResults?: ScheduleSlot[]
+  roomClosures?: ReadonlyMap<string, Closure>
+  closureStatusUnavailable?: boolean
   examResults?: ScheduleSlot[]
   examSearchActive?: boolean
   pastExamsAvailable?: boolean
@@ -52,6 +56,9 @@ export default function SearchResultList({
   rooms,
   allRooms = rooms,
   schedules,
+  activityResults = [],
+  roomClosures,
+  closureStatusUnavailable = false,
   examResults = [],
   examSearchActive = false,
   pastExamsAvailable = false,
@@ -134,6 +141,69 @@ export default function SearchResultList({
     </section>
   ) : null
 
+  const activityResultsSection = activityResults.length > 0 ? (
+    <section className="space-y-2" aria-label="ผลการค้นหากิจกรรม">
+      <ul className="space-y-2">
+        {activityResults.map((schedule) => {
+          const room = allRooms.find(
+            (candidate) => candidate.code.toLowerCase() === schedule.roomCode.toLowerCase()
+          )
+          const closure = room ? roomClosures?.get(room.id) : undefined
+          const eventName = schedule.eventName || schedule.eventCode || 'กิจกรรม'
+          const dayLabel = getThaiShortDayLabel(schedule.dayOfWeek)
+          const scheduleDate = schedule.eventDate ? `${dayLabel} ${schedule.eventDate}` : dayLabel
+          const closed = Boolean(closure?.closed)
+
+          return (
+            <li
+              key={`${schedule.roomCode}-${schedule.eventCode}-${schedule.eventDate ?? ''}-${schedule.dayOfWeek}-${schedule.startTime}`}
+              className="card space-y-2 p-3"
+            >
+              <div>
+                <h3 className="text-button font-bold text-ink">{eventName}</h3>
+                {schedule.eventCode && schedule.eventCode !== eventName && (
+                  <p className="mt-1 text-xs text-ink-3">{schedule.eventCode}</p>
+                )}
+                <p className="mt-1 text-button text-ink-2">
+                  {scheduleDate} {schedule.startTime}–{schedule.endTime}
+                </p>
+                <p className="mt-1 text-xs text-ink-3">
+                  {room
+                    ? `อาคาร ${room.building} · ห้อง ${room.code} ชั้น ${room.floor}`
+                    : `ห้อง ${schedule.roomCode} · ไม่พบข้อมูลตำแหน่งห้อง`}
+                </p>
+                {closed && (
+                  <div role="status" className="mt-2 border border-ink bg-surface-2 p-2 text-xs text-ink">
+                    <p className="font-bold">ห้องนี้ปิดชั่วคราว</p>
+                    {closure?.closedReason && <p className="mt-0.5">เหตุผล: {closure.closedReason}</p>}
+                  </div>
+                )}
+                {!closed && closureStatusUnavailable && (
+                  <p role="status" className="mt-2 text-xs text-ink-2">
+                    ตรวจสอบสถานะห้องปิดไม่ได้ในขณะนี้
+                  </p>
+                )}
+              </div>
+              <button
+                type="button"
+                disabled={!room || closed || closureStatusUnavailable}
+                onClick={() => {
+                  if (!room || closed || closureStatusUnavailable) return
+                  if (onNavigateToRoom) onNavigateToRoom(room.id)
+                  else onSelectRoom(room.id)
+                }}
+                className="btn btn-primary btn-sm"
+                aria-label={`นำทางไปกิจกรรม ${eventName}`}
+              >
+                นำทาง
+              </button>
+            </li>
+          )
+        })}
+      </ul>
+    </section>
+  ) : null
+
   if (loading) {
     return (
       <p className="px-4 py-6 text-center text-button text-ink-3">กำลังโหลดข้อมูลห้อง...</p>
@@ -149,7 +219,14 @@ export default function SearchResultList({
   }
 
   if (rooms.length === 0) {
-    if (examSearchActive) return examResultsSection
+    if (examSearchActive || activityResults.length > 0) {
+      return (
+        <>
+          {activityResultsSection}
+          {examResultsSection}
+        </>
+      )
+    }
     if (schedulesLoading) {
       return (
         <p className="px-4 py-6 text-center text-button text-ink-3">
@@ -171,6 +248,7 @@ export default function SearchResultList({
   if (variant === 'legacy') {
     return (
       <>
+        {activityResultsSection}
         {examResultsSection}
         <ul className="max-h-72 divide-y divide-line-soft overflow-y-auto">
           {rooms.map((room) => (
@@ -218,6 +296,7 @@ export default function SearchResultList({
   // ---------------------------------------------------------------------------
   return (
     <div className="space-y-2">
+      {activityResultsSection}
       {examResultsSection}
       <ul className="space-y-2">
         {rooms.map((room) => {

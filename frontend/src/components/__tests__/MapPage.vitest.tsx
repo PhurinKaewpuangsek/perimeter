@@ -540,6 +540,9 @@ describe('MapPage navigation (issue #145)', () => {
   afterEach(() => {
     window.matchMedia = originalMatchMedia
     routeForTest = IDLE_ROUTE
+    schedulesForTest = SCHEDULES
+    graphState.graph = null
+    graphState.error = null
   })
 
   async function startNavigation(path = '/map?room=LC3-F1-R121') {
@@ -601,6 +604,75 @@ describe('MapPage navigation (issue #145)', () => {
     await startNavigation()
     expect(screen.getByText('เส้นทางนี้เลี่ยงจุดที่ปิดชั่วคราว')).toBeInTheDocument()
     expect(screen.getByText('ปิดซ่อมทางเดิน')).toBeInTheDocument()
+  })
+
+  it('searches a moved activity and routes to its current room around a closed walkway', async () => {
+    mockViewport(true)
+    schedulesForTest = [{
+      ...slot('LC3-105', 'FRI'),
+      eventCode: 'OPEN-HOUSE',
+      eventName: 'Open House',
+      eventType: 'other',
+      eventDate: '2026-10-30',
+    }]
+    routeForTest = {
+      ...routeForTest,
+      route: {
+        ...FOUND,
+        path: [
+          ...FOUND.path.slice(0, -1),
+          { ...FOUND.path[FOUND.path.length - 1], nodeId: 'LC3_105', locationId: 'LC3-F1-R105' },
+        ],
+        closuresAvoided: [{ elementId: 'EDGE#A|B', reason: 'ปิดซ่อมทางเดิน' }],
+      },
+    }
+
+    const user = userEvent.setup()
+    renderMap()
+    await user.type(screen.getByRole('textbox', { name: 'ค้นหาห้อง' }), 'Open House')
+
+    const activityCard = screen.getByRole('region', { name: 'ผลการค้นหากิจกรรม' })
+    expect(within(activityCard).getByText('Open House')).toBeInTheDocument()
+    expect(within(activityCard).getByText('อาคาร LC3 · ห้อง LC3-105 ชั้น 1')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'นำทางไปกิจกรรม Open House' }))
+
+    expect(lastRouteCall()).toEqual(['LC3_Junction_SM', 'LC3-F1-R105'])
+    expect(screen.getByText('เส้นทางนี้เลี่ยงจุดที่ปิดชั่วคราว')).toBeInTheDocument()
+    expect(screen.getByText('ปิดซ่อมทางเดิน')).toBeInTheDocument()
+  })
+
+  it('shows a closed destination reason and prevents activity navigation', async () => {
+    mockViewport(true)
+    schedulesForTest = [{
+      ...slot('LC3-105', 'FRI'),
+      eventCode: 'OPEN-HOUSE',
+      eventName: 'Open House',
+      eventType: 'other',
+    }]
+    graphState.graph = {
+      graphId: 'LC3',
+      nodes: [{
+        elementId: 'NODE#LC3_105',
+        nodeId: 'LC3_105',
+        floor: 1,
+        x: 0,
+        y: 0,
+        nodeType: 'room',
+        locationId: 'LC3-F1-R105',
+        closed: true,
+        closedReason: 'ปรับปรุงห้อง',
+      }],
+      edges: [],
+    }
+
+    const user = userEvent.setup()
+    renderMap()
+    await user.type(screen.getByRole('textbox', { name: 'ค้นหาห้อง' }), 'Open House')
+
+    expect(screen.getByText('ห้องนี้ปิดชั่วคราว')).toBeInTheDocument()
+    expect(screen.getByText('เหตุผล: ปรับปรุงห้อง')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'นำทางไปกิจกรรม Open House' })).toBeDisabled()
+    expect(routeCalls.every(([, to]) => to === null)).toBe(true)
   })
 
   it.each([

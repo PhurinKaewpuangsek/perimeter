@@ -244,6 +244,34 @@ describe('filterRooms()', () => {
     )
   })
 
+  it('returns only the current destination when a named activity has moved', () => {
+    const oldRoom = makeRoom({
+      id: 'LC3-F1-R104',
+      code: 'LC3-104',
+      nameThai: 'ห้องเดิม',
+      aliases: ['104'],
+    })
+    const newRoom = makeRoom({
+      id: 'LC3-F1-R105',
+      code: 'LC3-105',
+      nameThai: 'ห้องใหม่',
+      aliases: ['105'],
+    })
+    const movedActivity: ScheduleSlot = {
+      roomCode: 'LC3-105',
+      eventCode: 'OPEN-HOUSE',
+      eventName: 'Open House',
+      dayOfWeek: 'FRI',
+      startTime: '13:00',
+      endTime: '15:00',
+      eventType: 'other',
+    }
+
+    assert.deepStrictEqual(filterRooms([oldRoom, newRoom], 'Open House', 'all', [movedActivity]), [
+      newRoom,
+    ])
+  })
+
   it('matches by alias', () => {
     const result = filterRooms(sampleRooms, 'lc3-102', 'all')
     assert.deepStrictEqual(
