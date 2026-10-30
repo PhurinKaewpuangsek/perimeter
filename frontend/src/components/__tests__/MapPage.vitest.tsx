@@ -140,8 +140,11 @@ describe('MapPage course search (issue #91)', () => {
     mockViewport(true)
     renderMap('/map?room=LC3-F1-R121&q=ROOM')
 
-    expect(screen.getByTestId('timetable-day')).toBeInTheDocument()
-    expect(screen.getByText('ROOM-121')).toBeInTheDocument()
+    const user = userEvent.setup()
+    const summaryBtn = screen.getByTestId('compact-week-summary-btn')
+    expect(summaryBtn).toBeInTheDocument()
+    await user.click(summaryBtn)
+    expect(screen.getAllByText('ROOM-121')[0]).toBeInTheDocument()
     expect(screen.queryByText('ROOM-122')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'บันทึกในตารางของฉัน' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'เพิ่ม ROOM-121 ลง Google Calendar' })    ).toHaveAttribute(
@@ -324,16 +327,16 @@ describe('MapPage course search (issue #91)', () => {
         expect(loginLink).toHaveAttribute('href', '/login')
       })
 
-      it('resets the selected room and search from the map controls', async () => {
+      it('clears the selected room when clicking close (X)', async () => {
         const user = userEvent.setup()
         renderMap('/map?room=LC3-F1-R105&q=CS102')
 
         expect(screen.getByRole('textbox')).toHaveValue('CS102')
         expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent('105')
 
-        await user.click(screen.getByRole('button', { name: 'รีเซ็ตแผนที่' }))
+        await user.click(screen.getByRole('button', { name: 'ปิดรายละเอียดห้อง' }))
 
-        expect(screen.getByRole('textbox')).toHaveValue('')
+        expect(screen.getByRole('textbox')).toHaveValue('CS102')
         expect(screen.queryByRole('heading', { level: 2 })).not.toBeInTheDocument()
         expect(document.querySelectorAll('[role="button"][aria-pressed="true"]')).toHaveLength(0)
       })
@@ -497,7 +500,7 @@ describe('MapPage layering with My Schedule open (issue #139)', () => {
     await user.type(screen.getByRole('textbox'), 'CS102')
     const mapChrome = [
       screen.getByRole('textbox'),
-      ...screen.getAllByRole('button', { name: 'รีเซ็ตแผนที่' }),
+
       screen.getByTestId('mobile-search-results'),
     ]
 
@@ -564,7 +567,7 @@ describe('MapPage navigation (issue #145)', () => {
 
     expect(lastRouteCall()).toEqual(['LC3_Junction_SM', 'LC3-F1-R121'])
     const panel = screen.getByRole('region', { name: 'นำทาง' })
-    expect(within(panel).getByRole('textbox', { name: 'จุดเริ่มต้น' })).toHaveValue('ทางเข้าอาคาร')
+    expect(within(panel).getByRole('textbox', { name: 'จุดเริ่มต้น' })).toHaveValue('ทางเข้าอาคาร 1')
     expect(within(panel).getByText('ห้อง 121')).toBeInTheDocument()
     expect(screen.queryByRole('textbox', { name: 'ค้นหาห้อง' })).not.toBeInTheDocument()
   })
@@ -584,7 +587,7 @@ describe('MapPage navigation (issue #145)', () => {
 
     const steps = within(screen.getByRole('list', { name: 'ขั้นตอนเส้นทาง' })).getAllByRole('button')
     expect(steps.map((step) => step.textContent)).toEqual([
-      expect.stringContaining('เดินจากทางเข้าอาคาร ไปที่บันได'),
+      expect.stringContaining('เดินจากทางเข้าอาคาร 1 ไปที่บันได'),
       expect.stringContaining('เดินต่อไปยังห้อง 121'),
     ])
     expect(within(screen.getByRole('region', { name: 'นำทาง' })).getByText('ขึ้นบันไดไปชั้น 2')).toBeInTheDocument()
@@ -705,13 +708,28 @@ describe('MapPage navigation (issue #145)', () => {
     await user.type(screen.getByRole('textbox', { name: 'จุดเริ่มต้น' }), '105')
     const options = within(screen.getByRole('list', { name: 'ตัวเลือกจุดเริ่มต้น' })).getAllByRole('button')
     // The entrance is always offered; the destination itself never is.
-    expect(options[0]).toHaveTextContent('ทางเข้าอาคาร')
+    expect(options[0]).toHaveTextContent('ทางเข้าอาคาร 1')
+    expect(options[1]).toHaveTextContent('ทางเข้าอาคาร 2')
     expect(options.some((option) => option.textContent?.includes('ห้อง 121'))).toBe(false)
 
     await user.click(options.find((option) => option.textContent?.includes('ห้อง 105'))!)
     expect(lastRouteCall()).toEqual(['LC3-F1-R105', 'LC3-F1-R121'])
     expect(screen.getByRole('textbox', { name: 'จุดเริ่มต้น' })).toHaveValue('ห้อง 105')
     expect(screen.queryByRole('list', { name: 'ตัวเลือกจุดเริ่มต้น' })).not.toBeInTheDocument()
+  })
+
+  it('picks entrance 2 as the starting point and routes from north bridge walkway', async () => {
+    mockViewport(true)
+    const user = await startNavigation()
+
+    await user.click(screen.getByRole('textbox', { name: 'จุดเริ่มต้น' }))
+    const options = within(screen.getByRole('list', { name: 'ตัวเลือกจุดเริ่มต้น' })).getAllByRole('button')
+    const entrance2Option = options.find((opt) => opt.textContent?.includes('ทางเข้าอาคาร 2'))
+    expect(entrance2Option).toBeDefined()
+
+    await user.click(entrance2Option!)
+    expect(lastRouteCall()).toEqual(['LC3_Junction_NM', 'LC3-F1-R121'])
+    expect(screen.getByRole('textbox', { name: 'จุดเริ่มต้น' })).toHaveValue('ทางเข้าอาคาร 2')
   })
 
   it('tapping a room on the map while navigating makes it the destination', async () => {

@@ -79,7 +79,7 @@ export default function MapContainer(props: MapContainerProps) {
         <div
           role="group"
           aria-label="Floor and view switcher"
-          className={`pointer-events-auto absolute z-2 flex h-12 items-center gap-1 rounded-full border border-line-soft bg-white p-1.5 shadow-floating transition-all sm:h-11 sm:p-1 ${
+          className={`pointer-events-auto absolute z-30 flex h-12 items-center gap-1 rounded-full border border-line-soft bg-white p-1.5 shadow-floating transition-all sm:h-11 sm:p-1 ${
             props.selectedRoomId && props.isDetailOpen
               ? 'bottom-[calc(55dvh+1rem)] right-4 sm:bottom-5 sm:right-5'
               : 'bottom-5 right-4 sm:bottom-5 sm:right-5'

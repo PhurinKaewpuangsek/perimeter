@@ -27,6 +27,7 @@
   position: absolute;
   left: 0;
   top: 0;
+  z-index: 10;
   pointer-events: auto;
   cursor: pointer;
   background: #ffffff;
@@ -60,7 +61,7 @@
 .map3d-marker:focus-visible {
   outline: 2px solid #0000ee;
   outline-offset: 1px;
-  z-index: 2;
+  z-index: 10;
 }
 /* Room closed right now (#147): tertiary ink label; the pin colour is set in JS. */
 .map3d-marker[data-closed='true'] {
@@ -72,7 +73,7 @@
   background: #0000ee;
   border-color: #0000aa;
   padding: 6px 10px 6px 8px;
-  z-index: 3;
+  z-index: 20;
 }
 /* Route floor change ("ขึ้นบันไดไปชั้น 2"): a primary pill, like the 2D button. */
 .map3d-route-floor {
@@ -105,6 +106,7 @@
   box-shadow: 0 0 0 1.5px #ffffff;
 }
 .map3d-marker[data-compact='true']:not(:hover):not(:focus-visible) {
+  z-index: 1;
   width: 24px;
   height: 24px;
   min-width: 0;
@@ -131,7 +133,7 @@
 }
 .map3d-controls {
   position: absolute;
-  z-index: 2;
+  z-index: 30;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -253,6 +255,11 @@
   /* clear the floating search panel at the top of the map area */
   .map-fallback-notice {
     top: 5rem;
+  }
+  .map3d-zoom-stack button {
+    width: 38px;
+    height: 38px;
+    min-height: 38px;
   }
 }
 /* Below this width the hint cannot fit between the sidebar, center dock, and control stack. */

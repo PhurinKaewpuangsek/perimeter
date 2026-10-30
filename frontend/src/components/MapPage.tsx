@@ -15,7 +15,6 @@ import {
   X,
   MapPin,
   CalendarPlus,
-  ArrowCounterClockwise,
   BookOpen,
   GraduationCap,
   NavigationArrow,
@@ -31,7 +30,7 @@ import { useIsDesktop } from '../hooks/useIsDesktop'
 import { useSchedules } from '../hooks/useSchedules'
 import { usePreloadImages } from '../hooks/usePreloadImages'
 import { useRoute } from '../hooks/useRoute'
-import { BUILDING_ENTRANCE_FLOOR, BUILDING_ENTRANCE_ID } from '../services/routeService'
+import { BUILDING_ENTRANCE_FLOOR, BUILDING_ENTRANCE_ID, BUILDING_ENTRANCE_2_ID } from '../services/routeService'
 import MapContainer from './map/MapContainer'
 import { FLOOR_CONFIGS } from './map/floorConfig'
 import LoadingScreen from './LoadingScreen'
@@ -42,11 +41,15 @@ import CategoryFilter from './CategoryFilter'
 import SearchResultList from './SearchResultList'
 import PinButton from './PinButton'
 import WeeklyTimetable from './WeeklyTimetable'
+import ExamAgendaList from './ExamAgendaList'
 import {
   filterRooms,
   getExpandedSearchTerms,
   scheduleMatchesQuery,
   DEFAULT_CATEGORY_KEY,
+  parseExamQuery,
+  isExamKeywordQuery,
+  resolveScheduleTabOnRoomSelect,
 } from '../services/filterRooms'
 import { useExamSearch } from '../hooks/useExamSearch'
 import {
@@ -126,6 +129,7 @@ interface RoomDetailContentProps {
   closure?: Closure
   /** Set when closures could not be loaded, so "open" cannot be confirmed; retries the load. */
   onRetryClosures?: () => void
+  highlightExamCode?: string | null
 }
 
 function RoomDetailContent({
@@ -141,8 +145,8 @@ function RoomDetailContent({
   reloadSchedules,
   closure,
   onRetryClosures,
+  highlightExamCode,
 }: RoomDetailContentProps) {
-  const activeSchedules = activeScheduleTab === 'class' ? classSchedules : examSchedules
 
   const renderScheduleActions = (slot: ScheduleSlot) => {
     const scheduleSlot = computeScheduleSlot(slot)
@@ -183,8 +187,8 @@ function RoomDetailContent({
 
   return (
     <div className="space-y-4 animate-fade-in">
-      {/* ROOM HERO CARD (square white card, room number as the heading) */}
-      <div className="card p-4">
+      {/* ROOM HERO CARD (square white card on desktop; seamless in mobile bottom sheet) */}
+      <div className="sm:card p-0 sm:p-4 border-0 sm:border shadow-none sm:shadow-card">
         {/* Header Row: location breadcrumb + close button */}
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
@@ -339,10 +343,22 @@ function RoomDetailContent({
           </p>
         ) : (
           <div key={activeScheduleTab} className="animate-gooey-content-swap">
-            <WeeklyTimetable
-              slots={activeSchedules}
-              renderActions={renderScheduleActions}
-            />
+            {activeScheduleTab === 'class' ? (
+              <WeeklyTimetable
+                slots={classSchedules}
+                renderActions={renderScheduleActions}
+                layout="compact"
+                title={`ห้อง ${room.roomNumber || room.code || ''}${room.nameThai ? ` (${room.nameThai})` : ''}`}
+                roomCode={room.code || room.roomNumber}
+              />
+            ) : (
+              <ExamAgendaList
+                slots={examSchedules}
+                renderActions={renderScheduleActions}
+                roomCode={room.code || room.roomNumber}
+                highlightEventCode={highlightExamCode}
+              />
+            )}
           </div>
         )}
       </div>
@@ -402,7 +418,20 @@ export default function MapPage() {
     Boolean(initialQuery && !initialRoomId && !initialDestinationId)
   )
   const [isFilterExpanded, setIsFilterExpanded] = useState(false)
-  const [activeScheduleTab, setActiveScheduleTab] = useState<'class' | 'exam'>('class')
+  const [targetExamCode, setTargetExamCode] = useState<string | null>(() => {
+    if (!initialQuery) return null
+    const parsed = parseExamQuery(initialQuery).courseCode
+    return /^[A-Z]+\d+[A-Z0-9]*$/i.test(parsed) ? parsed : null
+  })
+  const [activeScheduleTab, setActiveScheduleTab] = useState<'class' | 'exam'>(() => {
+    if (!initialQuery) return 'class'
+    if (isExamKeywordQuery(initialQuery)) return 'exam'
+    const parsed = parseExamQuery(initialQuery).courseCode
+    if (/^[A-Z]+\d+[A-Z0-9]*$/i.test(parsed)) {
+      return 'exam'
+    }
+    return 'class'
+  })
   // Navigation (#145): active while a destination is set. Indoors there is no usable
   // GPS, so the start is picked by hand and defaults to the building entrance.
   const [routeFrom, setRouteFrom] = useState(BUILDING_ENTRANCE_ID)
@@ -419,6 +448,15 @@ export default function MapPage() {
     isHandle: boolean
   } | null>(null)
   const hasDraggedRef = useRef<boolean>(false)
+
+  const navSheetRef = useRef<HTMLDivElement>(null)
+  const navSheetContentRef = useRef<HTMLDivElement>(null)
+  const navTouchStartRef = useRef<{
+    startY: number
+    startTime: number
+    isHandle: boolean
+  } | null>(null)
+  const navHasDraggedRef = useRef<boolean>(false)
 
   const selectedRoom = useMemo(
     () => rooms.find((r) => r.id === selectedRoomId),
@@ -468,12 +506,28 @@ export default function MapPage() {
     toggleShowPastExams,
   } = useExamSearch(query, rooms, schedules, formatLocalDate(now))
 
-  function handleSelectRoom(roomId: string) {
+  function handleSelectRoom(roomId: string, eventCode?: string, explicitTab?: 'class' | 'exam') {
     setSelectedRoomId(roomId)
     setIsSidebarCollapsed(false)
     setIsDropdownOpen(false)
     if (!isDesktop) setIsFilterExpanded(false)
+
     const targetRoom = rooms.find((r) => r.id === roomId)
+    const roomCodeLower = targetRoom?.code?.toLowerCase()
+    const targetRoomSchedules = schedules.filter(
+      (s) => s.roomCode?.toLowerCase() === roomCodeLower
+    )
+
+    const resolution = resolveScheduleTabOnRoomSelect({
+      query,
+      roomSchedules: targetRoomSchedules,
+      explicitTab,
+      targetEventCode: eventCode,
+    })
+
+    setActiveScheduleTab(resolution.tab)
+    setTargetExamCode(resolution.targetCode)
+
     if (targetRoom && targetRoom.floor !== currentFloor) {
       setCurrentFloor(targetRoom.floor)
     }
@@ -495,18 +549,12 @@ export default function MapPage() {
 
   function handleUnpinRoom() {
     setSelectedRoomId(null)
-  }
-
-  function handleResetMap() {
-    setSelectedRoomId(null)
-    setRouteTo(null)
-    setQuery('')
-    setIsDropdownOpen(false)
+    setTargetExamCode(null)
   }
 
   /** The floor a route starts on, so the map opens where the user is standing. */
   function getStartFloor(fromId: string) {
-    if (fromId === BUILDING_ENTRANCE_ID) return BUILDING_ENTRANCE_FLOOR
+    if (fromId === BUILDING_ENTRANCE_ID || fromId === BUILDING_ENTRANCE_2_ID) return BUILDING_ENTRANCE_FLOOR
     return rooms.find((r) => r.id === fromId)?.floor ?? currentFloor
   }
 
@@ -667,6 +715,114 @@ export default function MapPage() {
     }
   }
 
+  function handleDismissNavMobile() {
+    if (navSheetRef.current) {
+      navSheetRef.current.style.transition =
+        'transform 240ms cubic-bezier(0.2, 0.9, 0.3, 1), opacity 240ms ease-out'
+      navSheetRef.current.style.transform = 'translateY(100%)'
+      navSheetRef.current.style.opacity = '0'
+    }
+    setTimeout(() => {
+      handleClearRoute()
+      if (navSheetRef.current) {
+        navSheetRef.current.style.transform = ''
+        navSheetRef.current.style.transition = ''
+        navSheetRef.current.style.opacity = ''
+      }
+    }, 230)
+  }
+
+  function handleNavTouchStart(e: React.TouchEvent<HTMLDivElement>) {
+    const touch = e.touches[0]
+    const target = e.target as HTMLElement
+    const isHandle = Boolean(target.closest('[data-nav-handle]'))
+    const isAtTop = !navSheetContentRef.current || navSheetContentRef.current.scrollTop <= 0
+
+    navHasDraggedRef.current = false
+
+    if (isHandle || isAtTop) {
+      navTouchStartRef.current = {
+        startY: touch.clientY,
+        startTime: performance.now(),
+        isHandle,
+      }
+      if (navSheetRef.current) {
+        navSheetRef.current.style.animation = 'none'
+        navSheetRef.current.style.transition = 'none'
+      }
+    } else {
+      navTouchStartRef.current = null
+    }
+  }
+
+  function handleNavTouchMove(e: React.TouchEvent<HTMLDivElement>) {
+    if (!navTouchStartRef.current || !navSheetRef.current) return
+    const touch = e.touches[0]
+    const deltaY = touch.clientY - navTouchStartRef.current.startY
+
+    if (!navTouchStartRef.current.isHandle) {
+      const currentScrollTop = navSheetContentRef.current?.scrollTop ?? 0
+      if (currentScrollTop > 0) {
+        navTouchStartRef.current = null
+        navSheetRef.current.style.transform = 'translateY(0)'
+        return
+      }
+      if (deltaY < 0 && !navHasDraggedRef.current) {
+        return
+      }
+    }
+
+    if (deltaY > 0) {
+      navHasDraggedRef.current = true
+      navSheetRef.current.style.transform = `translateY(${deltaY}px)`
+    } else if (navTouchStartRef.current.isHandle) {
+      const damped = Math.max(deltaY * 0.15, -20)
+      navSheetRef.current.style.transform = `translateY(${damped}px)`
+    }
+  }
+
+  function handleNavTouchEnd(e: React.TouchEvent<HTMLDivElement>) {
+    if (!navTouchStartRef.current || !navSheetRef.current) return
+    const { startY, startTime } = navTouchStartRef.current
+    const wasDragged = navHasDraggedRef.current
+    navTouchStartRef.current = null
+
+    if (!wasDragged) {
+      navSheetRef.current.style.transition = 'transform 180ms cubic-bezier(0.16, 1, 0.3, 1)'
+      navSheetRef.current.style.transform = 'translateY(0)'
+      return
+    }
+
+    setTimeout(() => {
+      navHasDraggedRef.current = false
+    }, 150)
+
+    const touch = e.changedTouches[0]
+    const deltaY = touch.clientY - startY
+    const elapsed = performance.now() - startTime
+    const velocity = deltaY / Math.max(elapsed, 1)
+
+    const shouldDismiss = deltaY > 65 || (deltaY > 20 && velocity > 0.3)
+
+    if (shouldDismiss) {
+      handleDismissNavMobile()
+    } else {
+      navSheetRef.current.style.transition = 'transform 200ms cubic-bezier(0.16, 1, 0.3, 1)'
+      navSheetRef.current.style.transform = 'translateY(0)'
+      navSheetRef.current.style.opacity = '1'
+    }
+  }
+
+  function handleNavTouchCancel() {
+    navTouchStartRef.current = null
+    navHasDraggedRef.current = false
+    if (navSheetRef.current) {
+      navSheetRef.current.style.transition = 'transform 200ms cubic-bezier(0.16, 1, 0.3, 1)'
+      navSheetRef.current.style.transform = 'translateY(0)'
+      navSheetRef.current.style.opacity = '1'
+    }
+  }
+
   if (error) return <LoadingScreen error={error} onRetry={() => reload()} />
   if (loading || !floorPlansReady) return <LoadingScreen />
 
@@ -714,7 +870,8 @@ export default function MapPage() {
           onClearSelection={handleMapBackgroundClick}
           viewMode={mapView}
           onViewModeChange={setMapView}
-          hideBottomControls={isDesktop}
+          hideBottomControls={isDesktop || isNavigating}
+          hideFloorSwitcher={isNavigating}
           route={routeState.route}
           closedRoomIds={closedRoomIds}
         />
@@ -725,46 +882,35 @@ export default function MapPage() {
         {isDesktop ? (
           <>
             <aside
-              className={`pointer-events-none absolute top-0 bottom-0 left-0 z-2 w-[460px] transition-transform duration-300 ease-in-out ${
+              className={`pointer-events-none absolute top-0 bottom-0 left-0 z-40 w-[460px] transition-transform duration-300 ease-in-out ${
                 isSidebarCollapsed ? '-translate-x-full' : 'translate-x-0'
               }`}
             >
               <div className="pointer-events-auto relative flex h-full flex-col border-r border-line-soft bg-white">
                 {/* Search Controls (Pinned at top of sidebar); the navigation panel replaces them */}
                 <div className="border-b border-line-soft p-4" hidden={isNavigating}>
-                  <div className="flex items-center gap-2">
-                    <div className="min-w-0 flex-1">
-                      <SearchBar
-                        inputRef={inputRef}
-                        value={query}
-                        onChange={(newQuery) => {
-                          setQuery(newQuery)
-                          setIsDropdownOpen(true)
-                        }}
-                        onClear={() => {
-                          setQuery('')
-                          setIsDropdownOpen(false)
-                        }}
-                        onFocus={() => {
-                          setIsDropdownOpen(true)
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Escape') setIsDropdownOpen(false)
-                        }}
-                        isFilterOpen={isFilterExpanded}
-                        hasActiveFilter={hasActiveFilter}
-                        onToggleFilter={() => setIsFilterExpanded((prev) => !prev)}
-                      />
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleResetMap}
-                      aria-label="รีเซ็ตแผนที่"
-                      title="รีเซ็ตแผนที่"
-                      className="btn btn-tertiary btn-icon h-11 w-11"
-                    >
-                      <ArrowCounterClockwise size={16} weight="bold" />
-                    </button>
+                  <div className="w-full">
+                    <SearchBar
+                      inputRef={inputRef}
+                      value={query}
+                      onChange={(newQuery) => {
+                        setQuery(newQuery)
+                        setIsDropdownOpen(true)
+                      }}
+                      onClear={() => {
+                        setQuery('')
+                        setIsDropdownOpen(false)
+                      }}
+                      onFocus={() => {
+                        setIsDropdownOpen(true)
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Escape') setIsDropdownOpen(false)
+                      }}
+                      isFilterOpen={isFilterExpanded}
+                      hasActiveFilter={hasActiveFilter}
+                      onToggleFilter={() => setIsFilterExpanded((prev) => !prev)}
+                    />
                   </div>
 
                   {/* Category Filter Pills Collapsible */}
@@ -805,6 +951,7 @@ export default function MapPage() {
                       reloadSchedules={reloadRoomSchedules}
                       closure={roomClosures.get(selectedRoom.id)}
                       onRetryClosures={retryClosures}
+                      highlightExamCode={targetExamCode}
                     />
                   ) : isShowingSearchResults ? (
                     /* STATE 2: SEARCH RESULTS LIST */
@@ -847,7 +994,7 @@ export default function MapPage() {
 
             {/* Desktop floating pill when sidebar is collapsed but a room is pinned */}
             {isSidebarCollapsed && selectedRoom && (
-              <div className="pointer-events-auto absolute bottom-6 left-6 z-2 flex items-center gap-2 border border-line-soft bg-white px-3 py-2 text-xs shadow-floating animate-fade-in">
+              <div className="pointer-events-auto absolute bottom-6 left-6 z-40 flex items-center gap-2 border border-line-soft bg-white px-3 py-2 text-xs shadow-floating animate-fade-in">
                 <div
                   className="flex cursor-pointer items-center gap-2 text-ink transition-opacity hover:opacity-80"
                   onClick={() => {
@@ -888,40 +1035,30 @@ export default function MapPage() {
                 MOBILE FLOATING SEARCH PANEL (Mobile only: < sm), just below the top bar
                 ========================================================================= */}
             <div className="pointer-events-none absolute inset-x-3 top-3 z-101 sm:hidden" hidden={isNavigating}>
-              <div className="pointer-events-auto relative z-2 flex flex-col">
-                <div className="flex w-full items-center gap-2">
-                  <div className="min-w-0 flex-1 shadow-floating">
-                    <SearchBar
-                      inputRef={inputRef}
-                      value={query}
-                      onChange={(newQuery) => {
-                        setQuery(newQuery)
-                        setIsDropdownOpen(true)
-                      }}
-                      onClear={() => {
-                        setQuery('')
-                        setIsDropdownOpen(false)
-                      }}
-                      onFocus={() => {
-                        setIsDropdownOpen(true)
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Escape') setIsDropdownOpen(false)
-                      }}
-                      isFilterOpen={isFilterExpanded}
-                      hasActiveFilter={hasActiveFilter}
-                      onToggleFilter={() => setIsFilterExpanded((prev) => !prev)}
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleResetMap}
-                    aria-label="รีเซ็ตแผนที่"
-                    title="รีเซ็ตแผนที่"
-                    className="btn btn-tertiary btn-icon h-11 w-11 shadow-floating"
-                  >
-                    <ArrowCounterClockwise size={16} weight="bold" />
-                  </button>
+              <div className="pointer-events-auto relative z-10 flex flex-col">
+                <div className="w-full shadow-floating">
+                  <SearchBar
+                    inputRef={inputRef}
+                    value={query}
+                    placeholder={isDesktop ? 'ค้นหาห้องหรือรหัสวิชา เช่น 109, CS361' : 'ค้นหาห้อง เช่น 105, CS341'}
+                    onChange={(newQuery) => {
+                      setQuery(newQuery)
+                      setIsDropdownOpen(true)
+                    }}
+                    onClear={() => {
+                      setQuery('')
+                      setIsDropdownOpen(false)
+                    }}
+                    onFocus={() => {
+                      setIsDropdownOpen(true)
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Escape') setIsDropdownOpen(false)
+                    }}
+                    isFilterOpen={isFilterExpanded}
+                    hasActiveFilter={hasActiveFilter}
+                    onToggleFilter={() => setIsFilterExpanded((prev) => !prev)}
+                  />
                 </div>
 
                 {/* Collapsible Category Filter on Mobile */}
@@ -958,7 +1095,7 @@ export default function MapPage() {
                   />
                   <div
                     data-testid="mobile-search-results"
-                    className="card no-scrollbar pointer-events-auto relative z-2 mt-2 max-h-[65dvh] overflow-y-auto p-3 shadow-modal animate-fade-in"
+                    className="card no-scrollbar pointer-events-auto relative z-20 mt-2 max-h-[65dvh] overflow-y-auto p-3 shadow-modal animate-fade-in"
                   >
                     <div className="mb-2 flex items-center justify-between border-b border-line-soft pb-2">
                       <span className="text-xs font-bold text-ink-2">
@@ -996,14 +1133,41 @@ export default function MapPage() {
               )}
             </div>
 
-            {/* MOBILE NAVIGATION CARD: takes the search panel's place below the top bar,
-                leaving the bottom of the map and its floor/view controls free. */}
+            {/* MOBILE NAVIGATION BOTTOM SHEET (Mobile only: < sm)
+                Docks cleanly at the bottom like Google Maps/Apple Maps, leaving the entire 3D route map clear above */}
             {navigationPanel && (
               <div
+                ref={navSheetRef}
                 data-testid="mobile-navigation"
-                className="card no-scrollbar pointer-events-auto absolute inset-x-3 top-3 z-101 max-h-[45dvh] overflow-y-auto overscroll-contain p-4 shadow-floating animate-fade-in sm:hidden"
+                onAnimationEnd={() => {
+                  if (navSheetRef.current) {
+                    navSheetRef.current.style.animation = 'none'
+                  }
+                }}
+                onTouchStart={handleNavTouchStart}
+                onTouchMove={handleNavTouchMove}
+                onTouchEnd={handleNavTouchEnd}
+                onTouchCancel={handleNavTouchCancel}
+                className="pointer-events-auto fixed inset-x-0 bottom-0 z-101 flex max-h-[50dvh] flex-col rounded-t-2xl border-t border-line-soft bg-white shadow-modal animate-modal-mobile will-change-transform sm:hidden"
               >
-                {navigationPanel}
+                {/* Grab Handle Header Bar (Touch drag zone & tap to dismiss) */}
+                <div
+                  data-nav-handle="true"
+                  className="flex w-full shrink-0 cursor-grab touch-none items-center justify-center pt-3 pb-2.5 select-none active:cursor-grabbing"
+                  onClick={() => {
+                    if (navHasDraggedRef.current) return
+                    handleDismissNavMobile()
+                  }}
+                  title="เลื่อนลงเพื่อปิดการนำทาง"
+                >
+                  <div className="h-1.5 w-12 rounded-full bg-line-soft transition-colors active:bg-line" />
+                </div>
+                <div
+                  ref={navSheetContentRef}
+                  className="no-scrollbar flex-1 overflow-y-auto overscroll-contain px-4 pt-1 pb-5"
+                >
+                  {navigationPanel}
+                </div>
               </div>
             )}
 
@@ -1055,6 +1219,7 @@ export default function MapPage() {
                     reloadSchedules={reloadRoomSchedules}
                     closure={roomClosures.get(selectedRoom.id)}
                     onRetryClosures={retryClosures}
+                    highlightExamCode={targetExamCode}
                   />
                 </div>
               </div>

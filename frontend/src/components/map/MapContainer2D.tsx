@@ -210,7 +210,7 @@ function MapContainer({
     <div className="map2d relative h-full w-full overflow-hidden">
       {/* Unified Right-Edge Vertical Zoom Stack (⌖, +, -) */}
       <div
-        className={`absolute z-2 flex flex-col items-center overflow-hidden border border-line-soft bg-white shadow-floating divide-y divide-line-soft transition-all ${
+        className={`absolute z-30 flex flex-col items-center overflow-hidden border border-line-soft bg-white shadow-floating divide-y divide-line-soft transition-all ${
           hideBottomControls
             ? selectedRoomId && isDetailOpen
               ? 'bottom-[calc(55dvh+1rem)] right-4 sm:bottom-5 sm:right-5'
@@ -254,7 +254,7 @@ function MapContainer({
         <div
           role="group"
           aria-label="Floor switcher"
-          className={`gooey-switch-group absolute z-2 h-12 rounded-full border border-line-soft bg-white p-1.5 shadow-floating sm:h-11 sm:p-1 ${
+          className={`gooey-switch-group absolute z-30 h-12 rounded-full border border-line-soft bg-white p-1.5 shadow-floating sm:h-11 sm:p-1 ${
             selectedRoomId && isDetailOpen
               ? 'bottom-[calc(55dvh+1rem)] right-4 sm:bottom-[calc(55dvh+1rem)] sm:right-5'
               : 'bottom-5 right-4 sm:bottom-5 sm:right-5'

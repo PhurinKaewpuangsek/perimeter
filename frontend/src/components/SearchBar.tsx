@@ -1,5 +1,5 @@
 import type { RefObject, KeyboardEvent } from 'react'
-import { MagnifyingGlass, List, X } from '@phosphor-icons/react'
+import { MagnifyingGlass, Funnel, X } from '@phosphor-icons/react'
 
 interface SearchBarProps {
   value: string
@@ -84,7 +84,7 @@ export default function SearchBar({
                 : 'text-ink-3 hover:bg-tertiary hover:text-ink'
           }`}
         >
-          <List size={17} weight={hasActiveFilter ? 'bold' : 'regular'} />
+          <Funnel size={17} weight={hasActiveFilter ? 'bold' : 'regular'} />
           {hasActiveFilter && !isFilterOpen && (
             <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-accent" />
           )}
