@@ -7,15 +7,25 @@
  * tapping another room on the map changes it.
  */
 import { createElement, useMemo, useRef, useState } from 'react'
-import { ArrowDown, ArrowUp, Barricade, DoorOpen, Prohibit, WarningCircle, X } from '@phosphor-icons/react'
+import {
+  ArrowDown,
+  ArrowUp,
+  Barricade,
+  DoorOpen,
+  Prohibit,
+  WarningCircle,
+  X,
+} from '@phosphor-icons/react'
 import SearchBar from './SearchBar'
 import { getCategoryIcon } from './categoryIcon'
 import { DEFAULT_CATEGORY_KEY, filterRooms } from '../services/filterRooms'
-import { BUILDING_ENTRANCE_ID } from '../services/routeService'
+import { BUILDING_ENTRANCES } from '../services/routeService'
 import {
   BUILDING_ENTRANCE_LABEL,
   CLOSURES_AVOIDED_NOTICE,
   ROUTE_FAILURE_MESSAGES,
+  generateLegInstructions,
+  getEntranceLabel,
   getFloorChangeLabel,
   getPlaceLabel,
   splitRouteByFloor,
@@ -66,8 +76,9 @@ export default function NavigationPanel({
   const [query, setQuery] = useState<string | null>(null)
   const isPickingStart = query !== null
 
-  const fromRoom = fromId === BUILDING_ENTRANCE_ID ? undefined : rooms.find((room) => room.id === fromId)
-  const fromLabel = fromRoom ? getPlaceLabel(fromRoom) : BUILDING_ENTRANCE_LABEL
+  const entranceLabel = getEntranceLabel(fromId)
+  const fromRoom = entranceLabel ? undefined : rooms.find((room) => room.id === fromId)
+  const fromLabel = entranceLabel ?? (fromRoom ? getPlaceLabel(fromRoom) : BUILDING_ENTRANCE_LABEL)
   const destinationLabel = destination ? getPlaceLabel(destination) : 'ปลายทาง'
 
   const startOptions = useMemo(
@@ -87,9 +98,9 @@ export default function NavigationPanel({
   const legs = routeState.route ? splitRouteByFloor(routeState.route.path) : []
 
   return (
-    <section aria-label="นำทาง" className="space-y-4">
+    <section aria-label="นำทาง" className="space-y-3">
       <div className="flex items-center justify-between gap-2">
-        <h2 className="font-display text-h3-sm font-bold text-ink">นำทาง</h2>
+        <h2 className="font-display text-sm sm:text-h3-sm font-bold text-ink">นำทาง</h2>
         <button type="button" onClick={onClose} aria-label="ล้างเส้นทาง" title="ล้างเส้นทาง" className="btn btn-ghost btn-sm">
           <X size={14} weight="bold" aria-hidden="true" />
           <span>ล้างเส้นทาง</span>
@@ -97,11 +108,11 @@ export default function NavigationPanel({
       </div>
 
       {/* Start and destination fields, joined by the route connector */}
-      <div className="relative space-y-2">
-        <span aria-hidden="true" className="absolute top-[50px] bottom-[30px] left-[7.5px] w-px bg-ink" />
+      <div className="relative space-y-1.5">
+        <span aria-hidden="true" className="absolute top-[42px] bottom-[26px] left-[7.5px] w-px bg-ink" />
 
         <div className="flex items-start gap-3">
-          <div className="mt-5 flex h-11 items-center">
+          <div className="mt-4 flex h-10 sm:h-11 items-center">
             <StartGlyph />
           </div>
           <div
@@ -110,7 +121,7 @@ export default function NavigationPanel({
               if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setQuery(null)
             }}
           >
-            <span className="mb-1 block text-xs text-ink-3">จุดเริ่มต้น</span>
+            <span className="mb-0.5 block text-[11px] sm:text-xs text-ink-3">จุดเริ่มต้น</span>
             <SearchBar
               inputRef={inputRef}
               value={query ?? fromLabel}
@@ -128,27 +139,34 @@ export default function NavigationPanel({
             {isPickingStart && (
               <ul
                 aria-label="ตัวเลือกจุดเริ่มต้น"
-                className="no-scrollbar mt-1 max-h-64 overflow-y-auto border border-line-soft bg-white"
+                className="no-scrollbar mt-1 max-h-56 overflow-y-auto border border-line-soft bg-white"
               >
-                <li>
-                  <button
-                    type="button"
-                    // Keep focus in the field so its blur does not close the list first.
-                    onMouseDown={(event) => event.preventDefault()}
-                    onClick={() => pickStart(BUILDING_ENTRANCE_ID)}
-                    className="flex min-h-11 w-full items-center gap-3 px-3 py-2 text-left hover:bg-surface-2"
-                  >
-                    <DoorOpen size={18} weight="bold" className="shrink-0 text-ink" aria-hidden="true" />
-                    <span className="text-button font-medium text-ink">{BUILDING_ENTRANCE_LABEL}</span>
-                  </button>
-                </li>
+                {BUILDING_ENTRANCES.map((entrance, index) => (
+                  <li key={entrance.id} className={index > 0 ? 'border-t border-line-soft' : ''}>
+                    <button
+                      type="button"
+                      // Keep focus in the field so its blur does not close the list first.
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => pickStart(entrance.id)}
+                      className="flex min-h-10 sm:min-h-11 w-full items-center gap-3 px-3 py-2 text-left hover:bg-surface-2"
+                    >
+                      <DoorOpen size={18} weight="bold" className="shrink-0 text-ink" aria-hidden="true" />
+                      <span className="min-w-0">
+                        <span className="block text-button font-medium text-ink">{entrance.label}</span>
+                        {entrance.description && (
+                          <span className="block truncate text-xs text-ink-3">{entrance.description}</span>
+                        )}
+                      </span>
+                    </button>
+                  </li>
+                ))}
                 {startOptions.map((room) => (
                   <li key={room.id} className="border-t border-line-soft">
                     <button
                       type="button"
                       onMouseDown={(event) => event.preventDefault()}
                       onClick={() => pickStart(room.id)}
-                      className="flex min-h-11 w-full items-center gap-3 px-3 py-2 text-left hover:bg-surface-2"
+                      className="flex min-h-10 sm:min-h-11 w-full items-center gap-3 px-3 py-2 text-left hover:bg-surface-2"
                     >
                       {createElement(getCategoryIcon(room.category, room.nameThai), {
                         size: 18,
@@ -167,7 +185,7 @@ export default function NavigationPanel({
                   </li>
                 ))}
                 {query?.trim() && startOptions.length === 0 && (
-                  <li className="border-t border-line-soft px-3 py-2.5 text-button text-ink-3">
+                  <li className="border-t border-line-soft px-3 py-2 text-button text-ink-3">
                     ไม่พบห้องที่ตรงกับ "{query?.trim()}"
                   </li>
                 )}
@@ -177,19 +195,19 @@ export default function NavigationPanel({
         </div>
 
         <div className="flex items-start gap-3">
-          <div className="mt-5 flex h-11 items-center">
+          <div className="mt-4 flex h-10 sm:h-11 items-center">
             <EndGlyph />
           </div>
           <div className="min-w-0 flex-1">
-            <span className="mb-1 block text-xs text-ink-3">ปลายทาง</span>
-            <p className="flex h-11 items-center truncate bg-search px-3 text-body text-ink">
+            <span className="mb-0.5 block text-[11px] sm:text-xs text-ink-3">ปลายทาง</span>
+            <p className="flex h-10 sm:h-11 items-center truncate bg-search px-3 text-body text-ink">
               {destinationLabel}
               {destination && <span className="ml-1 text-ink-3">· ชั้น {destination.floor}</span>}
             </p>
           </div>
         </div>
       </div>
-      <p className="-mt-2 pl-7 text-xs text-ink-3">แตะห้องบนแผนที่เพื่อเปลี่ยนปลายทาง</p>
+      <p className="-mt-1.5 pl-7 text-[11px] text-ink-3">แตะห้องบนแผนที่เพื่อเปลี่ยนปลายทาง</p>
 
       {/* Route status */}
       {routeState.status === 'loading' && (
@@ -251,28 +269,55 @@ export default function NavigationPanel({
                 const isShown = leg.floor === currentFloor
                 const walk = index === 0 ? `เดินจาก${fromLabel} ` : 'เดินต่อ'
                 const to = next ? 'ไปที่บันได' : `ไปยัง${destinationLabel}`
+                const legSteps = generateLegInstructions(
+                  leg.points,
+                  rooms,
+                  leg.floor,
+                  !next,
+                  destinationLabel,
+                  fromLabel,
+                  index === 0,
+                  destination?.id,
+                  fromId,
+                )
                 return (
                   <li key={index}>
                     <button
                       type="button"
                       onClick={() => onFloorChange(leg.floor)}
                       aria-pressed={isShown}
-                      className={`flex w-full items-start gap-3 border p-3 text-left transition-colors ${
-                        isShown ? 'border-ink bg-white' : 'border-line-soft bg-white hover:bg-surface-2'
+                      className={`flex w-full items-start gap-2.5 border p-2.5 sm:p-3 text-left transition-colors ${
+                        isShown ? 'border-ink bg-white shadow-xs' : 'border-line-soft bg-white hover:bg-surface-2'
                       }`}
                     >
                       <span
-                        className={`flex h-7 shrink-0 items-center rounded-full px-2.5 text-xs font-bold ${
+                        className={`flex h-6 sm:h-7 shrink-0 items-center rounded-full px-2 sm:px-2.5 text-[11px] sm:text-xs font-bold ${
                           isShown ? 'bg-ink text-white' : 'bg-tertiary text-ink'
                         }`}
                       >
                         ชั้น {leg.floor}
                       </span>
-                      <span className="min-w-0 flex-1 text-button text-ink">
-                        {walk}
-                        {to}
-                        {!isShown && <span className="block text-xs text-ink-3">แตะเพื่อดูชั้นนี้</span>}
-                      </span>
+                      <div className="min-w-0 flex-1">
+                        <span className="block text-button text-ink font-semibold">
+                          {walk}
+                          {to}
+                        </span>
+                        {!isShown && <span className="block text-[11px] text-ink-3">แตะเพื่อดูชั้นนี้</span>}
+                        {isShown && legSteps.length > 0 && (
+                          <div className="mt-2.5 space-y-1.5 border-t border-line-soft/80 pt-2">
+                            {legSteps.map((step, stepIdx) => (
+                              <div key={step.id || stepIdx} className="flex items-center gap-2">
+                                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-surface-2 font-mono text-[10px] font-bold text-ink">
+                                  {stepIdx + 1}
+                                </span>
+                                <span className="text-xs font-medium text-ink-2">
+                                  {step.text}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </button>
                     {next && (
                       <p className="flex items-center gap-2 py-2 pl-3 text-button font-medium text-ink">

@@ -98,6 +98,7 @@ import * as THREE from 'three'
 import { SSAOPass } from 'three/addons/postprocessing/SSAOPass.js'
 import { CONTEXT_RESTORE_TIMEOUT, createMapScene } from '../createMapScene'
 import type { FoundRoute } from '../../../types/route'
+import type { Room } from '../../../types/room'
 
 beforeEach(() => {
   gpu.composerThrows = false
@@ -234,7 +235,7 @@ describe('createMapScene route (#145)', () => {
     return { map, routeGroup }
   }
 
-  it('draws the line in from the start, then stops rendering', async () => {
+  it('draws the line in from the start, then stops requesting animation frames', async () => {
     const { map, routeGroup } = await sceneWithRoute(2)
     const endMarker = routeGroup.children.at(-1)!
     expect(endMarker.visible).toBe(false)
@@ -265,6 +266,40 @@ describe('createMapScene route (#145)', () => {
     await map.ready
     map.update({ rooms: [], currentFloor: 2, selectedRoomId: null, onSelectRoom: vi.fn(), route })
     expect(host.querySelector('.map3d-route-floor')).toBeNull()
+    map.dispose()
+  })
+
+  it('declutters by hiding unrelated room markers during navigation', async () => {
+    vi.stubGlobal('fetch', () =>
+      Promise.resolve({ ok: true, headers: new Headers(), body: null, arrayBuffer: () => Promise.resolve(new ArrayBuffer(8)) }),
+    )
+    const host = document.createElement('div')
+    const map = createMapScene(host, vi.fn())
+    await map.ready
+
+    const testRooms: Room[] = [
+      { id: '101', code: '101', nameThai: 'ห้อง 101', floor: 1, coordinates: { x: 10, y: 10 }, category: 'classroom' } as Room,
+      { id: '102', code: '102', nameThai: 'ห้อง 102', floor: 1, coordinates: { x: 20, y: 20 }, category: 'classroom' } as Room,
+      { id: '103', code: '103', nameThai: 'ห้อง 103', floor: 1, coordinates: { x: 30, y: 30 }, category: 'classroom' } as Room,
+      { id: '104', code: '104', nameThai: 'ห้อง 104', floor: 1, coordinates: { x: 625, y: 290 }, category: 'classroom' } as Room,
+    ]
+
+    // Without route: all 4 rooms visible on floor 1
+    map.update({ rooms: testRooms, currentFloor: 1, selectedRoomId: null, onSelectRoom: vi.fn(), route: null })
+    expect(host.querySelectorAll('.map3d-marker')).toHaveLength(4)
+
+    // With route to 101: destination (101) and corridor room (104) are rendered; unrelated rooms (102, 103) hidden
+    map.update({ rooms: testRooms, currentFloor: 1, selectedRoomId: '101', onSelectRoom: vi.fn(), route })
+    const markers = host.querySelectorAll<HTMLElement>('.map3d-marker')
+    expect(markers).toHaveLength(2)
+    const roomIds = Array.from(markers).map((m) => m.dataset.roomId)
+    expect(roomIds).toContain('101')
+    expect(roomIds).toContain('104')
+
+    // When route is cleared: all 4 rooms re-appear
+    map.update({ rooms: testRooms, currentFloor: 1, selectedRoomId: null, onSelectRoom: vi.fn(), route: null })
+    expect(host.querySelectorAll('.map3d-marker')).toHaveLength(4)
+
     map.dispose()
   })
 })

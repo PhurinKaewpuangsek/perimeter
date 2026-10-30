@@ -18,6 +18,7 @@ import { getCategoryPinColor } from "../../services/roomDisplay";
 import {
   getFloorChangeLabel,
   getRouteKey,
+  isRoomInRouteCorridor,
   splitRouteByFloor,
 } from "../../services/routeDisplay";
 // Vite fingerprints the file name, so the model can be cached as immutable.
@@ -38,6 +39,7 @@ export interface MapScene {
   ready: Promise<void>;
   update: (state: MapState) => void;
   reset: () => void;
+  frameRoute?: () => void;
   zoom: (factor: number) => void;
   dispose: () => void;
 }
@@ -206,6 +208,7 @@ function buildMapScene(
   scene.add(routeGroup);
   const routeLineMaterial = new THREE.MeshBasicMaterial({ color: "#000000" });
   const routeCapMaterial = new THREE.MeshBasicMaterial({ color: "#ffffff" });
+
   let routeKey = "";
   let routeFocusKey = "";
   // The line drawing in from the start: each part shows once the line reaches `at`
@@ -314,6 +317,7 @@ function buildMapScene(
       if (t >= 1) glide = undefined;
     }
     drawRouteIn(now);
+
     isDrawing = false;
 
     contactPass.ssaoMaterial.uniforms.cameraProjectionMatrix.value.copy(
@@ -325,6 +329,10 @@ function buildMapScene(
     composer.render();
     const width = host.clientWidth,
       height = host.clientHeight;
+    const sidebarLeft =
+      width >= 640
+        ? (state?.sidebarWidth ?? (state?.mode === "admin" ? 460 : 400))
+        : 0;
     const occupied: { x: number; y: number; width: number }[] = [];
     for (const marker of markers) {
       const screen = marker.point.clone().project(camera);
@@ -333,7 +341,7 @@ function buildMapScene(
       const visible =
         screen.z > -1 &&
         screen.z < 1 &&
-        x > 0 &&
+        x > sidebarLeft &&
         x < width &&
         y > 0 &&
         y < height;
@@ -348,6 +356,15 @@ function buildMapScene(
           Math.abs(p.x - x) < (p.width + labelWidth) / 2 + 4 &&
           Math.abs(p.y - y) < 23,
       );
+      const occluded = occupied.some(
+        (p) =>
+          Math.abs(p.x - x) < p.width / 2 + 2 &&
+          Math.abs(p.y - y) < 16,
+      );
+      if (!marker.selected && occluded) {
+        marker.button.hidden = true;
+        continue;
+      }
       marker.button.dataset.compact = String(!marker.selected && crowded);
       if (!crowded || marker.selected)
         occupied.push({ x, y, width: labelWidth });
@@ -362,7 +379,7 @@ function buildMapScene(
         !routeDraw &&
         screen.z > -1 &&
         screen.z < 1 &&
-        x > 0 &&
+        x > sidebarLeft &&
         x < width &&
         y > 0 &&
         y < height
@@ -393,16 +410,13 @@ function buildMapScene(
     camera.right = -camera.left;
     camera.top = span / 2;
     camera.bottom = -span / 2;
-    // Phones: lift the view above the room sheet, or drop it below the
-    // navigation card that sits under the top bar while a route is shown.
+    // Phones: lift the view above the bottom sheets (room detail sheet or navigation sheet)
     const phoneOffset =
       width >= 640
         ? 0
-        : state?.isDetailOpen
+        : state?.isDetailOpen || state?.route
           ? height * 0.22
-          : state?.route
-            ? -height * 0.2
-            : 0;
+          : 0;
     camera.setViewOffset(
       width,
       height,
@@ -424,6 +438,11 @@ function buildMapScene(
     return { target, pos, zoom };
   }
   function reset(smooth = false) {
+    if (state?.route) {
+      stopIdleDemo();
+      frameRoute(state);
+      return;
+    }
     const { target, pos, zoom } = getDefaultCameraPose();
     if (smooth && state?.idleOrbit && !reduceMotion) {
       stopIdleDemo();
@@ -643,14 +662,13 @@ function buildMapScene(
     const model = svgToModel(point.floor, point, ROUTE_HEIGHT);
     return new THREE.Vector3(model.x, model.y, model.z);
   }
-  // The route's part on the shown floor: a tube per segment with round joints,
-  // a disc at the start and a square at the end (the 2D markers' shapes).
-  // Unless motion is reduced, the line then draws in from the start (drawRouteIn).
+  // The route's part on the shown floor: round start disc, square destination box,
+  // black tube with sphere joints, and "ขึ้นบันไดไปชั้น N" labels where it leaves.
   function buildRoute(next: MapState) {
     clearRoute();
     const route = next.route;
     if (!route) return;
-    const radius = 0.16;
+    const radius = 0.22;
     let joint: THREE.SphereGeometry | undefined;
     // One unit-long open tube along +z from the origin, stretched to each segment's
     // length, so the draw-in can grow a segment without new geometry.
@@ -801,9 +819,28 @@ function buildMapScene(
       : undefined;
     labels.replaceChildren();
     markers = [];
-    const rooms = state.rooms.filter(
-      (room) => room.floor === state?.currentFloor,
-    );
+    const currentFloor = state?.currentFloor;
+    const isNavigating = Boolean(state?.route);
+    const originLocationId = state?.route?.path?.[0]?.locationId;
+    const destLocationId = state?.route?.path?.[state.route.path.length - 1]?.locationId;
+    const floorRoutePoints =
+      isNavigating && state?.route && currentFloor !== undefined
+        ? state.route.path.filter((p) => p.floor === currentFloor)
+        : [];
+    const rooms = (state?.rooms ?? []).filter((room) => {
+      if (room.floor !== currentFloor) return false;
+      if (isNavigating && floorRoutePoints.length > 0) {
+        // While navigating (Option C: Corridor-only filter):
+        // Always show destination and origin rooms
+        const isDestination =
+          room.id === next.selectedRoomId || (destLocationId && room.id === destLocationId);
+        const isOrigin = Boolean(originLocationId && room.id === originLocationId);
+        if (isDestination || isOrigin) return true;
+        // Keep intermediate corridor rooms along the active walking path as reference points
+        return isRoomInRouteCorridor(room, floorRoutePoints);
+      }
+      return true;
+    });
     // Selected marker has priority when resolving label overlap.
     rooms.sort(
       (a, b) =>
@@ -904,16 +941,19 @@ function buildMapScene(
       routeKey = nextRoute;
     }
     addRouteLabels(state);
+    resize();
     // After the room focus above, so a new route (or a floor of it) wins the camera.
     if (nextRoute && nextRoute !== routeFocusKey) frameRoute(state);
     routeFocusKey = nextRoute;
     maybeStartIdleDemo();
-    resize();
   }
   return {
     ready,
     update,
     reset: () => reset(true),
+    frameRoute: () => {
+      if (state) frameRoute(state);
+    },
     zoom(factor) {
       stopIdleDemo();
       glide = undefined;
