@@ -228,7 +228,7 @@ function normalizeDate(year: number, month: number, day: number): string | null 
   return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
 }
 
-function parseExamQuery(
+export function parseExamQuery(
   query: string,
   defaultYear = Number(formatLocalDate(new Date()).slice(0, 4))
 ): ParsedExamQuery {
@@ -308,6 +308,106 @@ function timeIsWithinSchedule(time: string, schedule: ScheduleSlot): boolean {
     queryMinutes >= startMinutes &&
     queryMinutes < endMinutes
   )
+}
+
+/**
+ * ตรวจสอบว่า query เป็นคำค้นหาที่เกี่ยวข้องกับการสอบโดยตรงหรือไม่
+ * เช่น "exam", "สอบ", "ตารางสอบ", "midterm", "final", "การสอบ"
+ */
+export function isExamKeywordQuery(query: string): boolean {
+  const q = query.trim().toLowerCase()
+  if (!q) return false
+  const EXAM_WORDS = [
+    'exam',
+    'exams',
+    'examination',
+    'midterm',
+    'final',
+    'สอบ',
+    'การสอบ',
+    'ตารางสอบ',
+    'ปลายภาค',
+    'กลางภาค',
+  ]
+  return EXAM_WORDS.some((word) => q === word || q.startsWith(word) || q.includes(word))
+}
+
+/**
+ * ตรวจสอบว่า query เกี่ยวข้องกับการสอบหรือไม่ (เป็นคำว่า exam/สอบ หรือตรงกับรหัสวิชาที่มีการสอบ)
+ */
+export function isExamRelatedQuery(
+  query: string,
+  schedules: ScheduleSlot[] = []
+): boolean {
+  if (isExamKeywordQuery(query)) return true
+  const q = query.trim().replace(/\s+/g, '').toLowerCase()
+  if (!q) return false
+  return schedules.some((s) => {
+    if (!isExamSchedule(s)) return false
+    const code = s.eventCode.replace(/\s+/g, '').toLowerCase()
+    const name = s.eventName.replace(/\s+/g, '').toLowerCase()
+    return code === q || code.includes(q) || q.includes(code) || name.includes(q)
+  })
+}
+
+/**
+ * ตัดสินใจว่าการเลือกห้องควรเปิดแท็บใด ('class' หรือ 'exam')
+ * โดย 'class' (ตารางเรียน) เป็นค่าเริ่มต้นตามธรรมชาติเสมอ
+ * จะสลับไป 'exam' (ตารางสอบ) เฉพาะเมื่อมีเจตนาค้นหาการสอบที่ชัดเจนเท่านั้น
+ */
+export function resolveScheduleTabOnRoomSelect({
+  query = '',
+  roomSchedules = [],
+  explicitTab,
+  targetEventCode,
+}: {
+  query?: string
+  roomSchedules?: ScheduleSlot[]
+  explicitTab?: 'class' | 'exam'
+  targetEventCode?: string
+}): { tab: 'class' | 'exam'; targetCode: string | null } {
+  // 1. ถ้าผู้ใช้คลิกเลือกแท็บหรือการ์ดประเภทนั้นโดยตรง เช่น คลิก [ดูตารางห้อง] ในผลการสอบ
+  if (explicitTab === 'exam') {
+    return { tab: 'exam', targetCode: targetEventCode || null }
+  }
+  if (explicitTab === 'class') {
+    return { tab: 'class', targetCode: null }
+  }
+
+  // 2. ถ้า query มีคำค้นหาเกี่ยวกับการสอบโดยตรง (เช่น "exam", "สอบ", "ตารางสอบ", "final", "midterm")
+  if (isExamKeywordQuery(query)) {
+    const firstExam = roomSchedules.find(isExamSchedule)
+    return { tab: 'exam', targetCode: targetEventCode || firstExam?.eventCode || null }
+  }
+
+  // 3. ตรวจสอบกรณีรหัสวิชาที่มีตัวเลขระบุชัดเจน (เช่น CS341, BAS350)
+  // รหัสกว้างๆ ที่ไม่มีตัวเลข เช่น "CS", "MA" จะไม่เข้าเคสนี้ และดีฟอลต์เป็น 'class' เสมอ
+  const parsed = parseExamQuery(query)
+  const isSpecificCourse = /^[A-Z]+\d+[A-Z0-9]*$/i.test(parsed.courseCode)
+
+  if (isSpecificCourse) {
+    const courseCode = parsed.courseCode.toUpperCase()
+    const matchingClass = roomSchedules.find(
+      (s) => !isExamSchedule(s) && matchesCourseCode(s, courseCode)
+    )
+    const matchingExam = roomSchedules.find(
+      (s) => isExamSchedule(s) && matchesCourseCode(s, courseCode)
+    )
+
+    // ถ้ามีคาบเรียนปกติในห้องนี้ (ตารางเรียน) ต้องให้ความสำคัญกับตารางเรียนเป็นหลักเสมอ!
+    if (matchingClass) {
+      return { tab: 'class', targetCode: null }
+    }
+
+    // ถ้าไม่มีคาบเรียนปกติในห้องนี้เลย แต่มีคาบสอบ (เช่น BAS350 ในห้อง 103)
+    // แสดงว่าผู้ใช้ค้นหารหัสวิชานี้เพื่อมาดูห้องสอบ -> สลับไปตารางสอบ
+    if (matchingExam) {
+      return { tab: 'exam', targetCode: courseCode }
+    }
+  }
+
+  // 4. กรณีอื่นๆ ทั้งหมด (ค้นหาชื่อห้อง, คีย์เวิร์ดทั่วไป "CS", ค้นหาคาบเรียน ฯลฯ) -> ดีฟอลต์เป็นตารางเรียนเสมอ
+  return { tab: 'class', targetCode: null }
 }
 
 export function isExamSearchQuery(

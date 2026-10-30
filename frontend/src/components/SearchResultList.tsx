@@ -26,7 +26,7 @@ interface SearchResultListProps {
   schedulesError: Error | null
   loading: boolean
   error: Error | null
-  onSelectRoom: (roomId: string) => void
+  onSelectRoom: (roomId: string, eventCode?: string, explicitTab?: 'class' | 'exam') => void
   onNavigateToRoom?: (roomId: string) => void
   /**
    * 'preview' (default): Modern Top 2 Preview + more badge for sidebar & landing
@@ -86,8 +86,23 @@ export default function SearchResultList({
                 key={`${schedule.roomCode}-${schedule.eventCode}-${schedule.eventDate}-${schedule.startTime}`}
                 className="card space-y-2 p-3"
               >
-                <div>
-                  <h3 className="text-button font-bold text-ink">สอบ: {schedule.eventCode}</h3>
+                <div
+                  className={room ? 'cursor-pointer group' : ''}
+                  onClick={() => {
+                    if (room) onSelectRoom(room.id, schedule.eventCode, 'exam')
+                  }}
+                  title={room ? 'คลิกเพื่อดูข้อมูลและตารางห้องสอบ' : undefined}
+                >
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-button font-bold text-ink transition-colors group-hover:text-accent">
+                      สอบ: {schedule.eventCode}
+                    </h3>
+                    {room && (
+                      <span className="text-xs font-medium text-ink-3 transition-colors group-hover:text-ink">
+                        ดูตารางห้อง →
+                      </span>
+                    )}
+                  </div>
                   <p className="mt-1 text-button text-ink-2">{formatExamDateTime(schedule)}</p>
                   <p className="mt-1 text-xs text-ink-3">
                     {room
@@ -102,13 +117,23 @@ export default function SearchResultList({
                     onClick={() => {
                       if (!room) return
                       if (onNavigateToRoom) onNavigateToRoom(room.id)
-                      else onSelectRoom(room.id)
+                      else onSelectRoom(room.id, schedule.eventCode)
                     }}
                     className="btn btn-primary btn-sm"
                     aria-label={`นำทางไปห้องสอบ ${schedule.roomCode}`}
                   >
                     นำทางไปห้องสอบ
                   </button>
+                  {room && (
+                    <button
+                      type="button"
+                      onClick={() => onSelectRoom(room.id, schedule.eventCode, 'exam')}
+                      className="btn btn-secondary btn-sm"
+                      aria-label={`ดูตารางห้องสอบ ${schedule.eventCode}`}
+                    >
+                      ดูตารางห้อง
+                    </button>
+                  )}
                   {Boolean(getSession()) && <PinButton slot={schedule} />}
                 </div>
               </li>
@@ -351,7 +376,15 @@ export default function SearchResultList({
                       return (
                         <div
                           key={idx}
-                          className="flex items-center justify-between border border-line-soft bg-surface-2 px-2.5 py-1 text-xs"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            if (isExamSchedule(schedule)) {
+                              onSelectRoom(room.id, schedule.eventCode, 'exam')
+                            } else {
+                              onSelectRoom(room.id, schedule.eventCode, 'class')
+                            }
+                          }}
+                          className="flex cursor-pointer items-center justify-between border border-line-soft bg-surface-2 px-2.5 py-1 text-xs transition-colors hover:border-accent hover:bg-accent/5"
                         >
                           <div className="flex items-center gap-1.5 truncate">
                             <span className="font-mono text-xs font-bold text-ink">

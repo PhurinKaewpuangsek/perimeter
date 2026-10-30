@@ -72,14 +72,22 @@ export default function PinButton({ slot, className = '', showLabel = false }: P
         data-testid={testId}
         aria-label={title}
         title={title}
-        className={`btn btn-sm ${pinned ? 'btn-primary' : 'btn-tertiary'} ${className}`}
+        className={`mochi-btn text-xs font-bold ${
+          pinned ? 'mochi-btn-pinned' : 'mochi-btn-unpinned'
+        } ${
+          showLabel ? 'h-8 w-8 sm:w-auto sm:px-3 sm:h-8' : 'h-8 px-3'
+        } ${className}`}
       >
         {submitting ? (
           <CircleNotch size={14} weight="bold" className="animate-spin" />
         ) : (
           <BookmarkSimple size={14} weight={pinned ? 'fill' : 'bold'} />
         )}
-        {showLabel && <span>{pinned ? 'บันทึกแล้ว' : 'บันทึก'}</span>}
+        {showLabel && (
+          <span className="hidden sm:inline">
+            {pinned ? 'บันทึกแล้ว' : 'บันทึก'}
+          </span>
+        )}
       </button>
       {error && (
         <span
