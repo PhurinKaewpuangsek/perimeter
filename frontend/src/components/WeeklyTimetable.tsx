@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
+import { ArrowSquareOut, Table } from '@phosphor-icons/react'
 import type { ScheduleSlot } from '../types/schedule'
 import {
   TIMETABLE_DAYS,
@@ -9,24 +10,34 @@ import {
   type PlacedSlot,
   type TimetableDay,
 } from '../services/timetableLayout'
-import { getExamDateLabel, isExamSchedule } from '../services/scheduleDisplay'
+import { getExamDateLabel } from '../services/scheduleDisplay'
+import {
+  THAI_DAY_COLORS,
+  buildClassColorMap,
+  entryColors,
+  slotKey,
+} from '../services/timetableColors'
+import { TuRegTimetable, TuRegTimetableModal } from './TuRegTimetable'
 
 export interface WeeklyTimetableProps {
   /** Entries to show. The grid never fetches data itself. */
   slots: ScheduleSlot[]
   /**
    * Buttons for one entry, e.g. pin and add-to-calendar (supplied by the caller).
-   * In the grid view each block is itself a button, so actions are never rendered inside it:
-   * they appear in the details card below the grid once a block is tapped (no nested buttons).
-   * In the day view they sit inside each block.
+   * Rendered in the full modal details card.
    */
   renderActions?: (slot: ScheduleSlot) => ReactNode
   /**
-   * 'grid' = Mon–Sun columns, 'day' = one day at a time with tabs,
-   * 'auto' (default) = grid only when the timetable's own container is wide enough
-   * (so a 400px side panel gets the day view even on a desktop screen).
+   * 'compact' / 'day' = Compact Week Table summary (interactive launcher for full modal),
+   * 'grid' = Mon–Sun vertical columns (wide view),
+   * 'tu-reg' = full week table in reg.tu.ac.th style (Days as rows, Time as columns),
+   * 'auto' (default) = compact week summary by default, expanding to full modal on tap.
    */
-  layout?: 'auto' | 'grid' | 'day'
+  layout?: 'auto' | 'grid' | 'compact' | 'day' | 'tu-reg'
+  /** Optional title or room description displayed in the modal */
+  title?: string
+  /** Optional room code */
+  roomCode?: string
 }
 
 const DAY_LABELS: Record<TimetableDay, { short: string; full: string }> = {
@@ -39,16 +50,22 @@ const DAY_LABELS: Record<TimetableDay, { short: string; full: string }> = {
   SUN: { short: 'อา.', full: 'วันอาทิตย์' },
 }
 
-/** Pixels per minute: tall enough on phones for actions to fit inside each block. */
-const GRID_PX_PER_MINUTE = 0.8
-const DAY_PX_PER_MINUTE = 1.4
+/** Day labels without periods for compact week summary: จ, อ, พ, พฤ, ศ, ส, อา */
+const COMPACT_DAY_LABELS: Record<TimetableDay, string> = {
+  MON: 'จ',
+  TUE: 'อ',
+  WED: 'พ',
+  THU: 'พฤ',
+  FRI: 'ศ',
+  SAT: 'ส',
+  SUN: 'อา',
+}
 
-/** Container width (px) from which the 'auto' layout switches to the Mon–Sun grid. */
-const GRID_MIN_WIDTH = 560
+/** Pixels per minute for desktop grid view */
+const GRID_PX_PER_MINUTE = 0.8
 
 /**
- * Width of the timetable's own container, so 'auto' reacts to the space it really has
- * (e.g. the 400px room panel) rather than the window size. 0 until measured.
+ * Width of the timetable's own container.
  */
 function useContainerWidth<T extends HTMLElement>() {
   const ref = useRef<T>(null)
@@ -70,11 +87,6 @@ function useContainerWidth<T extends HTMLElement>() {
   return { ref, width }
 }
 
-/** Stable identity of an entry, so a selection survives the parent re-fetching its slots. */
-function slotKey(slot: ScheduleSlot): string {
-  return `${slot.roomCode}#${slot.dayOfWeek}#${slot.startTime}#${slot.eventCode}`
-}
-
 /** Exam line in the same wording as the map page: "วันสอบ: 2026-05-18" or "date to be announced". */
 function examText(slot: ScheduleSlot): string | null {
   const label = getExamDateLabel(slot)
@@ -94,13 +106,6 @@ function entryLabel(item: PlacedSlot): string {
   ]
     .filter(Boolean)
     .join(' · ')
-}
-
-/** Tailwind colours for an entry: monochrome, exams carry a black edge and classes the accent edge. */
-function entryColors(slot: ScheduleSlot): string {
-  return isExamSchedule(slot)
-    ? 'bg-tertiary border-line text-ink border-l-4 border-l-ink'
-    : 'bg-surface-2 border-line-soft text-ink border-l-4 border-l-accent'
 }
 
 /** Absolute position of one entry inside a day column. */
@@ -150,8 +155,13 @@ function TimeGutter({ startMinute, endMinute, pxPerMinute }: { startMinute: numb
   )
 }
 
+interface GridViewProps extends Pick<WeeklyTimetableProps, 'slots' | 'renderActions'> {
+  colorMap?: Map<string, string>
+  onOpenWeekModal?: () => void
+}
+
 /** Mon–Sun overview. Blocks are compact; tapping one shows its details and actions below. */
-function GridView({ slots, renderActions }: Pick<WeeklyTimetableProps, 'slots' | 'renderActions'>) {
+function GridView({ slots, renderActions, colorMap, onOpenWeekModal }: GridViewProps) {
   const layout = useMemo(() => buildTimetableLayout(slots), [slots])
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
   const { startMinute, endMinute } = layout
@@ -164,6 +174,23 @@ function GridView({ slots, renderActions }: Pick<WeeklyTimetableProps, 'slots' |
 
   return (
     <div data-testid="timetable-grid" className="space-y-3">
+      {/* Week Schedule action bar */}
+      {onOpenWeekModal && (
+        <div className="flex items-center justify-between gap-2 pb-0.5">
+          <span className="text-xs font-bold text-ink-2">ตารางประจำสัปดาห์</span>
+          <button
+            type="button"
+            onClick={onOpenWeekModal}
+            data-testid="open-week-schedule-grid-btn"
+            className="btn btn-secondary btn-sm flex items-center gap-1.5 py-1 px-2.5 text-xs font-semibold cursor-pointer"
+            title="ดูตารางเรียนทั้งสัปดาห์"
+          >
+            <Table size={14} weight="bold" />
+            <span>ตารางทั้งสัปดาห์</span>
+          </button>
+        </div>
+      )}
+
       <div className="flex min-w-0">
         <div className="w-9 shrink-0" />
         <div className="grid min-w-0 flex-1 grid-cols-7">
@@ -197,13 +224,13 @@ function GridView({ slots, renderActions }: Pick<WeeklyTimetableProps, 'slots' |
                     aria-pressed={isSelected}
                     title={entryLabel(item)}
                     onClick={() => setSelectedKey(isSelected ? null : slotKey(item.slot))}
-                    className={`absolute overflow-hidden rounded-none border px-0.5 text-left leading-tight cursor-pointer transition-shadow ${entryColors(item.slot)} ${
-                      isSelected ? 'ring-2 ring-ink z-2' : 'hover:ring-1 hover:ring-line'
+                    className={`absolute overflow-hidden rounded-md px-1 text-left leading-tight cursor-pointer transition-shadow shadow-xs ${entryColors(item.slot, colorMap)} ${
+                      isSelected ? 'ring-2 ring-white z-2' : 'hover:brightness-95'
                     }`}
                     style={entryStyle(item, startMinute, endMinute, GRID_PX_PER_MINUTE)}
                   >
-                    <span className="block truncate font-mono text-[9px] font-bold">{item.slot.eventCode}</span>
-                    <span className="block truncate font-mono text-[8px] text-ink-2">{formatMinutes(item.startMinute)}</span>
+                    <span className="block truncate font-mono text-[9px] font-bold text-white">{item.slot.eventCode}</span>
+                    <span className="block truncate font-mono text-[8px] text-white/90">{formatMinutes(item.startMinute)}</span>
                   </button>
                 )
               })}
@@ -213,7 +240,7 @@ function GridView({ slots, renderActions }: Pick<WeeklyTimetableProps, 'slots' |
       </div>
 
       {selectedStillShown ? (
-        <EntryCard item={selectedStillShown} renderActions={renderActions} />
+        <EntryCard item={selectedStillShown} renderActions={renderActions} colorMap={colorMap} />
       ) : (
         <p className="text-center text-xs text-ink-3">แตะคาบในตารางเพื่อดูรายละเอียด</p>
       )}
@@ -222,20 +249,20 @@ function GridView({ slots, renderActions }: Pick<WeeklyTimetableProps, 'slots' |
 }
 
 /** Details of one entry (code, name, day, time, exam date) with its actions. */
-function EntryCard({ item, renderActions }: { item: PlacedSlot; renderActions?: WeeklyTimetableProps['renderActions'] }) {
+function EntryCard({ item, renderActions, colorMap }: { item: PlacedSlot; renderActions?: WeeklyTimetableProps['renderActions']; colorMap?: Map<string, string> }) {
   const exam = examText(item.slot)
   return (
-    <div data-testid="timetable-entry-card" className={`rounded-none border p-3 ${entryColors(item.slot)}`}>
+    <div data-testid="timetable-entry-card" className={`timetable-card rounded-xl p-3 shadow-xs ${entryColors(item.slot, colorMap)}`}>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="font-mono text-xs font-bold">{item.slot.eventCode}</p>
+          <p className="font-mono text-xs font-bold text-white">{item.slot.eventCode}</p>
           {item.slot.eventName && item.slot.eventName !== item.slot.eventCode && (
-            <p className="truncate text-xs">{item.slot.eventName}</p>
+            <p className="truncate text-xs text-white/90">{item.slot.eventName}</p>
           )}
-          <p className="mt-0.5 font-mono text-xs text-ink-2">
+          <p className="mt-0.5 font-mono text-xs text-white/80">
             {DAY_LABELS[item.day].full} {formatMinutes(item.startMinute)}–{formatMinutes(item.endMinute)}
           </p>
-          {exam && <p className="mt-0.5 text-xs font-bold">{exam}</p>}
+          {exam && <p className="mt-0.5 text-xs font-bold text-white">{exam}</p>}
         </div>
         {renderActions && <div className="flex shrink-0 items-center gap-1">{renderActions(item.slot)}</div>}
       </div>
@@ -243,97 +270,157 @@ function EntryCard({ item, renderActions }: { item: PlacedSlot; renderActions?: 
   )
 }
 
-/** One day at a time with tabs; every block is wide enough to show its details and actions. */
-function DayView({ slots, renderActions }: Pick<WeeklyTimetableProps, 'slots' | 'renderActions'>) {
+interface CompactWeekSummaryProps {
+  slots: ScheduleSlot[]
+  colorMap?: Map<string, string>
+  onOpenModal: () => void
+}
+
+/**
+ * Compact Week Table Summary:
+ * Sits right where the single-day table used to be. Acts as a large, inviting interactive button:
+ * displays a 7-day miniature overview of all classes with their Google Calendar solid colors.
+ * When clicked, it pops up the full, comprehensive Week Table modal in reg.tu.ac.th style.
+ */
+function CompactWeekSummary({ slots, colorMap, onOpenModal }: CompactWeekSummaryProps) {
   const layout = useMemo(() => buildTimetableLayout(slots), [slots])
-  const firstBusyDay = TIMETABLE_DAYS.find((day) => layout.days[day].length > 0) ?? 'MON'
-  const [chosenDay, setChosenDay] = useState<TimetableDay | null>(null)
-  const day = chosenDay ?? firstBusyDay
-  const activeDayIdx = Math.max(0, TIMETABLE_DAYS.indexOf(day))
-  const items = layout.days[day]
-  const { startMinute, endMinute } = layout
+
+  // Mini timeline spans from 07:00 to 21:00 (14 hours)
+  const timelineStart = 7 * 60
+  const timelineEnd = 21 * 60
+  const totalMinutes = timelineEnd - timelineStart
 
   return (
-    <div data-testid="timetable-day" className="space-y-3">
-      <div
-        role="tablist"
-        aria-label="เลือกวัน"
-        data-active-day={day}
-        style={{ '--day-idx': activeDayIdx } as React.CSSProperties}
-        className="day-tablist grid grid-cols-7 gap-1"
-      >
-        {/* Full-button dynamic liquid gradient sliding gooey indicator layer (background only) */}
-        <div aria-hidden="true" className="day-gooey-indicator-layer">
-          <span className="day-indicator-lead" />
-          <span className="day-indicator-drop" />
-          <span className="day-indicator-trail" />
+    <div
+      role="button"
+      tabIndex={0}
+      data-testid="compact-week-summary-btn"
+      onClick={onOpenModal}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onOpenModal()
+        }
+      }}
+      aria-label="เปิดดูตารางเรียนทั้งสัปดาห์"
+      className="group relative w-full text-left rounded-2xl border border-line-soft bg-white p-3.5 sm:p-4 shadow-xs transition-all duration-200 hover:border-line hover:shadow-md hover:scale-[1.008] cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent"
+    >
+      {/* Header bar of the compact summary button */}
+      <div className="flex items-center justify-between pb-2.5 border-b border-line-soft">
+        <div className="flex items-center gap-2">
+          <span className="font-display text-xs font-bold text-ink">
+            เทอม 1/2569
+          </span>
+          <span className="rounded-full bg-surface-2 border border-line-soft px-2 py-0.5 text-[10px] font-semibold text-ink-2">
+            {slots.length} คาบ
+          </span>
         </div>
 
-        {TIMETABLE_DAYS.map((d) => {
-          const count = layout.days[d].length
-          const active = d === day
+        <div className="flex items-center gap-1 text-xs font-semibold text-accent group-hover:text-accent-hover">
+          <span>ดูตารางเต็ม</span>
+          <ArrowSquareOut size={14} weight="bold" />
+        </div>
+      </div>
+
+      {/* Mini Time Rail Tick Marks */}
+      <div className="mt-2.5 flex items-center text-[10px] font-mono text-ink-3 pl-9 pr-1 justify-between select-none">
+        <span>08:00</span>
+        <span>11:00</span>
+        <span>14:00</span>
+        <span>17:00</span>
+        <span>20:00</span>
+      </div>
+
+      {/* 7 Days Mini Timeline Rows (Monday to Sunday) */}
+      <div className="mt-1 space-y-1.5">
+        {TIMETABLE_DAYS.map((day) => {
+          const daySlots = layout.days[day]
+          const dayMeta = THAI_DAY_COLORS[day]
+          const maxLane = daySlots.length === 0 ? 0 : Math.max(...daySlots.map((s) => s.lane))
+          const laneCount = maxLane + 1
+          const hasSlots = daySlots.length > 0
+
           return (
-            <button
-              key={d}
-              type="button"
-              role="tab"
-              data-day={d}
-              aria-selected={active}
-              aria-label={`${DAY_LABELS[d].full} (${count} คาบ)`}
-              onClick={() => setChosenDay(d)}
-              className={`day-tab-btn py-1.5 text-xs font-bold cursor-pointer ${
-                active
-                  ? 'day-tab-active text-white'
-                  : count > 0
-                    ? 'day-tab-inactive bg-tertiary text-ink'
-                    : 'day-tab-inactive bg-surface-2 text-ink-3'
-              }`}
-            >
-              <span className="day-glyph-text">{DAY_LABELS[d].short}</span>
-            </button>
+            <div key={day} className="flex items-center gap-2">
+              {/* Day Label with Small Color Dot */}
+              <div className="flex w-8 shrink-0 items-center gap-1.5 select-none">
+                <span
+                  className="h-2 w-2 rounded-full shrink-0"
+                  style={{ backgroundColor: dayMeta.hex }}
+                  aria-hidden="true"
+                />
+                <span className="font-mono text-xs font-bold text-ink">
+                  {COMPACT_DAY_LABELS[day]}
+                </span>
+              </div>
+
+              {/* Timeline Track with multi-lane sub-rows if overlapping */}
+              <div className="flex-1 flex flex-col gap-0.5 min-w-0">
+                {Array.from({ length: laneCount }).map((_, laneIdx) => {
+                  const laneSlots = daySlots.filter((s) => s.lane === laneIdx)
+                  return (
+                    <div
+                      key={laneIdx}
+                      className="relative h-6.5 w-full rounded-md bg-surface-2/70 border border-line-soft/40 overflow-hidden"
+                    >
+                      {/* Subtle background hour tick lines */}
+                      <div
+                        className="absolute inset-0 grid grid-cols-4 pointer-events-none"
+                        aria-hidden="true"
+                      >
+                        <div className="border-r border-line-soft/30 h-full" />
+                        <div className="border-r border-line-soft/30 h-full" />
+                        <div className="border-r border-line-soft/30 h-full" />
+                        <div className="h-full" />
+                      </div>
+
+                      {/* Mini Course Blocks */}
+                      {hasSlots && laneSlots.length > 0 ? (
+                        laneSlots.map((item) => {
+                          const leftPercent = Math.max(
+                            0,
+                            Math.min(100, ((item.startMinute - timelineStart) / totalMinutes) * 100)
+                          )
+                          const widthPercent = Math.max(
+                            8,
+                            Math.min(
+                              100 - leftPercent,
+                              ((item.endMinute - item.startMinute) / totalMinutes) * 100
+                            )
+                          )
+
+                          return (
+                            <div
+                              key={`${item.slot.eventCode}-${item.startMinute}`}
+                              className={`absolute inset-y-0.5 rounded px-1 flex items-center justify-center font-mono text-[10px] font-bold text-white shadow-xs truncate select-none ${entryColors(
+                                item.slot,
+                                colorMap
+                              )}`}
+                              style={{
+                                left: `${leftPercent}%`,
+                                width: `${widthPercent}%`,
+                              }}
+                              title={`${item.slot.eventCode} (${formatMinutes(
+                                item.startMinute
+                              )}–${formatMinutes(item.endMinute)})`}
+                            >
+                              <span className="truncate">{item.slot.eventCode}</span>
+                            </div>
+                          )
+                        })
+                      ) : !hasSlots ? (
+                        <div className="flex h-full items-center pl-2 select-none">
+                          <span className="text-[10px] text-ink-3/50 font-medium">ไม่มีคาบ</span>
+                        </div>
+                      ) : null}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
           )
         })}
       </div>
-
-      {items.length === 0 ? (
-        <p className="py-6 text-center text-xs text-ink-3">ไม่มีคาบใน{DAY_LABELS[day].full}</p>
-      ) : (
-        <div role="tabpanel" aria-label={DAY_LABELS[day].full} className="flex min-w-0">
-          <TimeGutter startMinute={startMinute} endMinute={endMinute} pxPerMinute={DAY_PX_PER_MINUTE} />
-          <div
-            role="list"
-            className="relative min-w-0 flex-1 rounded-none border border-line-soft bg-white"
-            style={{ height: (endMinute - startMinute) * DAY_PX_PER_MINUTE }}
-          >
-            <HourLines startMinute={startMinute} endMinute={endMinute} pxPerMinute={DAY_PX_PER_MINUTE} />
-            {items.map((item) => {
-              const exam = examText(item.slot)
-              return (
-                <div
-                  key={`${item.slot.eventCode}-${item.startMinute}-${item.lane}`}
-                  role="listitem"
-                  aria-label={entryLabel(item)}
-                  className={`absolute overflow-hidden rounded-none border p-2 transition-all ${entryColors(item.slot)}`}
-                  style={entryStyle(item, startMinute, endMinute, DAY_PX_PER_MINUTE)}
-                >
-                  <div className="flex items-start justify-between gap-1.5">
-                    <div className="min-w-0">
-                      <p className="truncate font-mono text-xs font-bold text-ink">
-                        {item.slot.eventCode}
-                      </p>
-                      <p className="truncate font-mono text-xs font-medium text-ink-2 mt-0.5">
-                        {formatMinutes(item.startMinute)}–{formatMinutes(item.endMinute)}
-                      </p>
-                      {exam && <p className="truncate text-xs font-bold text-ink mt-0.5">{exam}</p>}
-                    </div>
-                    {renderActions && <div className="flex shrink-0 items-center">{renderActions(item.slot)}</div>}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
     </div>
   )
 }
@@ -359,9 +446,17 @@ function SkippedList({ slots, renderActions }: Pick<WeeklyTimetableProps, 'slots
   )
 }
 
-/** Weekly timetable (Mon–Sun by time) for one room's schedule. */
-export default function WeeklyTimetable({ slots, renderActions, layout = 'auto' }: WeeklyTimetableProps) {
-  const { ref, width } = useContainerWidth<HTMLDivElement>()
+/** Weekly timetable component */
+export default function WeeklyTimetable({
+  slots,
+  renderActions,
+  layout = 'auto',
+  title,
+  roomCode,
+}: WeeklyTimetableProps) {
+  const { ref } = useContainerWidth<HTMLDivElement>()
+  const colorMap = useMemo(() => buildClassColorMap(slots), [slots])
+  const [isWeekModalOpen, setIsWeekModalOpen] = useState(false)
 
   if (slots.length === 0) {
     return (
@@ -373,16 +468,61 @@ export default function WeeklyTimetable({ slots, renderActions, layout = 'auto' 
     )
   }
 
-  const useGrid = layout === 'grid' || (layout === 'auto' && width >= GRID_MIN_WIDTH)
+  if (layout === 'tu-reg') {
+    return (
+      <div ref={ref} className="space-y-3">
+        <TuRegTimetable slots={slots} renderActions={renderActions} colorMap={colorMap} />
+        <SkippedList slots={slots} renderActions={renderActions} />
+      </div>
+    )
+  }
 
+  // Explicit grid view when layout='grid'
+  if (layout === 'grid') {
+    return (
+      <div ref={ref} className="space-y-3">
+        <GridView
+          slots={slots}
+          renderActions={renderActions}
+          colorMap={colorMap}
+          onOpenWeekModal={() => setIsWeekModalOpen(true)}
+        />
+        <SkippedList slots={slots} renderActions={renderActions} />
+
+        {isWeekModalOpen && (
+          <TuRegTimetableModal
+            isOpen={isWeekModalOpen}
+            onClose={() => setIsWeekModalOpen(false)}
+            slots={slots}
+            title={title}
+            roomCode={roomCode}
+            renderActions={renderActions}
+          />
+        )}
+      </div>
+    )
+  }
+
+  // Default ('auto', 'compact', or any room side panel): Compact Week Table summary (interactive button)
   return (
     <div ref={ref} className="space-y-3">
-      {useGrid ? (
-        <GridView slots={slots} renderActions={renderActions} />
-      ) : (
-        <DayView slots={slots} renderActions={renderActions} />
-      )}
+      <CompactWeekSummary
+        slots={slots}
+        colorMap={colorMap}
+        onOpenModal={() => setIsWeekModalOpen(true)}
+      />
       <SkippedList slots={slots} renderActions={renderActions} />
+
+      {isWeekModalOpen && (
+        <TuRegTimetableModal
+          isOpen={isWeekModalOpen}
+          onClose={() => setIsWeekModalOpen(false)}
+          slots={slots}
+          title={title}
+          roomCode={roomCode}
+          renderActions={renderActions}
+        />
+      )}
     </div>
   )
 }
