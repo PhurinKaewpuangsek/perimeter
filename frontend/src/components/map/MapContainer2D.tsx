@@ -1,9 +1,10 @@
-import { useRef, useEffect, useState } from 'react'
+import { useRef, useEffect, useState, useMemo, useCallback } from 'react'
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch'
 import type { ReactZoomPanPinchRef } from 'react-zoom-pan-pinch'
 import { Crosshair, Plus, Minus } from '@phosphor-icons/react'
 import type { Room } from '../../types/room'
 import type { FoundRoute } from '../../types/route'
+import { isRouteTransitionStair } from '../../services/routeDisplay'
 
 import { FLOOR_CONFIGS, getFloorConfig } from './floorConfig'
 import FloorPlanSvg from './FloorPlanSvg'
@@ -48,6 +49,8 @@ export interface MapContainerProps {
   overlaySegments?: MapOverlaySegment[]
   /** Rooms closed right now (#147); their pins show "ปิดชั่วคราว" in 2D and 3D. */
   closedRoomIds?: ReadonlySet<string>
+  /** Register callback to reset camera/zoom view to default */
+  onRegisterReset?: (reset: () => void) => void
 }
 
 export interface MapOverlaySegment {
@@ -120,6 +123,7 @@ function MapContainer({
   route = null,
   overlaySegments = [],
   closedRoomIds,
+  onRegisterReset,
 }: MapContainerProps) {
   const floorConfig = getFloorConfig(currentFloor)
   const transformRef = useRef<ReactZoomPanPinchRef | null>(null)
@@ -130,7 +134,17 @@ function MapContainer({
       typeof window.matchMedia === 'function' &&
       window.matchMedia('(prefers-reduced-motion: reduce)').matches,
   )
-  const motion = (ms: number) => (reduceMotion ? 0 : ms)
+  const motion = useCallback((ms: number) => (reduceMotion ? 0 : ms), [reduceMotion])
+
+  // Hide the active transition stair POI pin during navigation so the floor change button replaces it
+  const displayRooms = useMemo(
+    () => rooms.filter((room) => !isRouteTransitionStair(room, route, currentFloor)),
+    [rooms, route, currentFloor],
+  )
+
+  useEffect(() => {
+    onRegisterReset?.(() => transformRef.current?.resetTransform(motion(650), 'easeOutCubic'))
+  }, [onRegisterReset, motion])
 
   useEffect(() => {
     // While navigating, the route framing below decides the view.
@@ -208,16 +222,14 @@ function MapContainer({
 
   return (
     <div className="map2d relative h-full w-full overflow-hidden">
-      {/* Unified Right-Edge Vertical Zoom Stack (⌖, +, -) */}
+      {/* Unified Right-Edge Vertical Zoom Stack (⌖, +, -) - Desktop only (>= sm) */}
       <div
-        className={`absolute z-30 flex flex-col items-center overflow-hidden border border-line-soft bg-white shadow-floating divide-y divide-line-soft transition-all ${
+        className={`hidden sm:flex absolute z-30 flex-col items-center overflow-hidden rounded-2xl border border-line-soft bg-white shadow-floating divide-y divide-line-soft transition-all ${
           hideBottomControls
-            ? selectedRoomId && isDetailOpen
-              ? 'bottom-[calc(55dvh+1rem)] right-4 sm:bottom-5 sm:right-5'
-              : 'bottom-5 right-4 sm:bottom-5 sm:right-5'
+            ? 'sm:bottom-5 sm:right-5'
             : selectedRoomId && isDetailOpen
-              ? 'bottom-[calc(55dvh+5rem)] right-4 sm:bottom-20 sm:right-5'
-              : 'bottom-20 right-4 sm:bottom-20 sm:right-5'
+              ? 'sm:bottom-20 sm:right-5'
+              : 'sm:bottom-20 sm:right-5'
         }`}
       >
         <button
@@ -381,7 +393,7 @@ function MapContainer({
               height={floorConfig.height}
             />
             <RoomMarkers
-              rooms={rooms}
+              rooms={displayRooms}
               currentFloor={currentFloor}
               floorConfig={floorConfig}
               selectedRoomId={selectedRoomId}

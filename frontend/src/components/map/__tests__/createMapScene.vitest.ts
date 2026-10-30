@@ -257,15 +257,20 @@ describe('createMapScene route (#145)', () => {
     map.dispose()
   })
 
-  it('has no stairs label on the last floor of the route', async () => {
+  it('renders a return stairs button on later floors of the route', async () => {
     vi.stubGlobal('fetch', () =>
       Promise.resolve({ ok: true, headers: new Headers(), body: null, arrayBuffer: () => Promise.resolve(new ArrayBuffer(8)) }),
     )
     const host = document.createElement('div')
     const map = createMapScene(host, vi.fn())
     await map.ready
-    map.update({ rooms: [], currentFloor: 2, selectedRoomId: null, onSelectRoom: vi.fn(), route })
-    expect(host.querySelector('.map3d-route-floor')).toBeNull()
+    const onFloorChange = vi.fn()
+    map.update({ rooms: [], currentFloor: 2, selectedRoomId: null, onSelectRoom: vi.fn(), onFloorChange, route })
+    const button = host.querySelector<HTMLButtonElement>('.map3d-route-floor')
+    expect(button).not.toBeNull()
+    expect(button?.textContent).toBe('ลงบันไดไปชั้น 1')
+    button?.click()
+    expect(onFloorChange).toHaveBeenCalledWith(1)
     map.dispose()
   })
 
@@ -290,15 +295,99 @@ describe('createMapScene route (#145)', () => {
 
     // With route to 101: destination (101) and corridor room (104) are rendered; unrelated rooms (102, 103) hidden
     map.update({ rooms: testRooms, currentFloor: 1, selectedRoomId: '101', onSelectRoom: vi.fn(), route })
-    const markers = host.querySelectorAll<HTMLElement>('.map3d-marker')
-    expect(markers).toHaveLength(2)
-    const roomIds = Array.from(markers).map((m) => m.dataset.roomId)
+    const roomMarkers = host.querySelectorAll<HTMLElement>('.map3d-marker[data-room-id]')
+    expect(roomMarkers).toHaveLength(2)
+    const roomIds = Array.from(roomMarkers).map((m) => m.dataset.roomId)
     expect(roomIds).toContain('101')
     expect(roomIds).toContain('104')
+
+    // Origin entrance marker is also present with data-origin
+    const originMarker = host.querySelector<HTMLElement>('.map3d-marker[data-origin="true"]')
+    expect(originMarker).not.toBeNull()
+    expect(originMarker?.textContent).toContain('ทางเข้าอาคาร 1')
 
     // When route is cleared: all 4 rooms re-appear
     map.update({ rooms: testRooms, currentFloor: 1, selectedRoomId: null, onSelectRoom: vi.fn(), route: null })
     expect(host.querySelectorAll('.map3d-marker')).toHaveLength(4)
+
+    map.dispose()
+  })
+
+  it('renders grounded destination drop pin with integrated glyph and stem during navigation', async () => {
+    vi.stubGlobal('fetch', () =>
+      Promise.resolve({ ok: true, headers: new Headers(), body: null, arrayBuffer: () => Promise.resolve(new ArrayBuffer(8)) }),
+    )
+    const host = document.createElement('div')
+    const map = createMapScene(host, vi.fn())
+    await map.ready
+
+    const testRooms: Room[] = [
+      { id: '201', code: '201', nameThai: 'ห้อง 201', floor: 2, coordinates: { x: 424, y: 280 }, category: 'classroom' } as Room,
+    ]
+
+    // Without route: selected room has aria-pressed='true' but no destination glyph or stem
+    map.update({ rooms: testRooms, currentFloor: 2, selectedRoomId: '201', onSelectRoom: vi.fn(), route: null })
+    const markerWithoutRoute = host.querySelector<HTMLButtonElement>('[data-room-id="201"]')
+    expect(markerWithoutRoute).not.toBeNull()
+    expect(markerWithoutRoute?.getAttribute('aria-pressed')).toBe('true')
+    expect(markerWithoutRoute?.dataset.destination).toBeUndefined()
+    expect(markerWithoutRoute?.querySelector('.map3d-glyph-dest')).toBeNull()
+    expect(markerWithoutRoute?.querySelector('.map3d-pin-stem')).toBeNull()
+
+    // With route to 201: destination drop pin has integrated glyph and downward ground stem
+    map.update({ rooms: testRooms, currentFloor: 2, selectedRoomId: '201', onSelectRoom: vi.fn(), route })
+    const markerWithRoute = host.querySelector<HTMLButtonElement>('[data-room-id="201"]')
+    expect(markerWithRoute).not.toBeNull()
+    expect(markerWithRoute?.dataset.destination).toBe('true')
+    const glyph = markerWithRoute?.querySelector('.map3d-glyph-dest')
+    expect(glyph).not.toBeNull()
+    expect(glyph?.querySelector('.map3d-glyph-dest-inner')).not.toBeNull()
+    const stem = markerWithRoute?.querySelector('.map3d-pin-stem')
+    expect(stem).not.toBeNull()
+
+    map.dispose()
+  })
+
+  it('renders grounded origin drop pin with integrated circle glyph and downward stem during navigation', async () => {
+    vi.stubGlobal('fetch', () =>
+      Promise.resolve({ ok: true, headers: new Headers(), body: null, arrayBuffer: () => Promise.resolve(new ArrayBuffer(8)) }),
+    )
+    const host = document.createElement('div')
+    const map = createMapScene(host, vi.fn())
+    await map.ready
+
+    const testRooms: Room[] = [
+      { id: '101', code: '101', nameThai: 'ห้อง 101', floor: 1, coordinates: { x: 424, y: 280 }, category: 'classroom' } as Room,
+    ]
+
+    // Navigation starting from entrance: origin button created with circle glyph and downward stem
+    map.update({ rooms: testRooms, currentFloor: 1, selectedRoomId: '101', onSelectRoom: vi.fn(), route })
+    const originEntranceMarker = host.querySelector<HTMLButtonElement>('.map3d-marker[data-origin="true"]')
+    expect(originEntranceMarker).not.toBeNull()
+    expect(originEntranceMarker?.textContent).toContain('ทางเข้าอาคาร 1')
+    const entranceGlyph = originEntranceMarker?.querySelector('.map3d-glyph-origin')
+    expect(entranceGlyph).not.toBeNull()
+    expect(entranceGlyph?.querySelector('.map3d-glyph-origin-inner')).not.toBeNull()
+    const entranceStem = originEntranceMarker?.querySelector('.map3d-pin-stem')
+    expect(entranceStem).not.toBeNull()
+
+    // Navigation starting from a room: origin room node has data-origin='true', circle glyph and downward stem
+    const roomOriginRoute: FoundRoute = {
+      ...route,
+      path: [
+        { nodeId: 'LC3-F1-101', locationId: '101', floor: 1, x: 424, y: 280 },
+        { nodeId: 'LC3_F2_201', locationId: '201', floor: 2, x: 500, y: 300 },
+      ],
+    }
+    map.update({ rooms: testRooms, currentFloor: 1, selectedRoomId: null, onSelectRoom: vi.fn(), route: roomOriginRoute })
+    const originRoomMarker = host.querySelector<HTMLButtonElement>('[data-room-id="101"]')
+    expect(originRoomMarker).not.toBeNull()
+    expect(originRoomMarker?.dataset.origin).toBe('true')
+    const roomGlyph = originRoomMarker?.querySelector('.map3d-glyph-origin')
+    expect(roomGlyph).not.toBeNull()
+    expect(roomGlyph?.querySelector('.map3d-glyph-origin-inner')).not.toBeNull()
+    const roomStem = originRoomMarker?.querySelector('.map3d-pin-stem')
+    expect(roomStem).not.toBeNull()
 
     map.dispose()
   })

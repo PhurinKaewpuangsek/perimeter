@@ -16,11 +16,16 @@ import {
 } from "../../services/markerLayout";
 import { getCategoryPinColor } from "../../services/roomDisplay";
 import {
+  BRIDGE_ROUTE_HEIGHT,
+  getDisplayRoutePoints,
   getFloorChangeLabel,
   getRouteKey,
+  isPointOnBridgeDeck,
   isRoomInRouteCorridor,
+  isRouteTransitionStair,
   splitRouteByFloor,
 } from "../../services/routeDisplay";
+import { BUILDING_ENTRANCES } from "../../services/routeService";
 // Vite fingerprints the file name, so the model can be cached as immutable.
 import modelUrl from "../../assets/maps/lc3-campus.glb?url";
 
@@ -202,12 +207,11 @@ function buildMapScene(
   highlight.visible = false;
   scene.add(highlight);
   // Route: rebuilt only when the route or floor changes. Geometries are per build and
-  // disposed on every rebuild; the two materials live as long as the scene.
+  // disposed on every rebuild; the material lives as long as the scene.
   const routeGroup = new THREE.Group();
   routeGroup.name = "Route";
   scene.add(routeGroup);
   const routeLineMaterial = new THREE.MeshBasicMaterial({ color: "#000000" });
-  const routeCapMaterial = new THREE.MeshBasicMaterial({ color: "#ffffff" });
 
   let routeKey = "";
   let routeFocusKey = "";
@@ -333,7 +337,45 @@ function buildMapScene(
       width >= 640
         ? (state?.sidebarWidth ?? (state?.mode === "admin" ? 460 : 400))
         : 0;
-    const occupied: { x: number; y: number; width: number }[] = [];
+    const occupied: {
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+      isRoute?: boolean;
+    }[] = [];
+
+    // Project route floor-change buttons first so navigation actions take priority
+    // over room markers and register in occupied bounds to prevent visual collisions.
+    for (const label of routeLabels) {
+      const screen = label.point.clone().project(camera);
+      const x = ((screen.x + 1) * width) / 2,
+        y = ((1 - screen.y) * height) / 2;
+      const inView =
+        screen.z > -1 &&
+        screen.z < 1 &&
+        x > sidebarLeft &&
+        x < width &&
+        y > 0 &&
+        y < height;
+      // Stairs labels wait until the line has drawn in to them.
+      label.button.hidden = !(inView && !routeDraw);
+      label.button.style.transform = `translate(${x}px,${y}px) translate(-50%,-100%)`;
+      if (!inView) continue;
+
+      const labelWidth =
+        label.button.offsetWidth ||
+        Math.min(180, (label.button.textContent?.length ?? 0) * 8 + 36);
+      const labelHeight = label.button.offsetHeight || 36;
+      occupied.push({
+        x,
+        y,
+        width: labelWidth,
+        height: labelHeight,
+        isRoute: true,
+      });
+    }
+
     for (const marker of markers) {
       const screen = marker.point.clone().project(camera);
       const x = ((screen.x + 1) * width) / 2,
@@ -351,40 +393,47 @@ function buildMapScene(
         160,
         (marker.button.textContent?.length ?? 0) * 7 + 34,
       );
-      const crowded = occupied.some(
-        (p) =>
+      const crowded = occupied.some((p) => {
+        if (p.isRoute) {
+          return (
+            Math.abs(p.x - x) < (p.width + labelWidth) / 2 + 6 &&
+            Math.abs(p.y - y) < 32
+          );
+        }
+        return (
           Math.abs(p.x - x) < (p.width + labelWidth) / 2 + 4 &&
-          Math.abs(p.y - y) < 23,
-      );
-      const occluded = occupied.some(
-        (p) =>
+          Math.abs(p.y - y) < 23
+        );
+      });
+      const occluded = occupied.some((p) => {
+        if (p.isRoute) {
+          return (
+            Math.abs(p.x - x) < p.width / 2 + 8 &&
+            Math.abs(p.y - y) < 26
+          );
+        }
+        return (
           Math.abs(p.x - x) < p.width / 2 + 2 &&
-          Math.abs(p.y - y) < 16,
-      );
+          Math.abs(p.y - y) < 16
+        );
+      });
       if (!marker.selected && occluded) {
         marker.button.hidden = true;
         continue;
       }
       marker.button.dataset.compact = String(!marker.selected && crowded);
+      const isAnchored =
+        marker.button.dataset.origin === "true" ||
+        marker.button.dataset.destination === "true";
+      const stemOffset = isAnchored ? 14 : 0;
       if (!crowded || marker.selected)
-        occupied.push({ x, y, width: labelWidth });
-      marker.button.style.transform = `translate(${x}px,${y}px) translate(-50%,-100%)`;
-    }
-    for (const label of routeLabels) {
-      const screen = label.point.clone().project(camera);
-      const x = ((screen.x + 1) * width) / 2,
-        y = ((1 - screen.y) * height) / 2;
-      // Stairs labels wait until the line has drawn in to them.
-      label.button.hidden = !(
-        !routeDraw &&
-        screen.z > -1 &&
-        screen.z < 1 &&
-        x > sidebarLeft &&
-        x < width &&
-        y > 0 &&
-        y < height
-      );
-      label.button.style.transform = `translate(${x}px,${y}px) translate(-50%,-100%)`;
+        occupied.push({
+          x,
+          y,
+          width: labelWidth,
+          height: marker.selected || isAnchored ? 44 : 24,
+        });
+      marker.button.style.transform = `translate(${x}px,${y}px) translate(-50%, calc(-100% - ${stemOffset}px))`;
     }
     if (!disposed && !contextLost && (idleOrbiting || glide || routeDraw)) {
       frame = requestAnimationFrame(draw);
@@ -659,11 +708,14 @@ function buildMapScene(
     routeGroup.clear();
   }
   function routePoint(point: { floor: number; x: number; y: number }) {
-    const model = svgToModel(point.floor, point, ROUTE_HEIGHT);
+    const height =
+      point.floor === 1 && isPointOnBridgeDeck(point)
+        ? BRIDGE_ROUTE_HEIGHT
+        : ROUTE_HEIGHT;
+    const model = svgToModel(point.floor, point, height);
     return new THREE.Vector3(model.x, model.y, model.z);
   }
-  // The route's part on the shown floor: round start disc, square destination box,
-  // black tube with sphere joints, and "ขึ้นบันไดไปชั้น N" labels where it leaves.
+  // The route's part on the shown floor: black tube with sphere joints, and "ขึ้นบันไดไปชั้น N" labels where it leaves.
   function buildRoute(next: MapState) {
     clearRoute();
     const route = next.route;
@@ -681,7 +733,8 @@ function buildMapScene(
       segment ??= new THREE.CylinderGeometry(radius, radius, 1, 8, 1, true)
         .rotateX(Math.PI / 2)
         .translate(0, 0, 0.5);
-      const points = leg.points.map(routePoint);
+      const displayPoints = getDisplayRoutePoints(leg.points, leg.floor);
+      const points = displayPoints.map(routePoint);
       points.forEach((point, i) => {
         const length = i > 0 ? point.distanceTo(points[i - 1]) : 0;
         if (length >= 1e-3) {
@@ -699,43 +752,12 @@ function buildMapScene(
         parts.push({ mesh: sphere, at: distance });
       });
     }
-    const start = route.path[0];
-    if (start?.floor === next.currentFloor) {
-      const at = routePoint(start);
-      const disc = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.6, 0.6, 0.14, 24),
-        routeLineMaterial,
-      );
-      const dot = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.24, 0.24, 0.16, 16),
-        routeCapMaterial,
-      );
-      disc.position.copy(at);
-      dot.position.copy(at);
-      routeGroup.add(disc, dot);
-    }
-    const end = route.path[route.path.length - 1];
-    if (route.path.length > 1 && end.floor === next.currentFloor) {
-      const at = routePoint(end);
-      const square = new THREE.Mesh(
-        new THREE.BoxGeometry(1.1, 0.14, 1.1),
-        routeLineMaterial,
-      );
-      const dot = new THREE.Mesh(
-        new THREE.BoxGeometry(0.42, 0.16, 0.42),
-        routeCapMaterial,
-      );
-      square.position.copy(at);
-      dot.position.copy(at);
-      routeGroup.add(square, dot);
-      parts.push({ mesh: square, at: distance }, { mesh: dot, at: distance });
-    }
     if (reduceMotion || parts.length === 0) return;
     routeDraw = { startTime: performance.now(), length: distance, parts };
     drawRouteIn(routeDraw.startTime);
     invalidate();
   }
-  // Show as much of the route as has drawn in by `now`; the start disc is always shown.
+  // Show as much of the route as has drawn in by `now`.
   function drawRouteIn(now: number) {
     if (!routeDraw) return;
     const t = Math.min(1, Math.max(0, (now - routeDraw.startTime) / ROUTE_DRAW_MS));
@@ -748,41 +770,69 @@ function buildMapScene(
     }
     if (t >= 1) routeDraw = undefined;
   }
-  // "ขึ้นบันไดไปชั้น N" buttons where the route leaves the shown floor. They live in
-  // the labels layer, which every update clears, so they are recreated each time.
+  // "ขึ้นบันไดไปชั้น N" / "ลงบันไดไปชั้น N" buttons where the route changes floors.
+  // They live in the labels layer, which every update clears, so they are recreated each time.
   function addRouteLabels(next: MapState) {
     routeLabels = [];
     if (!next.route) return;
     const legs = splitRouteByFloor(next.route.path);
     legs.forEach((leg, index) => {
+      if (leg.floor !== next.currentFloor) return;
+      const prev = legs[index - 1];
       const following = legs[index + 1];
-      if (!following || leg.floor !== next.currentFloor) return;
-      const stairs = svgToModel(
-        leg.floor,
-        leg.points[leg.points.length - 1],
-        1.4,
-      );
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = "map3d-route-floor";
-      button.textContent = getFloorChangeLabel(leg.floor, following.floor);
-      button.dataset.routeFloor = String(following.floor);
-      button.addEventListener("click", (event) => {
-        event.stopPropagation();
-        if (event.detail === 0) state?.onFloorChange?.(following.floor);
-      });
-      labels.append(button);
-      routeLabels.push({
-        button,
-        point: new THREE.Vector3(stairs.x, stairs.y, stairs.z),
-      });
+      const displayPoints = getDisplayRoutePoints(leg.points, leg.floor);
+
+      if (following) {
+        const stairsPt = displayPoints[displayPoints.length - 1];
+        // Height 1.25 cleanly replaces the stair POI badge directly at the stair landing
+        const stairs = svgToModel(leg.floor, stairsPt, 1.25);
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "map3d-route-floor";
+        button.textContent = getFloorChangeLabel(leg.floor, following.floor);
+        button.dataset.routeFloor = String(following.floor);
+        button.addEventListener("click", (event) => {
+          event.stopPropagation();
+          if (event.detail === 0) state?.onFloorChange?.(following.floor);
+        });
+        labels.append(button);
+        routeLabels.push({
+          button,
+          point: new THREE.Vector3(stairs.x, stairs.y, stairs.z),
+        });
+      }
+
+      if (prev) {
+        const stairsPt = displayPoints[0];
+        // Height 1.25 cleanly replaces the stair POI badge directly at the stair landing
+        const stairs = svgToModel(leg.floor, stairsPt, 1.25);
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "map3d-route-floor";
+        button.textContent = getFloorChangeLabel(leg.floor, prev.floor);
+        button.dataset.routeFloor = String(prev.floor);
+        button.addEventListener("click", (event) => {
+          event.stopPropagation();
+          if (event.detail === 0) state?.onFloorChange?.(prev.floor);
+        });
+        labels.append(button);
+        routeLabels.push({
+          button,
+          point: new THREE.Vector3(stairs.x, stairs.y, stairs.z),
+        });
+      }
     });
   }
   // Glide to show the whole part of the route on the shown floor.
   function frameRoute(next: MapState) {
-    const points = (next.route?.path ?? [])
-      .filter((point) => point.floor === next.currentFloor)
-      .map(routePoint);
+    if (!next.route) return;
+    const legs = splitRouteByFloor(next.route.path);
+    const points: THREE.Vector3[] = [];
+    for (const leg of legs) {
+      if (leg.floor !== next.currentFloor) continue;
+      const displayPoints = getDisplayRoutePoints(leg.points, leg.floor);
+      points.push(...displayPoints.map(routePoint));
+    }
     if (points.length === 0) return;
     const box = new THREE.Box3().setFromPoints(points);
     const center = box.getCenter(new THREE.Vector3());
@@ -804,6 +854,33 @@ function buildMapScene(
     );
   }
 
+  function createStem() {
+    const stem = document.createElement("span");
+    stem.className = "map3d-pin-stem";
+    stem.setAttribute("aria-hidden", "true");
+    return stem;
+  }
+
+  function createOriginGlyph() {
+    const glyph = document.createElement("span");
+    glyph.className = "map3d-glyph-origin";
+    glyph.setAttribute("aria-hidden", "true");
+    const inner = document.createElement("span");
+    inner.className = "map3d-glyph-origin-inner";
+    glyph.append(inner);
+    return glyph;
+  }
+
+  function createDestinationGlyph() {
+    const glyph = document.createElement("span");
+    glyph.className = "map3d-glyph-dest";
+    glyph.setAttribute("aria-hidden", "true");
+    const inner = document.createElement("span");
+    inner.className = "map3d-glyph-dest-inner";
+    glyph.append(inner);
+    return glyph;
+  }
+
   function update(next: MapState) {
     state = next;
     if (next.demoInterrupted || next.selectedRoomId) {
@@ -823,12 +900,17 @@ function buildMapScene(
     const isNavigating = Boolean(state?.route);
     const originLocationId = state?.route?.path?.[0]?.locationId;
     const destLocationId = state?.route?.path?.[state.route.path.length - 1]?.locationId;
-    const floorRoutePoints =
+    const floorRouteLegs =
       isNavigating && state?.route && currentFloor !== undefined
-        ? state.route.path.filter((p) => p.floor === currentFloor)
+        ? splitRouteByFloor(state.route.path).filter((l) => l.floor === currentFloor)
         : [];
+    const floorRoutePoints = floorRouteLegs.flatMap((leg) =>
+      getDisplayRoutePoints(leg.points, leg.floor),
+    );
     const rooms = (state?.rooms ?? []).filter((room) => {
       if (room.floor !== currentFloor) return false;
+      // Hide the active transition stair POI pin so the floor change button cleanly replaces it
+      if (isRouteTransitionStair(room, state?.route, currentFloor)) return false;
       if (isNavigating && floorRoutePoints.length > 0) {
         // While navigating (Option C: Corridor-only filter):
         // Always show destination and origin rooms
@@ -841,12 +923,14 @@ function buildMapScene(
       }
       return true;
     });
-    // Selected marker has priority when resolving label overlap.
-    rooms.sort(
-      (a, b) =>
-        Number(b.id === next.selectedRoomId) -
-        Number(a.id === next.selectedRoomId),
-    );
+    // Destination and origin markers have priority when resolving label overlap.
+    rooms.sort((a, b) => {
+      const aDest = Number(a.id === next.selectedRoomId || (destLocationId && a.id === destLocationId));
+      const bDest = Number(b.id === next.selectedRoomId || (destLocationId && b.id === destLocationId));
+      const aOrig = Number(originLocationId && a.id === originLocationId);
+      const bOrig = Number(originLocationId && b.id === originLocationId);
+      return bDest * 2 + bOrig - (aDest * 2 + aOrig);
+    });
     const icons = new Map<string, Element>();
     for (const holder of state.icons?.querySelectorAll<HTMLElement>(
       "[data-room-id]",
@@ -855,7 +939,18 @@ function buildMapScene(
       if (svg) icons.set(holder.dataset.roomId!, svg);
     }
     for (const room of rooms) {
-      const point = svgToModel(room.floor, room.coordinates, 1.15);
+      const isDestinationRoom = Boolean(
+        isNavigating &&
+        (room.id === state.selectedRoomId || (destLocationId && room.id === destLocationId)),
+      );
+      const isOriginRoom = Boolean(
+        isNavigating &&
+        originLocationId &&
+        room.id === originLocationId &&
+        !isDestinationRoom,
+      );
+      const markerHeight = isDestinationRoom || isOriginRoom ? ROUTE_HEIGHT : 1.15;
+      const point = svgToModel(room.floor, room.coordinates, markerHeight);
       const button = document.createElement("button");
       button.type = "button";
       button.className = "map3d-marker";
@@ -866,14 +961,24 @@ function buildMapScene(
         closed ? CLOSED_PIN_COLOR : getCategoryPinColor(room.category),
       );
       const icon = icons.get(room.id);
-      if (icon) {
+      if (icon && !isDestinationRoom && !isOriginRoom) {
         const disc = document.createElement("span");
         disc.className = "map3d-icon";
         disc.append(icon.cloneNode(true));
         button.append(disc);
       }
       if (closed) button.dataset.closed = "true";
+      if (isDestinationRoom) {
+        button.dataset.destination = "true";
+        button.append(createDestinationGlyph());
+      } else if (isOriginRoom) {
+        button.dataset.origin = "true";
+        button.append(createOriginGlyph());
+      }
       button.append(getMarkerText(room, closed));
+      if (isDestinationRoom || isOriginRoom) {
+        button.append(createStem());
+      }
       const name = `${room.code || room.nameThai} ${room.nameThai}`.trim();
       button.setAttribute(
         "aria-label",
@@ -894,7 +999,47 @@ function buildMapScene(
       markers.push({
         button,
         point: new THREE.Vector3(point.x, point.y, point.z),
-        selected: room.id === state.selectedRoomId,
+        selected: room.id === state.selectedRoomId || isDestinationRoom || isOriginRoom,
+      });
+    }
+
+    // Origin node indicator when starting point is an entrance or non-room waypoint
+    const startPoint = state?.route?.path?.[0];
+    const isOriginOnCurrentFloor = Boolean(startPoint && startPoint.floor === currentFloor);
+    const originRoomRendered = rooms.some((r) => r.id === originLocationId);
+    if (isNavigating && isOriginOnCurrentFloor && !originRoomRendered && startPoint) {
+      const entrance = BUILDING_ENTRANCES.find(
+        (e) =>
+          e.id === startPoint.locationId ||
+          (e.floor === startPoint.floor &&
+            Math.hypot(e.coordinates.x - startPoint.x, e.coordinates.y - startPoint.y) < 15),
+      );
+      const label =
+        entrance?.label ||
+        (startPoint.locationId && !startPoint.locationId.startsWith("LC3_")
+          ? startPoint.locationId
+          : "จุดเริ่มต้น");
+      const height =
+        startPoint.floor === 1 && isPointOnBridgeDeck(startPoint)
+          ? BRIDGE_ROUTE_HEIGHT
+          : ROUTE_HEIGHT;
+      const originPt = svgToModel(startPoint.floor, startPoint, height);
+      const originBtn = document.createElement("button");
+      originBtn.type = "button";
+      originBtn.className = "map3d-marker";
+      originBtn.dataset.origin = "true";
+      originBtn.setAttribute("aria-label", label);
+      originBtn.append(createOriginGlyph());
+      originBtn.append(label);
+      originBtn.append(createStem());
+      originBtn.addEventListener("click", (event) => {
+        event.stopPropagation();
+      });
+      labels.append(originBtn);
+      markers.unshift({
+        button: originBtn,
+        point: new THREE.Vector3(originPt.x, originPt.y, originPt.z),
+        selected: true,
       });
     }
     const selected = rooms.find((room) => room.id === state?.selectedRoomId);
@@ -989,7 +1134,6 @@ function buildMapScene(
       if (root) disposeModel(root);
       clearRoute();
       routeLineMaterial.dispose();
-      routeCapMaterial.dispose();
       highlight.geometry.dispose();
       highlight.material.dispose();
       beautyPass.dispose();

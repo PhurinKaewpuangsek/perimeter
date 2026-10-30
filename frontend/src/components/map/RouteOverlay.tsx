@@ -3,7 +3,12 @@ import { ArrowDown, ArrowUp } from '@phosphor-icons/react'
 import type { FoundRoute } from '../../types/route'
 import type { FloorConfig } from './floorConfig'
 import { useTransformScale } from './useTransformScale'
-import { getFloorChangeLabel, getRouteKey, splitRouteByFloor } from '../../services/routeDisplay'
+import {
+  getDisplayRoutePoints,
+  getFloorChangeLabel,
+  getRouteKey,
+  splitRouteByFloor,
+} from '../../services/routeDisplay'
 
 interface RouteOverlayProps {
   route: FoundRoute
@@ -58,8 +63,10 @@ export default function RouteOverlay({
         style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', overflow: 'visible' }}
       >
         {legs.map((leg, index) => {
-          if (leg.floor !== currentFloor || leg.points.length < 2) return null
-          const points = leg.points.map((point) => `${point.x},${point.y}`).join(' ')
+          if (leg.floor !== currentFloor) return null
+          const displayPoints = getDisplayRoutePoints(leg.points, leg.floor)
+          if (displayPoints.length < 2) return null
+          const points = displayPoints.map((point) => `${point.x},${point.y}`).join(' ')
           return (
             <g key={`${drawKey}-${index}`} data-testid="route-line">
               <polyline
@@ -100,33 +107,68 @@ export default function RouteOverlay({
         )}
       </svg>
 
-      {legs.map((leg, index) => {
+      {legs.flatMap((leg, index) => {
+        if (leg.floor !== currentFloor) return []
+        const prev = legs[index - 1]
         const next = legs[index + 1]
-        if (!next || leg.floor !== currentFloor) return null
-        const stairs = leg.points[leg.points.length - 1]
-        const label = getFloorChangeLabel(leg.floor, next.floor)
-        const Arrow = next.floor > leg.floor ? ArrowUp : ArrowDown
-        return (
-          <button
-            key={index}
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation()
-              onFloorChange(next.floor)
-            }}
-            className={`btn btn-primary btn-sm absolute z-2 shadow-floating whitespace-nowrap${drawing ? ' animate-route-reveal' : ''}`}
-            style={{
-              left: stairs.x,
-              top: stairs.y,
-              // Anchored at the stairs (top-left = the point), kept at screen size like the pins.
-              transform: `scale(${invScale}) translate(-50%, calc(-100% - 12px))`,
-              transformOrigin: '0 0',
-            }}
-          >
-            <Arrow size={14} weight="bold" aria-hidden="true" />
-            <span>{label}</span>
-          </button>
-        )
+        const buttons: React.ReactNode[] = []
+        const displayPoints = getDisplayRoutePoints(leg.points, leg.floor)
+
+        if (next) {
+          const stairs = displayPoints[displayPoints.length - 1]
+          const label = getFloorChangeLabel(leg.floor, next.floor)
+          const Arrow = next.floor > leg.floor ? ArrowUp : ArrowDown
+          buttons.push(
+            <button
+              key={`next-${index}`}
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation()
+                onFloorChange(next.floor)
+              }}
+              className={`btn btn-primary btn-sm absolute z-20 shadow-floating whitespace-nowrap${drawing ? ' animate-route-reveal' : ''}`}
+              style={{
+                left: stairs.x,
+                top: stairs.y,
+                // Anchored at the stairs node, replacing the stair POI pin
+                transform: `scale(${invScale}) translate(-50%, calc(-100% - 6px))`,
+                transformOrigin: '0 0',
+              }}
+            >
+              <Arrow size={14} weight="bold" aria-hidden="true" />
+              <span>{label}</span>
+            </button>
+          )
+        }
+
+        if (prev) {
+          const stairs = displayPoints[0]
+          const label = getFloorChangeLabel(leg.floor, prev.floor)
+          const Arrow = prev.floor > leg.floor ? ArrowUp : ArrowDown
+          buttons.push(
+            <button
+              key={`prev-${index}`}
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation()
+                onFloorChange(prev.floor)
+              }}
+              className={`btn btn-primary btn-sm absolute z-20 shadow-floating whitespace-nowrap${drawing ? ' animate-route-reveal' : ''}`}
+              style={{
+                left: stairs.x,
+                top: stairs.y,
+                // Anchored at the stairs node, replacing the stair POI pin
+                transform: `scale(${invScale}) translate(-50%, calc(-100% - 6px))`,
+                transformOrigin: '0 0',
+              }}
+            >
+              <Arrow size={14} weight="bold" aria-hidden="true" />
+              <span>{label}</span>
+            </button>
+          )
+        }
+
+        return buttons
       })}
     </>
   )

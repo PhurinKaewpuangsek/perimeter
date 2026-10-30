@@ -67,20 +67,110 @@
 .map3d-marker[data-closed='true'] {
   color: #757575;
 }
-/* Selected room: the accent blue, like the 2D selected pin. */
-.map3d-marker[aria-pressed='true'] {
+/* Selected room, route origin, or route destination: bold black pill in the monochrome theme (uber-designmd.md). */
+.map3d-marker[aria-pressed='true'],
+.map3d-marker[data-origin='true'],
+.map3d-marker[data-destination='true'] {
   color: #ffffff;
-  background: #0000ee;
-  border-color: #0000aa;
+  background: #000000;
+  border-color: #000000;
   padding: 6px 10px 6px 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.28);
   z-index: 20;
 }
-/* Route floor change ("ขึ้นบันไดไปชั้น 2"): a primary pill, like the 2D button. */
+.map3d-marker[data-text-only='true'] {
+  padding: 6px 12px;
+}
+.map3d-marker[aria-pressed='true']:hover,
+.map3d-marker[aria-pressed='true']:focus-visible,
+.map3d-marker[data-origin='true']:hover,
+.map3d-marker[data-origin='true']:focus-visible,
+.map3d-marker[data-destination='true']:hover,
+.map3d-marker[data-destination='true']:focus-visible {
+  outline: 2px solid #000000;
+  outline-offset: 1px;
+  z-index: 20;
+}
+.map3d-marker[aria-pressed='true'][data-closed='true'],
+.map3d-marker[data-origin='true'][data-closed='true'],
+.map3d-marker[data-destination='true'][data-closed='true'] {
+  color: #d8d8d8;
+}
+.map3d-marker[aria-pressed='true'] .map3d-icon,
+.map3d-marker[data-origin='true'] .map3d-icon,
+.map3d-marker[data-destination='true'] .map3d-icon {
+  box-shadow: 0 0 0 1.5px #ffffff;
+}
+/* Integrated Origin Glyph inside the start pill (Uber-style pickup circle) */
+.map3d-glyph-origin {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #000000;
+  border: 1.5px solid #ffffff;
+  box-sizing: border-box;
+  flex: none;
+  margin-left: -2px;
+}
+.map3d-glyph-origin-inner {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #ffffff;
+  flex: none;
+}
+/* Integrated Destination Glyph inside the destination pill (Uber-style drop-off square) */
+.map3d-glyph-dest {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
+  background: #000000;
+  border: 1.5px solid #ffffff;
+  box-sizing: border-box;
+  flex: none;
+  margin-left: -2px;
+}
+.map3d-glyph-dest-inner {
+  width: 4px;
+  height: 4px;
+  background: #ffffff;
+  flex: none;
+}
+/* Ground-anchored drop pin stem pointing DOWN to the route line */
+.map3d-pin-stem {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 2px;
+  height: 14px;
+  background: #000000;
+  pointer-events: none;
+}
+.map3d-pin-stem::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #000000;
+}
+/* Route floor change ("ขึ้นบันไดไปชั้น 2"): a primary pill, like the 2D button.
+   Higher z-index than markers so the floor change call-to-action is never occluded. */
 .map3d-route-floor {
   position: absolute;
   left: 0;
   top: 0;
-  z-index: 4;
+  z-index: 25;
   pointer-events: auto;
   cursor: pointer;
   white-space: nowrap;
@@ -134,19 +224,26 @@
 .map3d-controls {
   position: absolute;
   z-index: 30;
-  display: flex;
   flex-direction: column;
   align-items: flex-end;
   gap: 10px;
 }
-/* Vertical zoom stack: square white card, floating shadow. */
+.map3d-controls.hidden {
+  display: none !important;
+}
+@media (min-width: 640px) {
+  .map3d-controls.sm\:flex {
+    display: flex !important;
+  }
+}
+/* Vertical zoom stack: modern rounded card matching the floor dock. */
 .map3d-zoom-stack {
   display: flex;
   flex-direction: column;
   background: #ffffff;
-  border: 1px solid #d8d8d8;
-  border-radius: 0;
-  box-shadow: 0 2px 8px rgb(0 0 0 / 0.16);
+  border: 1px solid var(--line-soft, #e5e5e5);
+  border-radius: 16px;
+  box-shadow: var(--shadow-floating, 0 4px 20px rgb(0 0 0 / 0.08));
   overflow: hidden;
 }
 .map3d-zoom-stack button {
@@ -154,7 +251,7 @@
   background: transparent;
   color: #333333;
   border: 0;
-  border-bottom: 1px solid #d8d8d8;
+  border-bottom: 1px solid var(--line-soft, #e5e5e5);
   width: 44px;
   height: 44px;
   min-height: 44px;

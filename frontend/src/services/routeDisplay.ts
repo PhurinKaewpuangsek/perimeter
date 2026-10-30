@@ -22,6 +22,229 @@ export function getEntranceLabel(id: string): string | undefined {
  */
 export const ROUTE_CORRIDOR_THRESHOLD = 95
 
+// Fountain constants (east courtyard on floor 1)
+export const FOUNTAIN_CENTER = { x: 955, y: 332 } as const
+export const FOUNTAIN_RIM_RADIUS = 55
+export const FOUNTAIN_WALK_RADIUS = 72
+
+// Bridge constants (floor 1 footbridge over west canal)
+export const BRIDGE_X_MIN = 625
+export const BRIDGE_X_MAX = 638
+export const BRIDGE_SOUTH_Y_MIN = 420
+export const BRIDGE_SOUTH_Y_MAX = 445
+export const BRIDGE_NORTH_Y_MIN = 280
+export const BRIDGE_NORTH_Y_MAX = 305
+export const BRIDGE_DECK_SOUTH = { x: 631.5, y: 411 } as const
+export const BRIDGE_NORTH_STAIRS_TOP = { x: 640, y: 283.5 } as const
+export const BRIDGE_NORTH_STAIRS_BOTTOM = { x: 640, y: 273.5 } as const
+export const BRIDGE_ROUTE_HEIGHT = 1.0
+
+export function isPointOnBridgeDeck(point: { floor?: number; x: number; y: number }): boolean {
+  if (point.floor !== undefined && point.floor !== 1) return false
+  // Bridge walkway over canal
+  if (point.x >= 625 && point.x <= 638 && point.y >= 288 && point.y <= 412) {
+    return true
+  }
+  // North elevated landing platform:
+  // - West wing (connecting MStair and base of stair 2): x in [614, 628], y in [268, 298]
+  // - Central & East wing (connecting MidBridge, NM4, and top of north stairs): x in [628, 649], y in [283, 298]
+  if (
+    (point.x >= 614 && point.x <= 628 && point.y >= 268 && point.y <= 298) ||
+    (point.x >= 628 && point.x <= 649 && point.y >= 283 && point.y <= 298)
+  ) {
+    return true
+  }
+  return false
+}
+
+export function isSouthBridgeFoot(p: { x: number; y: number }): boolean {
+  return (
+    p.x >= BRIDGE_X_MIN &&
+    p.x <= BRIDGE_X_MAX &&
+    p.y >= BRIDGE_SOUTH_Y_MIN &&
+    p.y <= BRIDGE_SOUTH_Y_MAX
+  )
+}
+
+export function isNorthBridgeFoot(p: { x: number; y: number }): boolean {
+  return (
+    p.x >= BRIDGE_X_MIN &&
+    p.x <= BRIDGE_X_MAX &&
+    p.y >= BRIDGE_NORTH_Y_MIN &&
+    p.y <= BRIDGE_NORTH_Y_MAX
+  )
+}
+
+export function isBridgeCrossing(p1: RoutePoint, p2: RoutePoint): boolean {
+  if (
+    (p1.nodeId === 'LC3_Junction_QR1-1' && p2.nodeId === 'LC3_Junction_MidBridge') ||
+    (p1.nodeId === 'LC3_Junction_MidBridge' && p2.nodeId === 'LC3_Junction_QR1-1')
+  ) {
+    return true
+  }
+  return (
+    (isSouthBridgeFoot(p1) && isNorthBridgeFoot(p2)) ||
+    (isNorthBridgeFoot(p1) && isSouthBridgeFoot(p2))
+  )
+}
+
+export function isNorthStairsEdge(p1: RoutePoint, p2: RoutePoint): boolean {
+  if (
+    (p1.nodeId === 'LC3_Junction_NM4' && p2.nodeId === 'LC3_Junction_NM3') ||
+    (p1.nodeId === 'LC3_Junction_NM3' && p2.nodeId === 'LC3_Junction_NM4')
+  ) {
+    return true
+  }
+  const isNM4 = (p: RoutePoint) => Math.hypot(p.x - 640, p.y - 291) < 5
+  const isNM3 = (p: RoutePoint) => Math.hypot(p.x - 640, p.y - 254) < 5
+  return (isNM4(p1) && isNM3(p2)) || (isNM3(p1) && isNM4(p2))
+}
+
+export function isNearFountain(p: { x: number; y: number; nodeId?: string }): boolean {
+  if (p.nodeId === 'LC3_Junction_RRoundabout') return true
+  return Math.hypot(p.x - FOUNTAIN_CENTER.x, p.y - FOUNTAIN_CENTER.y) < FOUNTAIN_RIM_RADIUS
+}
+
+export function getFountainDetour(
+  prev: RoutePoint,
+  next: RoutePoint,
+  floor: number,
+): RoutePoint[] {
+  const a1 = Math.atan2(prev.y - FOUNTAIN_CENTER.y, prev.x - FOUNTAIN_CENTER.x)
+  const a2 = Math.atan2(next.y - FOUNTAIN_CENTER.y, next.x - FOUNTAIN_CENTER.x)
+
+  let delta = a2 - a1
+  while (delta > Math.PI) delta -= 2 * Math.PI
+  while (delta < -Math.PI) delta += 2 * Math.PI
+
+  // When crossing directly opposite (delta approx pi or -pi):
+  // Choose detour path based on orientation
+  if (Math.abs(Math.abs(delta) - Math.PI) < 0.1) {
+    if (Math.abs(Math.sin(a1)) > Math.abs(Math.cos(a1))) {
+      delta = a1 > 0 ? -Math.PI : Math.PI
+    } else {
+      delta = a1 > 0 ? -Math.PI : Math.PI
+    }
+  }
+
+  const count = Math.max(3, Math.ceil((Math.abs(delta) / Math.PI) * 6))
+  const points: RoutePoint[] = []
+  for (let i = 0; i <= count; i++) {
+    const t = i / count
+    const angle = a1 + delta * t
+    points.push({
+      floor,
+      nodeId: `fountain_arc_${i}`,
+      x: Math.round(FOUNTAIN_CENTER.x + FOUNTAIN_WALK_RADIUS * Math.cos(angle)),
+      y: Math.round(FOUNTAIN_CENTER.y + FOUNTAIN_WALK_RADIUS * Math.sin(angle)),
+    })
+  }
+  return points
+}
+
+// Center X of the connecting stairs on floor 2 (clears railings on both sides with max 0.358m clearance)
+export const FLOOR_2_STAIR_2_X = 521
+export const FLOOR_2_BRIDGE_WALKWAY_X = FLOOR_2_STAIR_2_X
+
+export function isFloor2Stair2Node(p: RoutePoint): boolean {
+  if (p.floor !== 2) return false
+  if (p.nodeId === 'LC3_F2_stair-2' || p.nodeId === 'LC3_F2_hallway-5') return true
+  return Math.abs(p.x - 529) <= 3 && p.y >= 195 && p.y <= 235
+}
+
+/**
+ * Expands route leg points for visual rendering:
+ * 1. Detours smoothly around the courtyard fountain rim on floor 1 so the line never cuts through the basin.
+ * 2. Adds bridge deck waypoints on floor 1 so the 3D route climbs stairs and crosses above the canal.
+ * 3. Centers floor 2 stair 2 / connecting stair points at x=521 to descend the stairs with full clearance on both handrails.
+ */
+export function getDisplayRoutePoints(legPoints: RoutePoint[], floor: number): RoutePoint[] {
+  if (legPoints.length <= 1) return legPoints
+
+  if (floor === 2) {
+    return legPoints.map((p) => {
+      if (isFloor2Stair2Node(p)) {
+        return { ...p, x: FLOOR_2_STAIR_2_X }
+      }
+      return p
+    })
+  }
+
+  if (floor !== 1) return legPoints
+
+  const result: RoutePoint[] = []
+  for (let i = 0; i < legPoints.length; i++) {
+    const current = legPoints[i]
+
+    // Check if current point is the fountain center node
+    if (isNearFountain(current)) {
+      const prev = i > 0 ? legPoints[i - 1] : null
+      const next = i < legPoints.length - 1 ? legPoints[i + 1] : null
+      if (prev && next) {
+        const arc = getFountainDetour(prev, next, floor)
+        for (const p of arc) {
+          result.push(p)
+        }
+      } else if (prev) {
+        const a1 = Math.atan2(prev.y - FOUNTAIN_CENTER.y, prev.x - FOUNTAIN_CENTER.x)
+        result.push({
+          floor,
+          nodeId: 'fountain_rim',
+          x: Math.round(FOUNTAIN_CENTER.x + FOUNTAIN_WALK_RADIUS * Math.cos(a1)),
+          y: Math.round(FOUNTAIN_CENTER.y + FOUNTAIN_WALK_RADIUS * Math.sin(a1)),
+        })
+      } else if (next) {
+        const a2 = Math.atan2(next.y - FOUNTAIN_CENTER.y, next.x - FOUNTAIN_CENTER.x)
+        result.push({
+          floor,
+          nodeId: 'fountain_rim',
+          x: Math.round(FOUNTAIN_CENTER.x + FOUNTAIN_WALK_RADIUS * Math.cos(a2)),
+          y: Math.round(FOUNTAIN_CENTER.y + FOUNTAIN_WALK_RADIUS * Math.sin(a2)),
+        })
+      } else {
+        result.push(current)
+      }
+      continue
+    }
+
+    // Check if edge to next point crosses the footbridge over the canal
+    if (i < legPoints.length - 1) {
+      const next = legPoints[i + 1]
+      if (isBridgeCrossing(current, next)) {
+        result.push(current)
+        result.push({ floor, x: BRIDGE_DECK_SOUTH.x, y: BRIDGE_DECK_SOUTH.y, nodeId: 'bridge_deck_south' })
+        continue
+      }
+    }
+
+    // Check if edge to next point traverses the north bridge stairs
+    if (i < legPoints.length - 1) {
+      const next = legPoints[i + 1]
+      if (isNorthStairsEdge(current, next)) {
+        if (current.nodeId === 'LC3_Junction_NM4' || Math.hypot(current.x - 640, current.y - 291) < 5) {
+          result.push(current)
+          result.push({ floor, x: BRIDGE_NORTH_STAIRS_TOP.x, y: BRIDGE_NORTH_STAIRS_TOP.y, nodeId: 'bridge_north_stairs_top' })
+          result.push({ floor, x: BRIDGE_NORTH_STAIRS_BOTTOM.x, y: BRIDGE_NORTH_STAIRS_BOTTOM.y, nodeId: 'bridge_north_stairs_bottom' })
+        } else {
+          result.push(current)
+          result.push({ floor, x: BRIDGE_NORTH_STAIRS_BOTTOM.x, y: BRIDGE_NORTH_STAIRS_BOTTOM.y, nodeId: 'bridge_north_stairs_bottom' })
+          result.push({ floor, x: BRIDGE_NORTH_STAIRS_TOP.x, y: BRIDGE_NORTH_STAIRS_TOP.y, nodeId: 'bridge_north_stairs_top' })
+        }
+        continue
+      }
+    }
+
+    result.push(current)
+  }
+
+  // Deduplicate consecutive identical points if any
+  return result.filter((p, idx) => {
+    if (idx === 0) return true
+    const prev = result[idx - 1]
+    return p.x !== prev.x || p.y !== prev.y
+  })
+}
+
 /** Distance from point (px, py) to the finite line segment (x1, y1)-(x2, y2). */
 export function pointToSegmentDistance(
   px: number,
@@ -92,6 +315,54 @@ export function getRouteKey(path: RoutePoint[], floor: number): string {
 /** "ขึ้นบันไดไปชั้น 2" / "ลงบันไดไปชั้น 1" */
 export function getFloorChangeLabel(fromFloor: number, toFloor: number): string {
   return `${toFloor > fromFloor ? 'ขึ้น' : 'ลง'}บันไดไปชั้น ${toFloor}`
+}
+
+/**
+ * Returns true if a room is an active transition stair on the current floor
+ * (where the route leaves the floor or arrived from another floor),
+ * so that the stair POI pin can be hidden and cleanly replaced by the floor change button.
+ */
+export function isRouteTransitionStair(
+  room: Pick<Room, 'id' | 'coordinates' | 'category' | 'floor'>,
+  route: { path: RoutePoint[] } | null | undefined,
+  currentFloor: number,
+): boolean {
+  if (!route || room.floor !== currentFloor) return false
+  const destLocationId = route.path[route.path.length - 1]?.locationId
+  if (destLocationId && room.id === destLocationId) return false
+  const originLocationId = route.path[0]?.locationId
+  if (originLocationId && room.id === originLocationId) return false
+
+  const legs = splitRouteByFloor(route.path)
+  return legs.some((leg, index) => {
+    if (leg.floor !== currentFloor) return false
+    const prev = legs[index - 1]
+    const following = legs[index + 1]
+
+    if (following) {
+      const exitPt = leg.points[leg.points.length - 1]
+      if (
+        (exitPt.locationId && room.id === exitPt.locationId) ||
+        (room.category === 'stairs' &&
+          Math.hypot(room.coordinates.x - exitPt.x, room.coordinates.y - exitPt.y) < 25)
+      ) {
+        return true
+      }
+    }
+
+    if (prev) {
+      const entryPt = leg.points[0]
+      if (
+        (entryPt.locationId && room.id === entryPt.locationId) ||
+        (room.category === 'stairs' &&
+          Math.hypot(room.coordinates.x - entryPt.x, room.coordinates.y - entryPt.y) < 25)
+      ) {
+        return true
+      }
+    }
+
+    return false
+  })
 }
 
 export const ROUTE_FAILURE_MESSAGES: Record<RouteFailureReason, { title: string; hint: string }> = {
