@@ -1,6 +1,7 @@
 import { createElement, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
-import { Crosshair, Minus, Plus } from '@phosphor-icons/react'
+import { Minus, Plus } from '@phosphor-icons/react'
+import CompassIcon from './CompassIcon'
 import { getCategoryIcon } from '../categoryIcon'
 import type { MapContainerProps } from './MapContainer2D'
 import { createMapScene } from './createMapScene'
@@ -47,6 +48,8 @@ export default function MapContainer3D(props: MapContainerProps & { onUnavailabl
       map?.dispose()
     }
   }, [])
+  const [heading, setHeading] = useState(-41.4)
+
   const {
     rooms,
     currentFloor,
@@ -60,10 +63,19 @@ export default function MapContainer3D(props: MapContainerProps & { onUnavailabl
     route,
     closedRoomIds,
     onRegisterReset,
+    onHeadingChange,
   } = props
+
+  useEffect(() => {
+    if (!scene?.onHeadingChange) return
+    return scene.onHeadingChange((deg) => {
+      setHeading(deg)
+      onHeadingChange?.(deg)
+    })
+  }, [scene, onHeadingChange])
   useEffect(() => {
     if (scene) {
-      onRegisterReset?.(() => scene.reset())
+      onRegisterReset?.(() => scene.reset(true))
     }
   }, [scene, onRegisterReset])
 
@@ -122,23 +134,26 @@ export default function MapContainer3D(props: MapContainerProps & { onUnavailabl
               : 'sm:bottom-20 sm:right-5'
         }`}
       >
-        <div className="map3d-zoom-stack">
-          <button
-            type="button"
-            aria-label="จัดกึ่งกลางแผนที่"
-            title="คืนมุมเริ่มต้น"
-            onClick={() => scene?.reset()}
-          >
-            <Crosshair size={19} weight="bold" />
+        <button
+          type="button"
+          aria-label="จัดกึ่งกลางแผนที่ (ทิศเหนือ)"
+          title="รีเซ็ตมุมมอง (ทิศเหนือ)"
+          onClick={() => {
+            callbacks.current.onClearSelection?.()
+            scene?.reset(true)
+          }}
+          className="map-compass-btn"
+        >
+          <CompassIcon heading={heading} size={44} />
+        </button>
+        <div role="group" aria-label="Zoom controls" className="map-zoom-pill">
+          <button type="button" aria-label="ขยายแผนที่" onClick={() => scene?.zoom(1.3)}>
+            <Plus size={16} weight="bold" />
           </button>
-          <div role="group" aria-label="Zoom controls" className="map3d-zoom">
-            <button type="button" aria-label="ขยายแผนที่" onClick={() => scene?.zoom(1.3)}>
-              <Plus size={18} weight="bold" />
-            </button>
-            <button type="button" aria-label="ย่อแผนที่" onClick={() => scene?.zoom(1 / 1.3)}>
-              <Minus size={18} weight="bold" />
-            </button>
-          </div>
+          <span aria-hidden="true" className="map-zoom-pill-divider" />
+          <button type="button" aria-label="ย่อแผนที่" onClick={() => scene?.zoom(1 / 1.3)}>
+            <Minus size={16} weight="bold" />
+          </button>
         </div>
         {!props.hideBottomControls && !props.hideFloorSwitcher && (
           <div role="group" aria-label="Floor switcher" className="map3d-floors">

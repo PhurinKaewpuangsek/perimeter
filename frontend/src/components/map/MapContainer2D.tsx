@@ -1,7 +1,8 @@
 import { useRef, useEffect, useState, useMemo, useCallback } from 'react'
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch'
 import type { ReactZoomPanPinchRef } from 'react-zoom-pan-pinch'
-import { Crosshair, Plus, Minus } from '@phosphor-icons/react'
+import { Plus, Minus } from '@phosphor-icons/react'
+import CompassIcon from './CompassIcon'
 import type { Room } from '../../types/room'
 import type { FoundRoute } from '../../types/route'
 import { isRouteTransitionStair } from '../../services/routeDisplay'
@@ -40,6 +41,8 @@ export interface MapContainerProps {
   hideBottomControls?: boolean
   /** Suppress internal floor switcher when parent (MapContainer) renders unified dock */
   hideFloorSwitcher?: boolean
+  /** Whether the mobile navigation sheet is collapsed into its bottom peek bar */
+  isNavCollapsed?: boolean
   /** Route to draw; only the part on `currentFloor` is shown. */
   route?: FoundRoute | null
   /**
@@ -51,6 +54,8 @@ export interface MapContainerProps {
   closedRoomIds?: ReadonlySet<string>
   /** Register callback to reset camera/zoom view to default */
   onRegisterReset?: (reset: () => void) => void
+  /** Notify parent of camera heading changes in 3D (degrees clockwise from North) */
+  onHeadingChange?: (heading: number) => void
 }
 
 export interface MapOverlaySegment {
@@ -143,8 +148,11 @@ function MapContainer({
   )
 
   useEffect(() => {
-    onRegisterReset?.(() => transformRef.current?.resetTransform(motion(650), 'easeOutCubic'))
-  }, [onRegisterReset, motion])
+    onRegisterReset?.(() => {
+      onClearSelection?.()
+      transformRef.current?.resetTransform(motion(650), 'easeOutCubic')
+    })
+  }, [onRegisterReset, onClearSelection, motion])
 
   useEffect(() => {
     // While navigating, the route framing below decides the view.
@@ -222,9 +230,9 @@ function MapContainer({
 
   return (
     <div className="map2d relative h-full w-full overflow-hidden">
-      {/* Unified Right-Edge Vertical Zoom Stack (⌖, +, -) - Desktop only (>= sm) */}
+      {/* Google Maps Style Floating Controls: Standalone Compass + Zoom Pill - Desktop only (>= sm) */}
       <div
-        className={`hidden sm:flex absolute z-30 flex-col items-center overflow-hidden rounded-2xl border border-line-soft bg-white shadow-floating divide-y divide-line-soft transition-all ${
+        className={`hidden sm:flex map3d-controls transition-all ${
           hideBottomControls
             ? 'sm:bottom-5 sm:right-5'
             : selectedRoomId && isDetailOpen
@@ -234,29 +242,31 @@ function MapContainer({
       >
         <button
           type="button"
-          aria-label="จัดกึ่งกลางแผนที่"
-          title="คืนมุมเริ่มต้น"
-          onClick={() => transformRef.current?.resetTransform(motion(650), 'easeOutCubic')}
-          className="flex h-11 w-11 cursor-pointer items-center justify-center text-ink-2 transition-colors hover:bg-tertiary hover:text-ink active:bg-tertiary-hover"
+          aria-label="จัดกึ่งกลางแผนที่ (ทิศเหนือ)"
+          title="รีเซ็ตมุมมอง (ทิศเหนือ)"
+          onClick={() => {
+            onClearSelection?.()
+            transformRef.current?.resetTransform(motion(650), 'easeOutCubic')
+          }}
+          className="map-compass-btn"
         >
-          <Crosshair size={19} weight="bold" aria-hidden="true" />
+          <CompassIcon heading={-41.4} size={44} />
         </button>
-        <div role="group" aria-label="Zoom controls" className="flex flex-col divide-y divide-line-soft">
+        <div role="group" aria-label="Zoom controls" className="map-zoom-pill">
           <button
             type="button"
             aria-label="ขยายแผนที่"
             onClick={() => transformRef.current?.zoomIn(0.4, motion(250), 'easeOutCubic')}
-            className="flex h-11 w-11 cursor-pointer items-center justify-center text-ink-2 transition-colors hover:bg-tertiary hover:text-ink active:bg-tertiary-hover"
           >
-            <Plus size={18} weight="bold" aria-hidden="true" />
+            <Plus size={16} weight="bold" aria-hidden="true" />
           </button>
+          <span aria-hidden="true" className="map-zoom-pill-divider" />
           <button
             type="button"
             aria-label="ย่อแผนที่"
             onClick={() => transformRef.current?.zoomOut(0.4, motion(250), 'easeOutCubic')}
-            className="flex h-11 w-11 cursor-pointer items-center justify-center text-ink-2 transition-colors hover:bg-tertiary hover:text-ink active:bg-tertiary-hover"
           >
-            <Minus size={18} weight="bold" aria-hidden="true" />
+            <Minus size={16} weight="bold" aria-hidden="true" />
           </button>
         </div>
       </div>

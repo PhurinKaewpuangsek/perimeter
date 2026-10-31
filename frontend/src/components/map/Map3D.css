@@ -224,9 +224,10 @@
 .map3d-controls {
   position: absolute;
   z-index: 30;
+  display: flex;
   flex-direction: column;
-  align-items: flex-end;
-  gap: 10px;
+  align-items: center;
+  gap: 8px;
 }
 .map3d-controls.hidden {
   display: none !important;
@@ -236,42 +237,80 @@
     display: flex !important;
   }
 }
-/* Vertical zoom stack: modern rounded card matching the floor dock. */
-.map3d-zoom-stack {
-  display: flex;
-  flex-direction: column;
-  background: #ffffff;
-  border: 1px solid var(--line-soft, #e5e5e5);
-  border-radius: 16px;
-  box-shadow: var(--shadow-floating, 0 4px 20px rgb(0 0 0 / 0.08));
-  overflow: hidden;
-}
-.map3d-zoom-stack button {
+
+/* Standalone circular compass button (matching Google Maps) */
+.map-compass-btn {
   cursor: pointer;
-  background: transparent;
-  color: #333333;
-  border: 0;
-  border-bottom: 1px solid var(--line-soft, #e5e5e5);
   width: 44px;
   height: 44px;
+  min-width: 44px;
   min-height: 44px;
+  border-radius: 9999px;
+  background: #202124;
+  border: 0;
   padding: 0;
   display: grid;
   place-items: center;
-  transition:
-    background-color 150ms ease,
-    color 150ms ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  transition: transform 150ms ease, filter 150ms ease, box-shadow 150ms ease;
 }
-.map3d-zoom-stack .map3d-zoom button:last-child {
-  border-bottom: 0;
+.map-compass-btn:hover {
+  filter: brightness(1.15);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
 }
-.map3d-zoom-stack button:hover {
-  background: #eeeeee;
-  color: #000000;
+.map-compass-btn:active {
+  transform: scale(0.95);
 }
-.map3d-zoom-stack button:focus-visible {
-  outline: 2px solid #0000ee;
+.map-compass-btn:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+@media (min-width: 640px) {
+  .map-compass-btn.sm\:hidden,
+  .sm\:hidden.map-compass-btn,
+  .sm\:\!hidden.map-compass-btn {
+    display: none !important;
+  }
+}
+
+/* Standalone vertical rounded zoom pill (+ / -) (matching Google Maps) */
+.map-zoom-pill {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 32px;
+  background: #202124;
+  border-radius: 9999px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+}
+.map-zoom-pill button {
+  cursor: pointer;
+  background: transparent;
+  color: #ffffff;
+  border: 0;
+  width: 32px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+.map-zoom-pill button:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+.map-zoom-pill button:active {
+  background: rgba(255, 255, 255, 0.25);
+}
+.map-zoom-pill button:focus-visible {
+  outline: 2px solid #ffffff;
   outline-offset: -2px;
+}
+.map-zoom-pill-divider {
+  width: 18px;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.2);
 }
 /* Floor switcher pill (phones and the landing preview). */
 .map3d-floors {

@@ -43,10 +43,12 @@ export const CONTEXT_RESTORE_TIMEOUT = 3000;
 export interface MapScene {
   ready: Promise<void>;
   update: (state: MapState) => void;
-  reset: () => void;
+  reset: (smooth?: boolean) => void;
   frameRoute?: () => void;
   zoom: (factor: number) => void;
   dispose: () => void;
+  getNorthHeading?: () => number;
+  onHeadingChange?: (listener: (heading: number) => void) => () => void;
 }
 
 function disposeModel(root: THREE.Object3D) {
@@ -182,8 +184,9 @@ function buildMapScene(
         duration: number;
         fromTarget: THREE.Vector3;
         toTarget: THREE.Vector3;
-        fromPos: THREE.Vector3;
-        toPos: THREE.Vector3;
+        fromSph: THREE.Spherical;
+        toSph: THREE.Spherical;
+        dTheta: number;
         fromZoom: number;
         toZoom: number;
       }
@@ -242,6 +245,7 @@ function buildMapScene(
     toTarget: THREE.Vector3,
     toPos: THREE.Vector3,
     toZoom: number,
+    duration = 550,
   ) {
     if (reduceMotion) {
       glide = undefined;
@@ -250,16 +254,29 @@ function buildMapScene(
       camera.zoom = toZoom;
       camera.updateProjectionMatrix();
       controls.update();
+      notifyHeading();
       invalidate();
       return;
     }
+    const fromOffset = camera.position.clone().sub(controls.target);
+    const toOffset = toPos.clone().sub(toTarget);
+    const fromSph = new THREE.Spherical().setFromVector3(fromOffset);
+    const toSph = new THREE.Spherical().setFromVector3(toOffset);
+    if (fromSph.radius < 0.1) fromSph.radius = 0.1;
+    if (toSph.radius < 0.1) toSph.radius = 0.1;
+
+    let dTheta = (toSph.theta - fromSph.theta) % (2 * Math.PI);
+    if (dTheta > Math.PI) dTheta -= 2 * Math.PI;
+    if (dTheta < -Math.PI) dTheta += 2 * Math.PI;
+
     glide = {
       startTime: performance.now(),
-      duration: 550,
+      duration,
       fromTarget: controls.target.clone(),
       toTarget: toTarget.clone(),
-      fromPos: camera.position.clone(),
-      toPos: toPos.clone(),
+      fromSph,
+      toSph,
+      dTheta,
       fromZoom: camera.zoom,
       toZoom,
     };
@@ -288,6 +305,26 @@ function buildMapScene(
     invalidate();
   }
 
+  const headingListeners = new Set<(deg: number) => void>();
+  let lastHeading = -41.4;
+
+  function getNorthHeading(): number {
+    const north = new THREE.Vector3(0, 0, -1);
+    north.transformDirection(camera.matrixWorldInverse);
+    return Math.atan2(north.x, north.y) * (180 / Math.PI);
+  }
+
+  function notifyHeading() {
+    if (headingListeners.size === 0) return;
+    const currentHeading = Math.round(getNorthHeading() * 10) / 10;
+    if (Math.abs(currentHeading - lastHeading) >= 0.2) {
+      lastHeading = currentHeading;
+      for (const listener of headingListeners) {
+        listener(currentHeading);
+      }
+    }
+  }
+
   function draw(now = performance.now()) {
     frame = 0;
     if (disposed || contextLost) return;
@@ -314,13 +351,27 @@ function buildMapScene(
       const t = Math.min(1, Math.max(0, (now - glide.startTime) / glide.duration));
       const eased = 1 - Math.pow(1 - t, 3);
       controls.target.lerpVectors(glide.fromTarget, glide.toTarget, eased);
-      camera.position.lerpVectors(glide.fromPos, glide.toPos, eased);
+
+      const curRadius = THREE.MathUtils.lerp(glide.fromSph.radius, glide.toSph.radius, eased);
+      const curPhi = THREE.MathUtils.lerp(glide.fromSph.phi, glide.toSph.phi, eased);
+      const curTheta = glide.fromSph.theta + glide.dTheta * eased;
+
+      camera.position
+        .setFromSphericalCoords(curRadius, curPhi, curTheta)
+        .add(controls.target);
+
       camera.zoom = THREE.MathUtils.lerp(glide.fromZoom, glide.toZoom, eased);
       camera.updateProjectionMatrix();
       controls.update();
-      if (t >= 1) glide = undefined;
+      if (t >= 1) {
+        glide = undefined;
+        for (const listener of headingListeners) {
+          listener(Math.round(getNorthHeading() * 10) / 10);
+        }
+      }
     }
     drawRouteIn(now);
+    notifyHeading();
 
     isDrawing = false;
 
@@ -444,6 +495,7 @@ function buildMapScene(
   }
   controls.addEventListener("change", () => {
     if (!isDrawing) glide = undefined;
+    notifyHeading();
     invalidate();
   });
 
@@ -486,14 +538,14 @@ function buildMapScene(
     const zoom = state?.initialScale ?? 1;
     return { target, pos, zoom };
   }
-  function reset(smooth = false) {
+  function reset(smooth = true) {
     if (state?.route) {
       stopIdleDemo();
       frameRoute(state);
       return;
     }
     const { target, pos, zoom } = getDefaultCameraPose();
-    if (smooth && state?.idleOrbit && !reduceMotion) {
+    if (smooth && !reduceMotion) {
       stopIdleDemo();
       startCameraGlide(target, pos, zoom);
       return;
@@ -507,9 +559,10 @@ function buildMapScene(
     camera.zoom = zoom;
     camera.updateProjectionMatrix();
     controls.update();
+    notifyHeading();
     invalidate();
   }
-  reset();
+  reset(false);
   const observer = new ResizeObserver(resize);
   observer.observe(host);
   resize();
@@ -1095,7 +1148,15 @@ function buildMapScene(
   return {
     ready,
     update,
-    reset: () => reset(true),
+    reset: (smooth = true) => reset(smooth),
+    getNorthHeading,
+    onHeadingChange(listener) {
+      headingListeners.add(listener);
+      listener(Math.round(getNorthHeading() * 10) / 10);
+      return () => {
+        headingListeners.delete(listener);
+      };
+    },
     frameRoute: () => {
       if (state) frameRoute(state);
     },
