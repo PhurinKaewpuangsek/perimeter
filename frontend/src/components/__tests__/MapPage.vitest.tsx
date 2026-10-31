@@ -765,6 +765,54 @@ describe('MapPage navigation (issue #145)', () => {
     expect(effectivePointerEvents(card)).toBe('auto')
     expect(rootZIndex(card)).toBeLessThan(rootZIndex(screen.getByTestId('map-top-bar')))
   })
+
+  it('on mobile, collapsing the navigation sheet keeps the route active and can be expanded back', async () => {
+    mockViewport(false)
+    const user = await startNavigation()
+
+    const card = screen.getByTestId('mobile-navigation')
+    expect(within(card).getByRole('region', { name: 'นำทาง' })).toBeInTheDocument()
+
+    // Tap grab handle to collapse
+    const handle = card.querySelector('[data-nav-handle="true"]') as HTMLElement
+    expect(handle).not.toBeNull()
+    await user.click(handle)
+
+    // Route must NOT be cleared!
+    expect(lastRouteCall()).toEqual(['LC3_Junction_SM', 'LC3-F1-R121'])
+    expect(within(card).getByText('แตะเพื่อดูวิธีเดิน')).toBeInTheDocument()
+
+    // Tap the collapsed card to expand it back
+    await user.click(within(card).getByText('แตะเพื่อดูวิธีเดิน'))
+    expect(within(card).getByRole('region', { name: 'นำทาง' })).toBeInTheDocument()
+    expect(lastRouteCall()).toEqual(['LC3_Junction_SM', 'LC3-F1-R121'])
+
+    // Clicking "ล้างเส้นทาง" clears the route completely
+    await user.click(within(card).getByRole('button', { name: 'ล้างเส้นทาง' }))
+    expect(screen.queryByTestId('mobile-navigation')).not.toBeInTheDocument()
+    expect(lastRouteCall()).toEqual([null, null])
+  })
+
+  it('on desktop, collapsing the sidebar keeps navigation active without floating room chips', async () => {
+    mockViewport(true)
+    const user = await startNavigation()
+
+    // Collapse sidebar via TopBar's sidebar toggle button beside the logo
+    const collapseBtn = screen.getByRole('button', { name: 'ซ่อนแผงด้านซ้าย' })
+    await user.click(collapseBtn)
+
+    // Route remains active!
+    expect(lastRouteCall()).toEqual(['LC3_Junction_SM', 'LC3-F1-R121'])
+
+    // No floating chip saying "คลิกเพื่อดูข้อมูล"
+    expect(screen.queryByText('คลิกเพื่อดูข้อมูล')).not.toBeInTheDocument()
+
+    // Expand sidebar back via TopBar's toggle button
+    const expandBtn = screen.getByRole('button', { name: 'ขยายแผงด้านซ้าย' })
+    await user.click(expandBtn)
+    expect(screen.getByRole('region', { name: 'นำทาง' })).toBeInTheDocument()
+    expect(lastRouteCall()).toEqual(['LC3_Junction_SM', 'LC3-F1-R121'])
+  })
 })
 
 describe('MapPage room closures (issue #147)', () => {

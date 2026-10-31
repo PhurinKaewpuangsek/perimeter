@@ -101,7 +101,13 @@ export default function NavigationPanel({
     <section aria-label="นำทาง" className="space-y-3">
       <div className="flex items-center justify-between gap-2">
         <h2 className="font-display text-sm sm:text-h3-sm font-bold text-ink">นำทาง</h2>
-        <button type="button" onClick={onClose} aria-label="ล้างเส้นทาง" title="ล้างเส้นทาง" className="btn btn-ghost btn-sm">
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="ล้างเส้นทาง"
+          title="ล้างเส้นทาง"
+          className="btn btn-ghost btn-sm text-ink-2 hover:text-ink"
+        >
           <X size={14} weight="bold" aria-hidden="true" />
           <span>ล้างเส้นทาง</span>
         </button>

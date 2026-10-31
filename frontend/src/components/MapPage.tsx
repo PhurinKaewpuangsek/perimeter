@@ -437,6 +437,7 @@ export default function MapPage() {
   const [routeFrom, setRouteFrom] = useState(BUILDING_ENTRANCE_ID)
   const [routeTo, setRouteTo] = useState<string | null>(initialDestinationId)
   const isNavigating = routeTo !== null
+  const [isNavCollapsed, setIsNavCollapsed] = useState(false)
   const routeState = useRoute(isNavigating ? routeFrom : null, routeTo)
 
   const inputRef = useRef<HTMLInputElement>(null)
@@ -450,11 +451,14 @@ export default function MapPage() {
   const hasDraggedRef = useRef<boolean>(false)
 
   const navSheetRef = useRef<HTMLDivElement>(null)
+  const navPeekRef = useRef<HTMLDivElement>(null)
   const navSheetContentRef = useRef<HTMLDivElement>(null)
   const navTouchStartRef = useRef<{
     startY: number
     startTime: number
     isHandle: boolean
+    sheetHeight: number
+    startCollapsed: boolean
   } | null>(null)
   const navHasDraggedRef = useRef<boolean>(false)
 
@@ -561,6 +565,7 @@ export default function MapPage() {
   function handleNavigate(roomId: string) {
     setRouteTo(roomId)
     setSelectedRoomId(roomId)
+    setIsNavCollapsed(false)
     setIsDropdownOpen(false)
     setIsSidebarCollapsed(false)
     if (!isDesktop) setIsFilterExpanded(false)
@@ -574,6 +579,7 @@ export default function MapPage() {
 
   function handleClearRoute() {
     setRouteTo(null)
+    setIsNavCollapsed(false)
   }
 
   function handleMapBackgroundClick() {
@@ -715,22 +721,25 @@ export default function MapPage() {
     }
   }
 
-  function handleDismissNavMobile() {
-    if (navSheetRef.current) {
-      navSheetRef.current.style.transition =
-        'transform 240ms cubic-bezier(0.2, 0.9, 0.3, 1), opacity 240ms ease-out'
-      navSheetRef.current.style.transform = 'translateY(100%)'
-      navSheetRef.current.style.opacity = '0'
+  useEffect(() => {
+    if (!navSheetRef.current) return
+    navSheetRef.current.style.transition = 'transform 260ms cubic-bezier(0.16, 1, 0.3, 1)'
+    if (isNavCollapsed) {
+      navSheetRef.current.style.transform = 'translateY(calc(100% - 68px))'
+    } else {
+      navSheetRef.current.style.transform = 'translateY(0)'
     }
-    setTimeout(() => {
-      handleClearRoute()
-      if (navSheetRef.current) {
-        navSheetRef.current.style.transform = ''
-        navSheetRef.current.style.transition = ''
-        navSheetRef.current.style.opacity = ''
-      }
-    }, 230)
-  }
+    if (navPeekRef.current) {
+      navPeekRef.current.style.transition = 'opacity 200ms ease'
+      navPeekRef.current.style.opacity = isNavCollapsed ? '1' : '0'
+      navPeekRef.current.style.pointerEvents = isNavCollapsed ? 'auto' : 'none'
+    }
+    if (navSheetContentRef.current) {
+      navSheetContentRef.current.style.transition = 'opacity 200ms ease'
+      navSheetContentRef.current.style.opacity = isNavCollapsed ? '0' : '1'
+      navSheetContentRef.current.style.pointerEvents = isNavCollapsed ? 'none' : 'auto'
+    }
+  }, [isNavCollapsed])
 
   function handleNavTouchStart(e: React.TouchEvent<HTMLDivElement>) {
     const touch = e.touches[0]
@@ -740,15 +749,24 @@ export default function MapPage() {
 
     navHasDraggedRef.current = false
 
-    if (isHandle || isAtTop) {
+    if (isHandle || isAtTop || isNavCollapsed) {
+      const sheetHeight = navSheetRef.current?.offsetHeight || 380
       navTouchStartRef.current = {
         startY: touch.clientY,
         startTime: performance.now(),
-        isHandle,
+        isHandle: isHandle || isNavCollapsed,
+        sheetHeight,
+        startCollapsed: isNavCollapsed,
       }
       if (navSheetRef.current) {
         navSheetRef.current.style.animation = 'none'
         navSheetRef.current.style.transition = 'none'
+      }
+      if (navPeekRef.current) {
+        navPeekRef.current.style.transition = 'none'
+      }
+      if (navSheetContentRef.current) {
+        navSheetContentRef.current.style.transition = 'none'
       }
     } else {
       navTouchStartRef.current = null
@@ -758,8 +776,34 @@ export default function MapPage() {
   function handleNavTouchMove(e: React.TouchEvent<HTMLDivElement>) {
     if (!navTouchStartRef.current || !navSheetRef.current) return
     const touch = e.touches[0]
-    const deltaY = touch.clientY - navTouchStartRef.current.startY
+    const { startY, sheetHeight, startCollapsed } = navTouchStartRef.current
+    const deltaY = touch.clientY - startY
+    const collapsedOffset = Math.max(sheetHeight - 68, 100)
 
+    if (startCollapsed) {
+      // Dragging from collapsed peek state
+      if (deltaY < 0) {
+        // Dragging UP towards expanded (0)
+        navHasDraggedRef.current = true
+        const currentY = Math.max(0, collapsedOffset + deltaY)
+        navSheetRef.current.style.transform = `translateY(${currentY}px)`
+
+        const progress = Math.min(1, Math.max(0, 1 - currentY / collapsedOffset))
+        if (navPeekRef.current) {
+          navPeekRef.current.style.opacity = String(Math.max(0, 1 - progress * 2))
+        }
+        if (navSheetContentRef.current) {
+          navSheetContentRef.current.style.opacity = String(Math.min(1, progress * 1.5))
+        }
+      } else {
+        // Dragging DOWN from collapsed: rubber-band resistance
+        const damped = Math.min(deltaY * 0.15, 15)
+        navSheetRef.current.style.transform = `translateY(${collapsedOffset + damped}px)`
+      }
+      return
+    }
+
+    // Dragging from expanded state
     if (!navTouchStartRef.current.isHandle) {
       const currentScrollTop = navSheetContentRef.current?.scrollTop ?? 0
       if (currentScrollTop > 0) {
@@ -773,9 +817,20 @@ export default function MapPage() {
     }
 
     if (deltaY > 0) {
+      // Dragging DOWN towards collapsed (collapsedOffset)
       navHasDraggedRef.current = true
-      navSheetRef.current.style.transform = `translateY(${deltaY}px)`
+      const currentY = Math.min(collapsedOffset, deltaY)
+      navSheetRef.current.style.transform = `translateY(${currentY}px)`
+
+      const progress = Math.min(1, Math.max(0, 1 - currentY / collapsedOffset))
+      if (navPeekRef.current) {
+        navPeekRef.current.style.opacity = String(Math.max(0, 1 - progress * 2))
+      }
+      if (navSheetContentRef.current) {
+        navSheetContentRef.current.style.opacity = String(Math.min(1, progress * 1.5))
+      }
     } else if (navTouchStartRef.current.isHandle) {
+      // Dragging UP from expanded: rubber-band resistance
       const damped = Math.max(deltaY * 0.15, -20)
       navSheetRef.current.style.transform = `translateY(${damped}px)`
     }
@@ -783,13 +838,27 @@ export default function MapPage() {
 
   function handleNavTouchEnd(e: React.TouchEvent<HTMLDivElement>) {
     if (!navTouchStartRef.current || !navSheetRef.current) return
-    const { startY, startTime } = navTouchStartRef.current
+    const { startY, startTime, startCollapsed } = navTouchStartRef.current
     const wasDragged = navHasDraggedRef.current
     navTouchStartRef.current = null
 
+    if (navSheetRef.current) {
+      navSheetRef.current.style.transition = 'transform 260ms cubic-bezier(0.16, 1, 0.3, 1)'
+    }
+    if (navPeekRef.current) {
+      navPeekRef.current.style.transition = 'opacity 200ms ease'
+    }
+    if (navSheetContentRef.current) {
+      navSheetContentRef.current.style.transition = 'opacity 200ms ease'
+    }
+
     if (!wasDragged) {
-      navSheetRef.current.style.transition = 'transform 180ms cubic-bezier(0.16, 1, 0.3, 1)'
-      navSheetRef.current.style.transform = 'translateY(0)'
+      // Tap without dragging
+      if (startCollapsed) {
+        setIsNavCollapsed(false)
+      } else {
+        navSheetRef.current.style.transform = 'translateY(0)'
+      }
       return
     }
 
@@ -802,14 +871,24 @@ export default function MapPage() {
     const elapsed = performance.now() - startTime
     const velocity = deltaY / Math.max(elapsed, 1)
 
-    const shouldDismiss = deltaY > 65 || (deltaY > 20 && velocity > 0.3)
-
-    if (shouldDismiss) {
-      handleDismissNavMobile()
+    if (startCollapsed) {
+      const shouldExpand = deltaY < -40 || (deltaY < -15 && velocity < -0.3)
+      if (shouldExpand) {
+        setIsNavCollapsed(false)
+      } else {
+        navSheetRef.current.style.transform = 'translateY(calc(100% - 68px))'
+        if (navPeekRef.current) navPeekRef.current.style.opacity = '1'
+        if (navSheetContentRef.current) navSheetContentRef.current.style.opacity = '0'
+      }
     } else {
-      navSheetRef.current.style.transition = 'transform 200ms cubic-bezier(0.16, 1, 0.3, 1)'
-      navSheetRef.current.style.transform = 'translateY(0)'
-      navSheetRef.current.style.opacity = '1'
+      const shouldCollapse = deltaY > 50 || (deltaY > 15 && velocity > 0.3)
+      if (shouldCollapse) {
+        setIsNavCollapsed(true)
+      } else {
+        navSheetRef.current.style.transform = 'translateY(0)'
+        if (navPeekRef.current) navPeekRef.current.style.opacity = '0'
+        if (navSheetContentRef.current) navSheetContentRef.current.style.opacity = '1'
+      }
     }
   }
 
@@ -818,8 +897,15 @@ export default function MapPage() {
     navHasDraggedRef.current = false
     if (navSheetRef.current) {
       navSheetRef.current.style.transition = 'transform 200ms cubic-bezier(0.16, 1, 0.3, 1)'
-      navSheetRef.current.style.transform = 'translateY(0)'
-      navSheetRef.current.style.opacity = '1'
+      navSheetRef.current.style.transform = isNavCollapsed ? 'translateY(calc(100% - 68px))' : 'translateY(0)'
+    }
+    if (navPeekRef.current) {
+      navPeekRef.current.style.transition = 'opacity 200ms ease'
+      navPeekRef.current.style.opacity = isNavCollapsed ? '1' : '0'
+    }
+    if (navSheetContentRef.current) {
+      navSheetContentRef.current.style.transition = 'opacity 200ms ease'
+      navSheetContentRef.current.style.opacity = isNavCollapsed ? '0' : '1'
     }
   }
 
@@ -870,8 +956,9 @@ export default function MapPage() {
           onClearSelection={handleMapBackgroundClick}
           viewMode={mapView}
           onViewModeChange={setMapView}
-          hideBottomControls={isDesktop || isNavigating}
-          hideFloorSwitcher={isNavigating}
+          hideBottomControls={isDesktop || (isNavigating && !isNavCollapsed)}
+          hideFloorSwitcher={isNavigating && !isNavCollapsed}
+          isNavCollapsed={isNavCollapsed}
           route={routeState.route}
           closedRoomIds={closedRoomIds}
         />
@@ -992,43 +1079,7 @@ export default function MapPage() {
               </div>
             </aside>
 
-            {/* Desktop floating pill when sidebar is collapsed but a room is pinned */}
-            {isSidebarCollapsed && selectedRoom && (
-              <div className="pointer-events-auto absolute bottom-6 left-6 z-40 flex items-center gap-2 border border-line-soft bg-white px-3 py-2 text-xs shadow-floating animate-fade-in">
-                <div
-                  className="flex cursor-pointer items-center gap-2 text-ink transition-opacity hover:opacity-80"
-                  onClick={() => {
-                    setIsSidebarCollapsed(false)
-                    setIsDropdownOpen(false)
-                    if (selectedRoom.floor !== currentFloor) {
-                      setCurrentFloor(selectedRoom.floor)
-                    }
-                  }}
-                  title="ดูรายละเอียดห้อง"
-                >
-                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-accent text-white">
-                    <MapPin size={16} weight="fill" />
-                  </div>
-                  <div className="flex flex-col text-left">
-                    <span className="text-button leading-tight font-bold text-ink">
-                      {selectedRoom.roomNumber ? `ห้อง ${selectedRoom.roomNumber}` : selectedRoom.nameThai || selectedRoom.code}
-                    </span>
-                    <span className="text-xs font-medium text-ink-3">คลิกเพื่อดูข้อมูล</span>
-                  </div>
-                </div>
-                <span aria-hidden="true" className="mx-0.5 h-5 w-px bg-line-soft" />
-                <button
-                  type="button"
-                  onClick={handleUnpinRoom}
-                  aria-label="ยกเลิกการปักหมุด"
-                  className="btn btn-ghost btn-icon-sm"
-                  title="ยกเลิกปักหมุด"
-                >
-                  <X size={14} weight="bold" />
-                </button>
-              </div>
-            )}
-          </>
+            </>
         ) : (
           <>
             {/* =========================================================================
@@ -1148,27 +1199,83 @@ export default function MapPage() {
                 onTouchMove={handleNavTouchMove}
                 onTouchEnd={handleNavTouchEnd}
                 onTouchCancel={handleNavTouchCancel}
-                className="pointer-events-auto fixed inset-x-0 bottom-0 z-101 flex max-h-[50dvh] flex-col rounded-t-2xl border-t border-line-soft bg-white shadow-modal animate-modal-mobile will-change-transform sm:hidden"
+                style={{
+                  transform: isNavCollapsed ? 'translateY(calc(100% - 68px))' : 'translateY(0)',
+                }}
+                className="pointer-events-auto fixed inset-x-0 bottom-0 z-101 flex h-[50dvh] max-h-[50dvh] flex-col rounded-t-2xl border-t border-line-soft bg-white shadow-modal will-change-transform sm:hidden"
               >
-                {/* Grab Handle Header Bar (Touch drag zone & tap to dismiss) */}
+                {/* Grab Handle Header Bar (Touch drag zone & tap to toggle collapse) */}
                 <div
                   data-nav-handle="true"
-                  className="flex w-full shrink-0 cursor-grab touch-none items-center justify-center pt-3 pb-2.5 select-none active:cursor-grabbing"
+                  className="flex w-full shrink-0 cursor-grab touch-none items-center justify-center pt-2.5 pb-1 select-none active:cursor-grabbing"
                   onClick={() => {
                     if (navHasDraggedRef.current) return
-                    handleDismissNavMobile()
+                    setIsNavCollapsed((prev) => !prev)
                   }}
-                  title="เลื่อนลงเพื่อปิดการนำทาง"
+                  title={isNavCollapsed ? 'เลื่อนขึ้นเพื่อดูรายละเอียด' : 'เลื่อนลงเพื่อดูแผนที่เต็ม'}
                 >
                   <div className="h-1.5 w-12 rounded-full bg-line-soft transition-colors active:bg-line" />
                 </div>
-                <div
-                  ref={navSheetContentRef}
-                  className="no-scrollbar flex-1 overflow-y-auto overscroll-contain px-4 pt-1 pb-5"
-                >
-                  {navigationPanel}
-                </div>
-              </div>
+
+                {/* Relative Content Viewport */}
+                <div className="relative flex-1 overflow-hidden">
+                  {/* Collapsed Peek Content Bar */}
+                  <div
+                    ref={navPeekRef}
+                    aria-hidden={!isNavCollapsed}
+                    className="absolute inset-x-0 top-0 flex items-center justify-between px-4 pb-2.5 cursor-pointer select-none transition-opacity duration-200"
+                    style={{
+                      opacity: isNavCollapsed ? 1 : 0,
+                      pointerEvents: isNavCollapsed ? 'auto' : 'none',
+                    }}
+                    onClick={() => setIsNavCollapsed(false)}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-ink text-white">
+                        <NavigationArrow size={14} weight="fill" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-button font-bold text-ink">
+                          {(() => {
+                            const dest = rooms.find((r) => r.id === routeTo)
+                            return dest?.roomNumber
+                              ? `ห้อง ${dest.roomNumber}`
+                              : dest?.nameThai || dest?.code || 'นำทาง'
+                          })()}
+                        </p>
+                        <p className="text-[11px] text-ink-3">แตะเพื่อดูวิธีเดิน</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center shrink-0 ml-2">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleClearRoute()
+                        }}
+                        aria-label="ล้างเส้นทาง"
+                        title="ล้างเส้นทาง"
+                        className="btn btn-ghost btn-sm text-ink-2 hover:text-ink px-2"
+                      >
+                        <X size={14} weight="bold" />
+                        <span>ล้างเส้นทาง</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Expanded Full Directions */}
+                  <div
+                    ref={navSheetContentRef}
+                    aria-hidden={isNavCollapsed}
+                    className="no-scrollbar h-full overflow-y-auto overscroll-contain px-4 pt-1 pb-5 transition-opacity duration-200"
+                    style={{
+                      opacity: isNavCollapsed ? 0 : 1,
+                      pointerEvents: isNavCollapsed ? 'none' : 'auto',
+                    }}
+                  >
+                    {navigationPanel}
+                  </div>
+                </div>              </div>
             )}
 
             {/* =========================================================================
