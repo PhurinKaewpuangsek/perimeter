@@ -306,11 +306,11 @@ describe('MapPage course search (issue #91)', () => {
     ])('%s layout', (_layout, isDesktop) => {
       beforeEach(() => mockViewport(isDesktop))
 
-      it('renders top bar with back-to-home link pointing to /', () => {
+      it('renders top bar with back-to-home link pointing to /map', () => {
         renderMap()
         const backToHome = screen.getByTestId('back-to-home')
         expect(backToHome).toBeInTheDocument()
-        expect(backToHome).toHaveAttribute('href', '/')
+        expect(backToHome).toHaveAttribute('href', '/map')
       })
 
       it('renders My Schedule placeholder slot', () => {
@@ -570,6 +570,31 @@ describe('MapPage navigation (issue #145)', () => {
     expect(within(panel).getByRole('textbox', { name: 'จุดเริ่มต้น' })).toHaveValue('ทางเข้าอาคาร 1')
     expect(within(panel).getByText('ห้อง 121')).toBeInTheDocument()
     expect(screen.queryByRole('textbox', { name: 'ค้นหาห้อง' })).not.toBeInTheDocument()
+  })
+
+  it('swaps origin and destination when the swap button is clicked', async () => {
+    mockViewport(true)
+    const user = await startNavigation()
+
+    expect(lastRouteCall()).toEqual(['LC3_Junction_SM', 'LC3-F1-R121'])
+    const panel = screen.getByRole('region', { name: 'นำทาง' })
+    expect(within(panel).getByRole('textbox', { name: 'จุดเริ่มต้น' })).toHaveValue('ทางเข้าอาคาร 1')
+    expect(within(panel).getByText('ห้อง 121')).toBeInTheDocument()
+
+    // Click swap button
+    const swapBtn = within(panel).getByRole('button', { name: 'สลับจุดเริ่มต้นและปลายทาง' })
+    await user.click(swapBtn)
+
+    // Route is now calculated in reverse: Room 121 -> Entrance 1
+    expect(lastRouteCall()).toEqual(['LC3-F1-R121', 'LC3_Junction_SM'])
+    expect(within(panel).getByRole('textbox', { name: 'จุดเริ่มต้น' })).toHaveValue('ห้อง 121')
+    expect(within(panel).getByText('ทางเข้าอาคาร 1')).toBeInTheDocument()
+
+    // Click swap button again to restore
+    await user.click(swapBtn)
+    expect(lastRouteCall()).toEqual(['LC3_Junction_SM', 'LC3-F1-R121'])
+    expect(within(panel).getByRole('textbox', { name: 'จุดเริ่มต้น' })).toHaveValue('ทางเข้าอาคาร 1')
+    expect(within(panel).getByText('ห้อง 121')).toBeInTheDocument()
   })
 
   it('starts navigation from a destination supplied by the public search link', () => {

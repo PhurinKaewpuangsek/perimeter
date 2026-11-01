@@ -31,6 +31,7 @@ import { useSchedules } from '../hooks/useSchedules'
 import { usePreloadImages } from '../hooks/usePreloadImages'
 import { useRoute } from '../hooks/useRoute'
 import { BUILDING_ENTRANCE_FLOOR, BUILDING_ENTRANCE_ID, BUILDING_ENTRANCE_2_ID } from '../services/routeService'
+import { getEntranceLabel } from '../services/routeDisplay'
 import MapContainer from './map/MapContainer'
 import { FLOOR_CONFIGS } from './map/floorConfig'
 import LoadingScreen from './LoadingScreen'
@@ -577,6 +578,26 @@ export default function MapPage() {
     setCurrentFloor(getStartFloor(fromId))
   }
 
+  function handleSwapLocations() {
+    if (!routeTo) return
+    const prevFrom = routeFrom
+    const prevTo = routeTo
+
+    if (prevFrom === prevTo) return
+
+    setRouteFrom(prevTo)
+    setRouteTo(prevFrom)
+
+    const newDestIsRoom = rooms.some((r) => r.id === prevFrom)
+    if (newDestIsRoom) {
+      setSelectedRoomId(prevFrom)
+    } else {
+      setSelectedRoomId(null)
+    }
+
+    setCurrentFloor(getStartFloor(prevTo))
+  }
+
   function handleClearRoute() {
     setRouteTo(null)
     setIsNavCollapsed(false)
@@ -916,12 +937,14 @@ export default function MapPage() {
     <NavigationPanel
       rooms={rooms}
       fromId={routeFrom}
+      toId={routeTo}
       onChangeFrom={handleChangeRouteFrom}
       destination={rooms.find((r) => r.id === routeTo)}
       routeState={routeState}
       currentFloor={currentFloor}
       onFloorChange={setCurrentFloor}
       onClose={handleClearRoute}
+      onSwapLocations={handleSwapLocations}
     />
   )
 
@@ -1237,6 +1260,8 @@ export default function MapPage() {
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-button font-bold text-ink">
                           {(() => {
+                            const destEntrance = getEntranceLabel(routeTo ?? '')
+                            if (destEntrance) return destEntrance
                             const dest = rooms.find((r) => r.id === routeTo)
                             return dest?.roomNumber
                               ? `ห้อง ${dest.roomNumber}`
