@@ -1,6 +1,11 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert'
-import { filterRooms, findExams, isExamSearchQuery } from '../filterRooms.ts'
+import {
+  filterRooms,
+  findExams,
+  isExamSearchQuery,
+  resolveScheduleTabOnRoomSelect,
+} from '../filterRooms.ts'
 import type { Room } from '../../types/room.ts'
 import type { ScheduleSlot } from '../../types/schedule.ts'
 
@@ -376,5 +381,51 @@ describe('filterRooms()', () => {
         )
       }
     })
+  })
+})
+
+describe('resolveScheduleTabOnRoomSelect exam keyword queries', () => {
+  const roomExams: ScheduleSlot[] = [
+    {
+      roomCode: 'LC3-103',
+      eventCode: 'CS101',
+      eventName: 'Exam - CS101',
+      dayOfWeek: 'MON',
+      startTime: '09:00',
+      endTime: '12:00',
+      eventType: 'exam',
+      eventDate: '2026-05-18',
+    },
+    {
+      roomCode: 'LC3-103',
+      eventCode: 'BAS350',
+      eventName: 'Exam - BAS350',
+      dayOfWeek: 'TUE',
+      startTime: '13:00',
+      endTime: '16:00',
+      eventType: 'exam',
+      eventDate: '2026-05-19',
+    },
+  ]
+
+  it('opens the exam tab without highlighting a course for a pure keyword query', () => {
+    const result = resolveScheduleTabOnRoomSelect({ query: 'exam', roomSchedules: roomExams })
+    assert.deepStrictEqual(result, { tab: 'exam', targetCode: null })
+  })
+
+  it('highlights the typed course for a mixed keyword and course-code query', () => {
+    for (const query of ['BAS350 exam', 'final BAS350']) {
+      const result = resolveScheduleTabOnRoomSelect({ query, roomSchedules: roomExams })
+      assert.deepStrictEqual(result, { tab: 'exam', targetCode: 'BAS350' }, query)
+    }
+  })
+
+  it('keeps an explicit target event code ahead of the query', () => {
+    const result = resolveScheduleTabOnRoomSelect({
+      query: 'exam',
+      roomSchedules: roomExams,
+      targetEventCode: 'CS101',
+    })
+    assert.deepStrictEqual(result, { tab: 'exam', targetCode: 'CS101' })
   })
 })

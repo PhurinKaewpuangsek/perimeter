@@ -272,7 +272,7 @@ export default function LoginPage() {
 
         <div className="mt-6 border-t border-line-soft pt-4 text-center">
           <Link to="/map" className="link text-button">
-            ← กลับสู่หน้าหลัก
+            ← กลับสู่หน้าแผนที่
           </Link>
         </div>
       </div>

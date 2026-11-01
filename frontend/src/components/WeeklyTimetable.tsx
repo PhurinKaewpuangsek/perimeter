@@ -270,6 +270,9 @@ function EntryCard({ item, renderActions, colorMap }: { item: PlacedSlot; render
   )
 }
 
+/** Hours labelled on the mini timeline rail; ticks use the same positions. */
+const RAIL_HOURS = [8, 11, 14, 17, 20]
+
 interface CompactWeekSummaryProps {
   slots: ScheduleSlot[]
   colorMap?: Map<string, string>
@@ -323,12 +326,19 @@ function CompactWeekSummary({ slots, colorMap, onOpenModal }: CompactWeekSummary
       </div>
 
       {/* Mini Time Rail Tick Marks */}
-      <div className="mt-2.5 flex items-center text-[10px] font-mono text-ink-3 pl-9 pr-1 justify-between select-none">
-        <span>08:00</span>
-        <span>11:00</span>
-        <span>14:00</span>
-        <span>17:00</span>
-        <span>20:00</span>
+      <div
+        className="relative ml-9 mr-1 mt-2.5 h-3 text-[10px] font-mono text-ink-3 select-none"
+        aria-hidden="true"
+      >
+        {RAIL_HOURS.map((h) => (
+          <span
+            key={h}
+            className="absolute -translate-x-1/2"
+            style={{ left: `${((h * 60 - timelineStart) / totalMinutes) * 100}%` }}
+          >
+            {String(h).padStart(2, '0')}:00
+          </span>
+        ))}
       </div>
 
       {/* 7 Days Mini Timeline Rows (Monday to Sunday) */}
@@ -364,14 +374,14 @@ function CompactWeekSummary({ slots, colorMap, onOpenModal }: CompactWeekSummary
                       className="relative h-6.5 w-full rounded-md bg-surface-2/70 border border-line-soft/40 overflow-hidden"
                     >
                       {/* Subtle background hour tick lines */}
-                      <div
-                        className="absolute inset-0 grid grid-cols-4 pointer-events-none"
-                        aria-hidden="true"
-                      >
-                        <div className="border-r border-line-soft/30 h-full" />
-                        <div className="border-r border-line-soft/30 h-full" />
-                        <div className="border-r border-line-soft/30 h-full" />
-                        <div className="h-full" />
+                      <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
+                        {RAIL_HOURS.map((h) => (
+                          <div
+                            key={h}
+                            className="absolute top-0 h-full border-l border-line-soft/30"
+                            style={{ left: `${((h * 60 - timelineStart) / totalMinutes) * 100}%` }}
+                          />
+                        ))}
                       </div>
 
                       {/* Mini Course Blocks */}

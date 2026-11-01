@@ -358,8 +358,11 @@ export function resolveScheduleTabOnRoomSelect({
 
   // 2. ถ้า query มีคำค้นหาเกี่ยวกับการสอบโดยตรง (เช่น "exam", "สอบ", "ตารางสอบ", "final", "midterm")
   if (isExamKeywordQuery(query)) {
-    const firstExam = roomSchedules.find(isExamSchedule)
-    return { tab: 'exam', targetCode: targetEventCode || firstExam?.eventCode || null }
+    const courseToken = query
+      .split(/\s+/)
+      .map((token) => token.toUpperCase())
+      .find((token) => /^[A-Z]+\d+[A-Z0-9]*$/.test(token))
+    return { tab: 'exam', targetCode: targetEventCode || courseToken || null }
   }
 
   // 3. ตรวจสอบกรณีรหัสวิชาที่มีตัวเลขระบุชัดเจน (เช่น CS341, BAS350)

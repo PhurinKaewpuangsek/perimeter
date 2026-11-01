@@ -8,9 +8,9 @@ import { TIMETABLE_DAYS, type TimetableDay } from './timetableLayout'
  */
 export const TIMETABLE_PALETTE = [
   'bg-[#3f51b5] text-white', // Google Blueberry / Indigo (matches Bus to Uni)
-  'bg-[#ef6c00] text-white', // Google Tangerine / Orange (matches Morning & Afternoon Class)
-  'bg-[#7cb342] text-white', // Google Avocado / Sage (matches Lunch)
-  'bg-[#039be5] text-white', // Google Peacock / Sky
+  'bg-[#b45309] text-white', // Dark amber
+  'bg-[#33691e] text-white', // Dark avocado
+  'bg-[#0277bd] text-white', // Dark peacock
   'bg-[#8e24aa] text-white', // Google Grape / Purple
   'bg-[#00897b] text-white', // Google Teal
   'bg-[#0b8043] text-white', // Google Basil / Green
