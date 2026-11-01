@@ -333,24 +333,6 @@ export function isExamKeywordQuery(query: string): boolean {
 }
 
 /**
- * ตรวจสอบว่า query เกี่ยวข้องกับการสอบหรือไม่ (เป็นคำว่า exam/สอบ หรือตรงกับรหัสวิชาที่มีการสอบ)
- */
-export function isExamRelatedQuery(
-  query: string,
-  schedules: ScheduleSlot[] = []
-): boolean {
-  if (isExamKeywordQuery(query)) return true
-  const q = query.trim().replace(/\s+/g, '').toLowerCase()
-  if (!q) return false
-  return schedules.some((s) => {
-    if (!isExamSchedule(s)) return false
-    const code = s.eventCode.replace(/\s+/g, '').toLowerCase()
-    const name = s.eventName.replace(/\s+/g, '').toLowerCase()
-    return code === q || code.includes(q) || q.includes(code) || name.includes(q)
-  })
-}
-
-/**
  * ตัดสินใจว่าการเลือกห้องควรเปิดแท็บใด ('class' หรือ 'exam')
  * โดย 'class' (ตารางเรียน) เป็นค่าเริ่มต้นตามธรรมชาติเสมอ
  * จะสลับไป 'exam' (ตารางสอบ) เฉพาะเมื่อมีเจตนาค้นหาการสอบที่ชัดเจนเท่านั้น
