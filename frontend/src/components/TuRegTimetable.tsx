@@ -479,7 +479,7 @@ export function TuRegTimetable({
   useEffect(() => {
     if (selectedSlot) {
       const timer = setTimeout(() => {
-        selectedCardRef.current?.scrollIntoView({
+        selectedCardRef.current?.scrollIntoView?.({
           behavior: 'smooth',
           block: 'nearest',
         })
