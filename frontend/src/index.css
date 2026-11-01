@@ -283,6 +283,13 @@
   animation: fadeIn 160ms ease-out 760ms both;
 }
 
+/* Reduced motion guard for animated SVG elements (#145) */
+@media (prefers-reduced-motion: reduce) {
+  svg animate {
+    display: none !important;
+  }
+}
+
 @media (min-width: 640px) {
   .sm\:animate-modal-desktop {
     animation: slideInDesktop 240ms cubic-bezier(0.16, 1, 0.3, 1) forwards;

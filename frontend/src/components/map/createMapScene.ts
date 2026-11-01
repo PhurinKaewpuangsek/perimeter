@@ -36,10 +36,26 @@ type MapState = Omit<MapContainerProps, "onFloorChange"> & {
   onFloorChange?: (floor: number) => void;
 };
 // Route tube height above the floor, just over the selected-room highlight (0.49).
-const ROUTE_HEIGHT = 0.62;
+const ROUTE_HEIGHT = 0.54;
 // Route draw-in length; matches the 2D .animate-route-draw in index.css.
 const ROUTE_DRAW_MS = 800;
 export const CONTEXT_RESTORE_TIMEOUT = 3000;
+
+/**
+ * Dynamic route line radius: smoothly scales between a bold ribbon at bird's eye view
+ * (so the full route is clearly visible from high altitude) and a slender ribbon when
+ * zoomed into hallways (occupying ~30% of the corridor width so it never floods the corridor).
+ */
+export function computeRouteRadius(zoom: number, isMobile: boolean): number {
+  if (isMobile) {
+    const t = THREE.MathUtils.clamp((zoom - 0.5) / 2.0, 0, 1);
+    const factor = Math.cos(t * Math.PI) * 0.5 + 0.5;
+    return THREE.MathUtils.lerp(0.26, 0.52, factor);
+  }
+  const t = THREE.MathUtils.clamp((zoom - 0.45) / 1.85, 0, 1);
+  const factor = Math.pow(1 - t, 2.2);
+  return THREE.MathUtils.lerp(0.14, 0.44, factor);
+}
 export interface MapScene {
   ready: Promise<void>;
   update: (state: MapState) => void;
@@ -214,10 +230,56 @@ function buildMapScene(
   const routeGroup = new THREE.Group();
   routeGroup.name = "Route";
   scene.add(routeGroup);
-  const routeLineMaterial = new THREE.MeshBasicMaterial({ color: "#000000" });
+  const routeLineMaterial = new THREE.MeshBasicMaterial({
+    color: "#000000",
+    side: THREE.DoubleSide,
+    polygonOffset: true,
+    polygonOffsetFactor: -1,
+    polygonOffsetUnits: -1,
+  });
+  const routeArrowMaterial = new THREE.MeshBasicMaterial({
+    color: "#ffffff",
+    side: THREE.DoubleSide,
+    depthWrite: false,
+    polygonOffset: true,
+    polygonOffsetFactor: -2,
+    polygonOffsetUnits: -2,
+  });
 
   let routeKey = "";
   let routeFocusKey = "";
+  let routeIsMobile: boolean | undefined;
+  let routeSegments: THREE.Mesh[] = [];
+  let routeJoints: THREE.Mesh[] = [];
+  let routeArrows: THREE.Mesh[] = [];
+  let lastAppliedRadius = -1;
+
+  function getIsMobile(): boolean {
+    const w = host.clientWidth;
+    if (w <= 1 && typeof window !== "undefined" && window.innerWidth > 1) {
+      return window.innerWidth < 640;
+    }
+    return w < 640;
+  }
+
+  function updateRouteScale() {
+    if (routeSegments.length === 0 && routeJoints.length === 0) return;
+    const isMobile = getIsMobile();
+    const radius = computeRouteRadius(camera.zoom, isMobile);
+    if (Math.abs(radius - lastAppliedRadius) < 1e-4) return;
+    lastAppliedRadius = radius;
+
+    const segScaleX = radius * 2;
+    for (let i = 0; i < routeSegments.length; i++) {
+      routeSegments[i].scale.x = segScaleX;
+    }
+    for (let i = 0; i < routeJoints.length; i++) {
+      routeJoints[i].scale.set(radius, 1, radius);
+    }
+    for (let i = 0; i < routeArrows.length; i++) {
+      routeArrows[i].scale.set(radius, 1, radius);
+    }
+  }
   // The line drawing in from the start: each part shows once the line reaches `at`
   // (its distance along the route); segments also grow up to their `length`.
   let routeDraw:
@@ -371,6 +433,7 @@ function buildMapScene(
       }
     }
     drawRouteIn(now);
+    updateRouteScale();
     notifyHeading();
 
     isDrawing = false;
@@ -440,10 +503,15 @@ function buildMapScene(
         y < height;
       marker.button.hidden = !visible;
       if (!visible) continue;
-      const labelWidth = Math.min(
-        160,
-        (marker.button.textContent?.length ?? 0) * 7 + 34,
-      );
+      const isAnchored =
+        marker.button.dataset.origin === "true" ||
+        marker.button.dataset.destination === "true";
+      const labelWidth = isAnchored
+        ? Math.min(220, (marker.button.textContent?.length ?? 0) * 8.5 + 46)
+        : Math.min(
+            160,
+            (marker.button.textContent?.length ?? 0) * 7 + 34,
+          );
       const crowded = occupied.some((p) => {
         if (p.isRoute) {
           return (
@@ -468,21 +536,20 @@ function buildMapScene(
           Math.abs(p.y - y) < 16
         );
       });
-      if (!marker.selected && occluded) {
+      if (!marker.selected && !isAnchored && occluded) {
         marker.button.hidden = true;
         continue;
       }
-      marker.button.dataset.compact = String(!marker.selected && crowded);
-      const isAnchored =
-        marker.button.dataset.origin === "true" ||
-        marker.button.dataset.destination === "true";
-      const stemOffset = isAnchored ? 14 : 0;
-      if (!crowded || marker.selected)
+      marker.button.dataset.compact = String(
+        !marker.selected && !isAnchored && crowded,
+      );
+      const stemOffset = isAnchored ? 16 : 0;
+      if (!crowded || marker.selected || isAnchored)
         occupied.push({
           x,
           y,
           width: labelWidth,
-          height: marker.selected || isAnchored ? 44 : 24,
+          height: marker.selected || isAnchored ? 50 : 24,
         });
       marker.button.style.transform = `translate(${x}px,${y}px) translate(-50%, calc(-100% - ${stemOffset}px))`;
     }
@@ -529,6 +596,12 @@ function buildMapScene(
     camera.updateProjectionMatrix();
     renderer.setSize(width, height);
     composer.setSize(width, height);
+    const isMobile = getIsMobile();
+    if (state?.route && routeIsMobile !== undefined && isMobile !== routeIsMobile) {
+      buildRoute(state);
+    } else {
+      updateRouteScale();
+    }
     invalidate();
   }
   function getDefaultCameraPose() {
@@ -753,6 +826,10 @@ function buildMapScene(
 
   function clearRoute() {
     routeDraw = undefined;
+    routeSegments = [];
+    routeJoints = [];
+    routeArrows = [];
+    lastAppliedRadius = -1;
     const geometries = new Set<THREE.BufferGeometry>();
     routeGroup.traverse((object) => {
       if (object instanceof THREE.Mesh) geometries.add(object.geometry);
@@ -768,23 +845,71 @@ function buildMapScene(
     const model = svgToModel(point.floor, point, height);
     return new THREE.Vector3(model.x, model.y, model.z);
   }
-  // The route's part on the shown floor: black tube with sphere joints, and "ขึ้นบันไดไปชั้น N" labels where it leaves.
+  function createRouteArrowGeometry(): THREE.BufferGeometry {
+    const yOffset = 0.004;
+    const arrowHalfWidth = 0.65;
+    const arrowShaftHalfWidth = 0.22;
+    const arrowLength = 1.5;
+    const halfLen = arrowLength / 2;
+    const barbBack = -arrowLength * 0.15;
+    const notchZ = 0;
+
+    const pts: [number, number, number][] = [
+      [0, yOffset, halfLen],                      // 0: tip
+      [arrowHalfWidth, yOffset, barbBack],        // 1: right barb
+      [arrowShaftHalfWidth, yOffset, notchZ],     // 2: right notch
+      [0, yOffset, notchZ],                       // 3: center notch
+      [-arrowShaftHalfWidth, yOffset, notchZ],    // 4: left notch
+      [-arrowHalfWidth, yOffset, barbBack],       // 5: left barb
+      [arrowShaftHalfWidth, yOffset, -halfLen],   // 6: right shaft bottom
+      [0, yOffset, -halfLen],                     // 7: center shaft bottom
+      [-arrowShaftHalfWidth, yOffset, -halfLen],  // 8: left shaft bottom
+    ];
+
+    const positions: number[] = [];
+    for (const [x, y, z] of pts) {
+      positions.push(x, y, z);
+    }
+
+    const indices = [
+      0, 1, 2,
+      0, 2, 3,
+      0, 3, 4,
+      0, 4, 5,
+      3, 2, 6,
+      3, 6, 7,
+      4, 3, 7,
+      4, 7, 8,
+    ];
+
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute(
+      'position',
+      new THREE.Float32BufferAttribute(positions, 3),
+    );
+    geometry.setIndex(indices);
+    geometry.computeVertexNormals();
+    return geometry;
+  }
+  // The route's part on the shown floor: black flat ribbon with round joints and directional arrows.
   function buildRoute(next: MapState) {
     clearRoute();
     const route = next.route;
     if (!route) return;
-    const radius = 0.22;
-    let joint: THREE.SphereGeometry | undefined;
+    const isMobile = getIsMobile();
+    routeIsMobile = isMobile;
+    let joint: THREE.CircleGeometry | undefined;
     // One unit-long open tube along +z from the origin, stretched to each segment's
     // length, so the draw-in can grow a segment without new geometry.
-    let segment: THREE.CylinderGeometry | undefined;
+    let segment: THREE.PlaneGeometry | undefined;
+    let arrowGeometry: THREE.BufferGeometry | undefined;
     const parts: { mesh: THREE.Mesh; at: number; length?: number }[] = [];
     let distance = 0;
     for (const leg of splitRouteByFloor(route.path)) {
       if (leg.floor !== next.currentFloor) continue;
-      joint ??= new THREE.SphereGeometry(radius, 12, 8);
-      segment ??= new THREE.CylinderGeometry(radius, radius, 1, 8, 1, true)
-        .rotateX(Math.PI / 2)
+      joint ??= new THREE.CircleGeometry(1, 24).rotateX(-Math.PI / 2);
+      segment ??= new THREE.PlaneGeometry(1, 1)
+        .rotateX(-Math.PI / 2)
         .translate(0, 0, 0.5);
       const displayPoints = getDisplayRoutePoints(leg.points, leg.floor);
       const points = displayPoints.map(routePoint);
@@ -796,15 +921,37 @@ function buildMapScene(
           tube.lookAt(point);
           tube.scale.z = length;
           routeGroup.add(tube);
+          routeSegments.push(tube);
           parts.push({ mesh: tube, at: distance, length });
+
+          if (length >= (isMobile ? 1.0 : 0.7)) {
+            arrowGeometry ??= createRouteArrowGeometry();
+            const spacing = isMobile ? 3.4 : 2.2;
+            const arrowCount = Math.max(1, Math.floor(length / spacing));
+            const step = length / (arrowCount + 1);
+            const dir = point.clone().sub(points[i - 1]).normalize();
+            for (let a = 1; a <= arrowCount; a++) {
+              const d = a * step;
+              const arrow = new THREE.Mesh(arrowGeometry, routeArrowMaterial);
+              arrow.position.copy(points[i - 1]).addScaledVector(dir, d);
+              arrow.quaternion.copy(tube.quaternion);
+              routeGroup.add(arrow);
+              routeArrows.push(arrow);
+              parts.push({ mesh: arrow, at: distance + d });
+            }
+          }
+
           distance += length;
         }
         const sphere = new THREE.Mesh(joint, routeLineMaterial);
         sphere.position.copy(point);
         routeGroup.add(sphere);
+        routeJoints.push(sphere);
         parts.push({ mesh: sphere, at: distance });
       });
     }
+    lastAppliedRadius = -1;
+    updateRouteScale();
     if (reduceMotion || parts.length === 0) return;
     routeDraw = { startTime: performance.now(), length: distance, parts };
     drawRouteIn(routeDraw.startTime);
@@ -890,14 +1037,14 @@ function buildMapScene(
     const box = new THREE.Box3().setFromPoints(points);
     const center = box.getCenter(new THREE.Vector3());
     const size = box.getSize(new THREE.Vector3());
-    const span = Math.max(size.x, size.z, 6) * 1.75;
+    const span = Math.max(size.x, size.z, 6) * 1.28;
     const zoom = THREE.MathUtils.clamp(
       Math.min(
         (camera.right - camera.left) / span,
         (camera.top - camera.bottom) / span,
       ),
       controls.minZoom,
-      2.4,
+      2.8,
     );
     stopIdleDemo();
     startCameraGlide(
@@ -1007,6 +1154,8 @@ function buildMapScene(
       const button = document.createElement("button");
       button.type = "button";
       button.className = "map3d-marker";
+      const pill = document.createElement("span");
+      pill.className = "map3d-marker-pill";
       // Rooms staff closed right now (#147): grey pin and "ปิดชั่วคราว", as in 2D.
       const closed = state.closedRoomIds?.has(room.id) ?? false;
       button.style.setProperty(
@@ -1018,17 +1167,18 @@ function buildMapScene(
         const disc = document.createElement("span");
         disc.className = "map3d-icon";
         disc.append(icon.cloneNode(true));
-        button.append(disc);
+        pill.append(disc);
       }
       if (closed) button.dataset.closed = "true";
       if (isDestinationRoom) {
         button.dataset.destination = "true";
-        button.append(createDestinationGlyph());
+        pill.append(createDestinationGlyph());
       } else if (isOriginRoom) {
         button.dataset.origin = "true";
-        button.append(createOriginGlyph());
+        pill.append(createOriginGlyph());
       }
-      button.append(getMarkerText(room, closed));
+      pill.append(getMarkerText(room, closed));
+      button.append(pill);
       if (isDestinationRoom || isOriginRoom) {
         button.append(createStem());
       }
@@ -1082,8 +1232,11 @@ function buildMapScene(
       originBtn.className = "map3d-marker";
       originBtn.dataset.origin = "true";
       originBtn.setAttribute("aria-label", label);
-      originBtn.append(createOriginGlyph());
-      originBtn.append(label);
+      const originPill = document.createElement("span");
+      originPill.className = "map3d-marker-pill";
+      originPill.append(createOriginGlyph());
+      originPill.append(label);
+      originBtn.append(originPill);
       originBtn.append(createStem());
       originBtn.addEventListener("click", (event) => {
         event.stopPropagation();
@@ -1134,7 +1287,8 @@ function buildMapScene(
     const nextRoute = state.route
       ? getRouteKey(state.route.path, state.currentFloor)
       : "";
-    if (nextRoute !== routeKey) {
+    const isMobile = getIsMobile();
+    if (nextRoute !== routeKey || (state.route && routeIsMobile !== isMobile)) {
       buildRoute(state);
       routeKey = nextRoute;
     }
@@ -1195,6 +1349,7 @@ function buildMapScene(
       if (root) disposeModel(root);
       clearRoute();
       routeLineMaterial.dispose();
+      routeArrowMaterial.dispose();
       highlight.geometry.dispose();
       highlight.material.dispose();
       beautyPass.dispose();

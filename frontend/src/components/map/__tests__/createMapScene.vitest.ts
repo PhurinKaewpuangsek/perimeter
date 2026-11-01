@@ -96,7 +96,7 @@ vi.mock('three/addons/loaders/GLTFLoader.js', async () => {
 
 import * as THREE from 'three'
 import { SSAOPass } from 'three/addons/postprocessing/SSAOPass.js'
-import { CONTEXT_RESTORE_TIMEOUT, createMapScene } from '../createMapScene'
+import { CONTEXT_RESTORE_TIMEOUT, createMapScene, computeRouteRadius } from '../createMapScene'
 import type { FoundRoute } from '../../../types/route'
 import type { Room } from '../../../types/room'
 
@@ -215,7 +215,7 @@ describe('createMapScene route (#145)', () => {
     expect(disposeGeometry).not.toHaveBeenCalled()
 
     map.update({ ...state, route: null })
-    expect(disposeGeometry.mock.contexts.some((geometry) => geometry instanceof THREE.CylinderGeometry)).toBe(true)
+    expect(disposeGeometry.mock.contexts.some((geometry) => geometry instanceof THREE.PlaneGeometry)).toBe(true)
     expect(host.querySelector('.map3d-route-floor')).toBeNull()
 
     disposeGeometry.mockRestore()
@@ -252,9 +252,32 @@ describe('createMapScene route (#145)', () => {
     vi.stubGlobal('matchMedia', (query: string) => ({ matches: query === '(prefers-reduced-motion: reduce)' }))
     const { map, routeGroup } = await sceneWithRoute(2)
     expect(routeGroup.children.every((child) => child.visible)).toBe(true)
-    const tube = routeGroup.children.find((child) => child instanceof THREE.Mesh && child.geometry instanceof THREE.CylinderGeometry)!
+    const tube = routeGroup.children.find((child) => child instanceof THREE.Mesh && child.geometry instanceof THREE.PlaneGeometry)!
     expect(tube.scale.z).toBeGreaterThan(1)
     map.dispose()
+  })
+
+  it('resizes navigation line smoothly between bird eye view and close-up corridor view', () => {
+    // Desktop bird's eye view (zoom <= 0.5): thick and bold (>= 0.40)
+    expect(computeRouteRadius(0.35, false)).toBeGreaterThanOrEqual(0.40)
+    expect(computeRouteRadius(0.5, false)).toBeGreaterThanOrEqual(0.40)
+
+    // Desktop zoomed into hallway (zoom >= 2.3): slender ~0.14 (~30% of corridor)
+    expect(computeRouteRadius(2.3, false)).toBeCloseTo(0.14, 2)
+    expect(computeRouteRadius(4.0, false)).toBeCloseTo(0.14, 2)
+
+    // Monotonically non-increasing: zooming in always narrows or preserves the width
+    const r1 = computeRouteRadius(0.5, false)
+    const r2 = computeRouteRadius(1.0, false)
+    const r3 = computeRouteRadius(1.8, false)
+    const r4 = computeRouteRadius(2.5, false)
+    expect(r1).toBeGreaterThan(r2)
+    expect(r2).toBeGreaterThan(r3)
+    expect(r3).toBeGreaterThan(r4)
+
+    // Mobile remains readable across all zoom levels
+    expect(computeRouteRadius(0.5, true)).toBeGreaterThanOrEqual(0.50)
+    expect(computeRouteRadius(3.0, true)).toBeGreaterThanOrEqual(0.26)
   })
 
   it('renders a return stairs button on later floors of the route', async () => {

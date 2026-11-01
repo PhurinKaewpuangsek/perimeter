@@ -480,6 +480,164 @@ export function getLandmarksAlongSubpath(
 }
 
 /**
+ * Resolves a human-friendly landmark name for a room along a path.
+ * Skips uninformative sub-room codes like 122/5, 122/6, 104/1 unless they have
+ * a recognizable Thai name (such as "ห้องพักอาจารย์", "บันได 2", "ห้องน้ำ").
+ */
+export function getMilestoneDisplayName(room: Room): string | null {
+  const isSubRoomNumber = Boolean(room.roomNumber && /^\d+\/\d+$/.test(room.roomNumber.trim()))
+
+  if (room.nameThai && room.nameThai.trim()) {
+    // Strip trailing parentheses like "ห้องพักอาจารย์ (คณิตศาสตร์และสถิติ)" -> "ห้องพักอาจารย์"
+    const cleanName = room.nameThai.split('(')[0].trim()
+    return cleanName || room.nameThai
+  }
+
+  // Skip sub-room numbers (e.g. 122/5, 122/6) that lack a descriptive Thai name
+  if (isSubRoomNumber) {
+    return null
+  }
+
+  // Major room numbers like 101, 102
+  if (room.roomNumber && /^\d+$/.test(room.roomNumber.trim())) {
+    return `ห้อง ${room.roomNumber.trim()}`
+  }
+
+  return null
+}
+
+/**
+ * Calculates estimated walking distance (meters) and walking duration (minutes)
+ * from SVG coordinates.
+ * Scale: ~0.065 meters per SVG coordinate unit in LC3.
+ * Walking speed: ~1.1 m/s (approx 65 meters/minute).
+ */
+export function calculateLegDistance(points: RoutePoint[]): {
+  meters: number
+  minutes: number
+  formatted: string
+} {
+  if (points.length <= 1) {
+    return { meters: 0, minutes: 1, formatted: '~0 ม. · เดินไม่ถึง 1 นาที' }
+  }
+
+  let totalSvgDist = 0
+  for (let i = 0; i < points.length - 1; i++) {
+    const p1 = points[i]
+    const p2 = points[i + 1]
+    totalSvgDist += Math.hypot(p2.x - p1.x, p2.y - p1.y)
+  }
+
+  const meters = Math.max(10, Math.round(totalSvgDist * 0.065))
+  const minutes = Math.max(1, Math.round(meters / 65))
+
+  return {
+    meters,
+    minutes,
+    formatted: `~${meters} ม. · เดินประมาณ ${minutes} นาที`,
+  }
+}
+
+/**
+ * Calculates overall trip summary metrics (total distance in meters and walking duration)
+ * across all legs of the route.
+ */
+export function calculateRouteSummary(legs: { points: RoutePoint[]; floor: number }[]): {
+  meters: number
+  minutes: number
+  formatted: string
+} {
+  if (legs.length === 0) {
+    return { meters: 0, minutes: 1, formatted: 'เดิน ~0 ม. · ประมาณ 1 นาที' }
+  }
+
+  let totalMeters = 0
+  for (const leg of legs) {
+    const { meters } = calculateLegDistance(leg.points)
+    totalMeters += meters
+  }
+
+  const minutes = Math.max(1, Math.round(totalMeters / 65))
+  return {
+    meters: totalMeters,
+    minutes,
+    formatted: `เดิน ~${totalMeters} ม. · ประมาณ ${minutes} นาที`,
+  }
+}
+
+/**
+ * Extracts prominent physical landmarks along a walking leg (bridges, fountains, stairs, key rooms).
+ * Deduplicates and limits to the top 2-3 landmarks to keep the overview clean and glanceable.
+ */
+export function getLegKeyMilestones(
+  legPoints: RoutePoint[],
+  rooms: Room[],
+  floor: number,
+  excludeLocationIds = new Set<string>(),
+): string[] {
+  if (legPoints.length <= 1) return []
+
+  const landmarks: string[] = []
+
+  // 1. Check for physical architectural features on Floor 1
+  if (floor === 1) {
+    const crossesBridge = legPoints.some(
+      (p, i) =>
+        isPointOnBridgeDeck(p) ||
+        (i < legPoints.length - 1 && isBridgeCrossing(p, legPoints[i + 1])),
+    )
+    if (crossesBridge) {
+      landmarks.push('สะพานทางเดิน')
+    }
+
+    const passesFountain = legPoints.some((p) => isNearFountain(p))
+    if (passesFountain) {
+      landmarks.push('ลานน้ำพุ')
+    }
+  }
+
+  // 2. Discover rooms / stairs along the corridor
+  const floorRooms = rooms.filter(
+    (room) => room.floor === floor && !excludeLocationIds.has(room.id) && room.coordinates,
+  )
+
+  const candidateRooms: { label: string; t: number }[] = []
+  let accumulatedDist = 0
+
+  for (let i = 0; i < legPoints.length - 1; i++) {
+    const p1 = legPoints[i]
+    const p2 = legPoints[i + 1]
+    const dx = p2.x - p1.x
+    const dy = p2.y - p1.y
+    const segLen = Math.hypot(dx, dy)
+    if (segLen < 1e-3) continue
+
+    for (const room of floorRooms) {
+      const rx = room.coordinates.x
+      const ry = room.coordinates.y
+      const dist = pointToSegmentDistance(rx, ry, p1.x, p1.y, p2.x, p2.y)
+      if (dist <= ROUTE_CORRIDOR_THRESHOLD) {
+        const proj = Math.max(0, Math.min(1, ((rx - p1.x) * dx + (ry - p1.y) * dy) / (segLen * segLen)))
+        const overallDist = accumulatedDist + proj * segLen
+        const label = getMilestoneDisplayName(room)
+        if (label && !candidateRooms.some((c) => c.label === label) && !landmarks.includes(label)) {
+          candidateRooms.push({ label, t: overallDist })
+        }
+      }
+    }
+    accumulatedDist += segLen
+  }
+
+  candidateRooms.sort((a, b) => a.t - b.t)
+  for (const c of candidateRooms) {
+    landmarks.push(c.label)
+    if (landmarks.length >= 3) break
+  }
+
+  return landmarks
+}
+
+/**
  * Generates turn-by-turn landmark instructions for a given floor leg.
  */
 export function generateLegInstructions(

@@ -44,6 +44,14 @@ export default function RouteOverlay({
   const drawKey = getRouteKey(route.path, currentFloor)
   const [drawnKey, setDrawnKey] = useState<string>()
   const drawing = animate && drawnKey !== drawKey
+  const isMobile =
+    typeof window !== 'undefined' ? window.innerWidth < 640 : false
+  const casingWidth = isMobile ? 12 : 9
+  const lineWidth = isMobile ? 7 : 5
+  const arrowScale = isMobile ? invScale : invScale * 0.75
+  const minSeg = isMobile ? 28 : 20
+  const arrowSpacing = isMobile ? 55 : 40
+
   // While drawing, the dash is measured along the line (pathLength 1) in floor-plan units,
   // so the width is counter-scaled by hand: a non-scaling stroke would measure the dash in
   // screen pixels, which change while the view glides to the route.
@@ -75,7 +83,7 @@ export default function RouteOverlay({
                 stroke={CASING_COLOR}
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                {...stroke(9)}
+                {...stroke(casingWidth)}
               />
               <polyline
                 points={points}
@@ -83,16 +91,41 @@ export default function RouteOverlay({
                 stroke={LINE_COLOR}
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                {...stroke(5)}
+                {...stroke(lineWidth)}
                 onAnimationEnd={drawing ? () => setDrawnKey(drawKey) : undefined}
               />
+              {!drawing &&
+                displayPoints.slice(1).map((point, i) => {
+                  const prev = displayPoints[i]
+                  const dx = point.x - prev.x
+                  const dy = point.y - prev.y
+                  const segLength = Math.hypot(dx, dy)
+                  if (segLength < minSeg) return null
+                  const arrowCount = Math.max(1, Math.floor(segLength / arrowSpacing))
+                  const step = segLength / (arrowCount + 1)
+                  const angle = (Math.atan2(dy, dx) * 180) / Math.PI
+                  const arrows = []
+                  for (let a = 1; a <= arrowCount; a++) {
+                    const ax = prev.x + (dx / segLength) * a * step
+                    const ay = prev.y + (dy / segLength) * a * step
+                    arrows.push(
+                      <path
+                        key={`arrow-${i}-${a}`}
+                        d="M 4.5 0 L -2 -3.5 L -1 -1.2 L -4 -1.2 L -4 1.2 L -1 1.2 L -2 3.5 Z"
+                        fill="#FFFFFF"
+                        transform={`translate(${ax}, ${ay}) rotate(${angle}) scale(${arrowScale})`}
+                      />,
+                    )
+                  }
+                  return <g key={`arrows-${i}`}>{arrows}</g>
+                })}
             </g>
           )
         })}
         {start?.floor === currentFloor && (
           <g data-testid="route-start" transform={`translate(${start.x}, ${start.y}) scale(${invScale})`}>
-            <circle r={9} fill={LINE_COLOR} stroke={CASING_COLOR} strokeWidth={2} />
-            <circle r={3.5} fill={CASING_COLOR} />
+            <circle r={11} fill={LINE_COLOR} stroke={CASING_COLOR} strokeWidth={2.5} />
+            <circle r={4.5} fill={CASING_COLOR} />
           </g>
         )}
         {end && route.path.length > 1 && end.floor === currentFloor && (
@@ -101,8 +134,8 @@ export default function RouteOverlay({
             className={drawing ? 'animate-route-reveal' : undefined}
             transform={`translate(${end.x}, ${end.y}) scale(${invScale})`}
           >
-            <rect x={-8} y={-8} width={16} height={16} fill={LINE_COLOR} stroke={CASING_COLOR} strokeWidth={2} />
-            <rect x={-3} y={-3} width={6} height={6} fill={CASING_COLOR} />
+            <rect x={-10} y={-10} width={20} height={20} rx={2} fill={LINE_COLOR} stroke={CASING_COLOR} strokeWidth={2.5} />
+            <rect x={-4} y={-4} width={8} height={8} fill={CASING_COLOR} />
           </g>
         )}
       </svg>

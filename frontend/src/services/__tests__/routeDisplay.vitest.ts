@@ -6,10 +6,14 @@ import {
   FLOOR_2_STAIR_2_X,
   FOUNTAIN_CENTER,
   FOUNTAIN_RIM_RADIUS,
+  calculateLegDistance,
+  calculateRouteSummary,
   calculateTurnAngle,
   generateLegInstructions,
   getDisplayRoutePoints,
   getFloorChangeLabel,
+  getLegKeyMilestones,
+  getMilestoneDisplayName,
   getPlaceLabel,
   getRouteKey,
   isBridgeCrossing,
@@ -158,6 +162,86 @@ describe('calculateTurnAngle and generateLegInstructions', () => {
     expect(steps[0].text).toBe('เดินตรงผ่าน 102/1 - 101/1')
     expect(steps[1].turnType).toBe('turn-right')
     expect(steps[1].text).toBe('เลี้ยวขวาเข้าโถงห้อง 105')
+  })
+
+  it('calculates walking distance and duration accurately for a leg', () => {
+    // 500 SVG units * 0.065 approx 33 meters -> rounds to 33m, ~1 min
+    const legPoints: RoutePoint[] = [
+      { nodeId: 'p0', floor: 1, x: 100, y: 100 },
+      { nodeId: 'p1', floor: 1, x: 600, y: 100 },
+    ]
+    const metrics = calculateLegDistance(legPoints)
+    expect(metrics.meters).toBe(33)
+    expect(metrics.minutes).toBe(1)
+    expect(metrics.formatted).toBe('~33 ม. · เดินประมาณ 1 นาที')
+  })
+
+  it('extracts top physical milestones including bridge and fountain', () => {
+    // Leg crossing footbridge over west canal
+    const bridgePoints: RoutePoint[] = [
+      { nodeId: 'p0', floor: 1, x: 631, y: 430 },
+      { nodeId: 'p1', floor: 1, x: 631, y: 290 },
+    ]
+    const testRooms = [
+      { id: 'stair2', nameThai: 'บันได 2', floor: 1, coordinates: { x: 620, y: 290 } },
+    ] as Room[]
+
+    const milestones = getLegKeyMilestones(bridgePoints, testRooms, 1)
+    expect(milestones).toContain('สะพานทางเดิน')
+    expect(milestones).toContain('บันได 2')
+  })
+
+  it('filters out raw sub-room codes like 122/5 and displays meaningful Thai landmark names', () => {
+    const hallwayPoints: RoutePoint[] = [
+      { nodeId: 'p0', floor: 1, x: 520, y: 420 },
+      { nodeId: 'p1', floor: 1, x: 570, y: 420 },
+    ]
+    const testRooms = [
+      // Sub-room without nameThai: should be filtered out
+      { id: 'r1', roomNumber: '122/5', floor: 1, coordinates: { x: 525, y: 422 } },
+      // Sub-room with descriptive nameThai: should display cleaned nameThai
+      {
+        id: 'r2',
+        roomNumber: '122/6',
+        nameThai: 'ห้องพักอาจารย์ (คณิตศาสตร์และสถิติ)',
+        floor: 1,
+        coordinates: { x: 560, y: 422 },
+      },
+    ] as Room[]
+
+    const milestones = getLegKeyMilestones(hallwayPoints, testRooms, 1)
+    expect(milestones).not.toContain('122/5')
+    expect(milestones).not.toContain('122/6')
+    expect(milestones).toContain('ห้องพักอาจารย์')
+
+    expect(getMilestoneDisplayName(testRooms[0])).toBeNull()
+    expect(getMilestoneDisplayName(testRooms[1])).toBe('ห้องพักอาจารย์')
+  })
+
+  it('calculates total route summary across multi-floor legs', () => {
+    const legs = [
+      {
+        floor: 1,
+        points: [
+          { nodeId: 'p0', floor: 1, x: 100, y: 100 },
+          { nodeId: 'p1', floor: 1, x: 600, y: 100 },
+        ],
+      },
+      {
+        floor: 2,
+        points: [
+          { nodeId: 'p2', floor: 2, x: 200, y: 200 },
+          { nodeId: 'p3', floor: 2, x: 500, y: 200 },
+        ],
+      },
+    ]
+    const summary = calculateRouteSummary(legs)
+    // Leg 1: 500 * 0.065 = 32.5 -> rounds to 33m
+    // Leg 2: 300 * 0.065 = 19.5 -> rounds to 20m
+    // Total = 53m, ~1 min
+    expect(summary.meters).toBe(53)
+    expect(summary.minutes).toBe(1)
+    expect(summary.formatted).toBe('เดิน ~53 ม. · ประมาณ 1 นาที')
   })
 })
 
