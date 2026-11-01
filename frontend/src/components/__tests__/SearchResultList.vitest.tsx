@@ -69,6 +69,29 @@ describe('SearchResultList exam dates', () => {
     expect(onNavigateToRoom).toHaveBeenCalledWith(room.id)
   })
 
+  it('calls onSelectRoom when "ดูตารางห้อง" is clicked on an exam card', async () => {
+    const onSelectRoom = vi.fn()
+    const user = userEvent.setup()
+
+    render(
+      <SearchResultList
+        rooms={[room]}
+        allRooms={[room]}
+        schedules={[]}
+        examResults={[exam('BAS350', '2026-05-18')]}
+        examSearchActive
+        schedulesLoading={false}
+        schedulesError={null}
+        loading={false}
+        error={null}
+        onSelectRoom={onSelectRoom}
+      />
+    )
+
+    await user.click(screen.getByRole('button', { name: 'ดูตารางห้องสอบ BAS350' }))
+    expect(onSelectRoom).toHaveBeenCalledWith(room.id, 'BAS350', 'exam')
+  })
+
   it('shows the existing pin action when the user is signed in', () => {
     localStorage.setItem(
       'perimeter_auth_session',

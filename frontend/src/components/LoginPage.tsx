@@ -109,11 +109,13 @@ export default function LoginPage() {
     <div className="flex min-h-screen flex-col items-center justify-center bg-white p-5 text-ink">
       <div className="card w-full max-w-md p-6 sm:p-8">
         <div className="mb-6 text-center">
-          <img
-            src={perimeterLogoNoBg}
-            alt="Perimeter"
-            className="mx-auto mb-4 h-12 object-contain"
-          />
+          <Link to="/map" title="กลับหน้าแผนที่" className="inline-block">
+            <img
+              src={perimeterLogoNoBg}
+              alt="Perimeter"
+              className="mx-auto mb-4 h-12 object-contain transition-opacity hover:opacity-90"
+            />
+          </Link>
           <h1 className="font-display text-h3 font-bold text-ink">
             {isNewPasswordRequired ? 'ตั้งรหัสผ่านใหม่' : 'เข้าสู่ระบบ'}
           </h1>
@@ -269,8 +271,8 @@ export default function LoginPage() {
         )}
 
         <div className="mt-6 border-t border-line-soft pt-4 text-center">
-          <Link to="/" className="link text-button">
-            ← กลับสู่หน้าหลัก
+          <Link to="/map" className="link text-button">
+            ← กลับสู่หน้าแผนที่
           </Link>
         </div>
       </div>

@@ -220,24 +220,24 @@ export default function LandingPage() {
           }}
           className="pointer-events-auto flex h-full w-full flex-col justify-between border-r border-line-soft bg-white p-5 sm:w-[460px] sm:p-8"
         >
-          <div className="flex flex-col items-center text-center sm:items-start sm:text-left">
-            {/* Top Branding (Prominent Logo) */}
-            <div className="mb-6 flex w-full items-center justify-between sm:mb-8">
+          <div className="my-auto flex flex-col items-center text-center sm:my-0 sm:items-start sm:text-left">
+            {/* Top Branding (Prominent Logo: Centered and enlarged on phones, left-aligned on desktop) */}
+            <div className="mb-4 flex w-full items-center justify-center sm:mb-8 sm:justify-start">
               <img
                 src={perimeterLogoNoBg}
                 alt="Perimeter"
-                className="h-14 w-auto cursor-pointer object-contain sm:h-16"
+                className="h-20 w-auto cursor-pointer object-contain sm:h-16"
                 onClick={() => handleEnterFullMap()}
                 title="Perimeter"
               />
             </div>
 
-            {/* Hero: H1 36px in the 460px panel, 28px on phones (DesignMD collapsing steps) */}
-            <h1 className="font-display text-[28px] leading-9 font-bold text-ink sm:text-h2">
+            {/* Hero Heading: Accessible to screen readers on phones, visible full heading on desktop */}
+            <h1 className="sr-only sm:not-sr-only sm:block font-display text-[28px] leading-9 font-bold text-ink sm:text-h2">
               <span className="sm:hidden">Perimeter</span>
               <span className="hidden sm:inline">ค้นหาห้องเรียนและสถานที่ได้ทันที</span>
             </h1>
-            <p className="mt-3 max-w-xs text-button text-ink-2 sm:max-w-none sm:text-body">
+            <p className="mt-1 max-w-xs text-button text-ink-2 sm:mt-3 sm:max-w-none sm:text-body">
               <span className="sm:hidden">
                 ผังอาคารเรียนรวม 3 (LC3) · ระบบแผนที่และสืบค้นห้องเรียน
               </span>
@@ -245,6 +245,23 @@ export default function LandingPage() {
                 ผังอาคารเรียนรวม 3 (LC3) ค้นหาตามเลขห้องหรือชื่อสถานที่ (ตารางเรียนดูได้ในโหมดแผนที่เต็ม)
               </span>
             </p>
+
+            {/* Mobile Only: Sign in + public map (clean hero action buttons) */}
+            <div className="mt-8 w-full max-w-xs sm:hidden">
+              <button type="button" onClick={handleSignIn} className="btn btn-primary btn-lg w-full">
+                <SignIn size={20} weight="bold" />
+                <span>เข้าสู่ระบบ (Sign in)</span>
+              </button>
+              {/* /map is public; without this a phone user has no way to reach it (the footer link is desktop-only). */}
+              <button
+                type="button"
+                onClick={() => handleEnterFullMap()}
+                className="btn btn-secondary btn-lg mt-3 w-full"
+              >
+                <MapTrifold size={20} weight="bold" />
+                <span>ดูแผนที่ (ไม่ต้องเข้าสู่ระบบ)</span>
+              </button>
+            </div>
 
             {/* Desktop Only: Instant Command-Bar Search & Live Dropdown */}
             <div ref={searchContainerRef} className="relative mt-8 hidden w-full sm:block">
@@ -327,23 +344,6 @@ export default function LandingPage() {
                 </div>
               )}
             </div>
-          </div>
-
-          {/* Mobile Only: Sign in + public map (button group stacks full-width) */}
-          <div className="mx-auto my-auto w-full max-w-xs py-8 sm:hidden">
-            <button type="button" onClick={handleSignIn} className="btn btn-primary btn-lg w-full">
-              <SignIn size={20} weight="bold" />
-              <span>เข้าสู่ระบบ (Sign in)</span>
-            </button>
-            {/* /map is public; without this a phone user has no way to reach it (the footer link is desktop-only). */}
-            <button
-              type="button"
-              onClick={() => handleEnterFullMap()}
-              className="btn btn-secondary btn-lg mt-3 w-full"
-            >
-              <MapTrifold size={20} weight="bold" />
-              <span>ดูแผนที่ (ไม่ต้องเข้าสู่ระบบ)</span>
-            </button>
           </div>
 
           {/* Footer */}

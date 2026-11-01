@@ -209,7 +209,7 @@ describe('MapContainer2D fallback', () => {
     expect(recenterBtn.closest('.map2d > div')?.className).toContain('bottom-20')
   })
 
-  it('offsets floating controls upwards when room is pinned and detail sheet is open', () => {
+  it('hides zoom and center controls on mobile when room is pinned and detail sheet is open', () => {
     render(
       <MapContainer
         rooms={rooms}
@@ -226,8 +226,8 @@ describe('MapContainer2D fallback', () => {
     const recenterBtn = screen.getByRole('button', { name: /จัดกึ่งกลางแผนที่/i })
 
     expect(floorSwitcher.className).toContain('bottom-[calc(55dvh+1rem)]')
-    expect(zoomControls.closest('.map2d > div')?.className).toContain('bottom-[calc(55dvh+5rem)]')
-    expect(recenterBtn.closest('.map2d > div')?.className).toContain('bottom-[calc(55dvh+5rem)]')
+    expect(zoomControls.closest('.map2d > div')?.className).toContain('hidden')
+    expect(recenterBtn.closest('.map2d > div')?.className).toContain('hidden')
   })
 })
 
@@ -275,15 +275,63 @@ describe('MapContainer2D route (#145)', () => {
     expect(onFloorChange).toHaveBeenCalledWith(2)
   })
 
-  it('shows the end marker on the destination floor and no stairs button there', () => {
-    renderRoute(2)
+  it('shows the end marker on the destination floor and bidirectional stairs button to switch back', async () => {
+    const user = userEvent.setup()
+    const onFloorChange = renderRoute(2)
 
     expect(screen.getAllByTestId('route-line')[0].querySelector('polyline')?.getAttribute('points')).toBe(
-      '529,228 300,400'
+      '521,228 300,400'
     )
     expect(screen.getByTestId('route-end')).toBeInTheDocument()
     expect(screen.queryByTestId('route-start')).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /บันไดไปชั้น/ })).not.toBeInTheDocument()
+    const returnButton = screen.getByRole('button', { name: 'ลงบันไดไปชั้น 1' })
+    expect(returnButton).toBeInTheDocument()
+
+    await user.click(returnButton)
+    expect(onFloorChange).toHaveBeenCalledWith(1)
+  })
+
+  it('hides the transition stair POI marker while navigating so the button replaces it', () => {
+    const roomsWithStair: Room[] = [
+      ...rooms,
+      {
+        id: 'LC3-F1-PSTAIR-2',
+        code: 'STAIR-2',
+        nameThai: 'บันได 2',
+        building: 'LC3',
+        floor: 1,
+        roomNumber: '',
+        category: 'stairs',
+        coordinates: { x: 622, y: 270 },
+        landmarks: [],
+        aliases: [],
+      },
+    ]
+
+    const { rerender } = render(
+      <MapContainer
+        rooms={roomsWithStair}
+        currentFloor={1}
+        onFloorChange={vi.fn()}
+        selectedRoomId={null}
+        onSelectRoom={vi.fn()}
+        route={null}
+      />
+    )
+    expect(screen.getByText('บันได 2')).toBeInTheDocument()
+
+    rerender(
+      <MapContainer
+        rooms={roomsWithStair}
+        currentFloor={1}
+        onFloorChange={vi.fn()}
+        selectedRoomId="LC3-F2-R201"
+        onSelectRoom={vi.fn()}
+        route={route}
+      />
+    )
+    expect(screen.queryByText('บันได 2')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'ขึ้นบันไดไปชั้น 2' })).toBeInTheDocument()
   })
 
   it('draws the line in once, then keeps it at a fixed screen width', () => {

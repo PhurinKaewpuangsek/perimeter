@@ -140,8 +140,11 @@ describe('MapPage course search (issue #91)', () => {
     mockViewport(true)
     renderMap('/map?room=LC3-F1-R121&q=ROOM')
 
-    expect(screen.getByTestId('timetable-day')).toBeInTheDocument()
-    expect(screen.getByText('ROOM-121')).toBeInTheDocument()
+    const user = userEvent.setup()
+    const summaryBtn = screen.getByTestId('compact-week-summary-btn')
+    expect(summaryBtn).toBeInTheDocument()
+    await user.click(summaryBtn)
+    expect(screen.getAllByText('ROOM-121')[0]).toBeInTheDocument()
     expect(screen.queryByText('ROOM-122')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'บันทึกในตารางของฉัน' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'เพิ่ม ROOM-121 ลง Google Calendar' })    ).toHaveAttribute(
@@ -303,11 +306,11 @@ describe('MapPage course search (issue #91)', () => {
     ])('%s layout', (_layout, isDesktop) => {
       beforeEach(() => mockViewport(isDesktop))
 
-      it('renders top bar with back-to-home link pointing to /', () => {
+      it('renders top bar with back-to-home link pointing to /map', () => {
         renderMap()
         const backToHome = screen.getByTestId('back-to-home')
         expect(backToHome).toBeInTheDocument()
-        expect(backToHome).toHaveAttribute('href', '/')
+        expect(backToHome).toHaveAttribute('href', '/map')
       })
 
       it('renders My Schedule placeholder slot', () => {
@@ -324,16 +327,16 @@ describe('MapPage course search (issue #91)', () => {
         expect(loginLink).toHaveAttribute('href', '/login')
       })
 
-      it('resets the selected room and search from the map controls', async () => {
+      it('clears the selected room when clicking close (X)', async () => {
         const user = userEvent.setup()
         renderMap('/map?room=LC3-F1-R105&q=CS102')
 
         expect(screen.getByRole('textbox')).toHaveValue('CS102')
         expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent('105')
 
-        await user.click(screen.getByRole('button', { name: 'รีเซ็ตแผนที่' }))
+        await user.click(screen.getByRole('button', { name: 'ปิดรายละเอียดห้อง' }))
 
-        expect(screen.getByRole('textbox')).toHaveValue('')
+        expect(screen.getByRole('textbox')).toHaveValue('CS102')
         expect(screen.queryByRole('heading', { level: 2 })).not.toBeInTheDocument()
         expect(document.querySelectorAll('[role="button"][aria-pressed="true"]')).toHaveLength(0)
       })
@@ -497,7 +500,7 @@ describe('MapPage layering with My Schedule open (issue #139)', () => {
     await user.type(screen.getByRole('textbox'), 'CS102')
     const mapChrome = [
       screen.getByRole('textbox'),
-      ...screen.getAllByRole('button', { name: 'รีเซ็ตแผนที่' }),
+
       screen.getByTestId('mobile-search-results'),
     ]
 
@@ -564,9 +567,34 @@ describe('MapPage navigation (issue #145)', () => {
 
     expect(lastRouteCall()).toEqual(['LC3_Junction_SM', 'LC3-F1-R121'])
     const panel = screen.getByRole('region', { name: 'นำทาง' })
-    expect(within(panel).getByRole('textbox', { name: 'จุดเริ่มต้น' })).toHaveValue('ทางเข้าอาคาร')
+    expect(within(panel).getByRole('textbox', { name: 'จุดเริ่มต้น' })).toHaveValue('ทางเข้าอาคาร 1')
     expect(within(panel).getByText('ห้อง 121')).toBeInTheDocument()
     expect(screen.queryByRole('textbox', { name: 'ค้นหาห้อง' })).not.toBeInTheDocument()
+  })
+
+  it('swaps origin and destination when the swap button is clicked', async () => {
+    mockViewport(true)
+    const user = await startNavigation()
+
+    expect(lastRouteCall()).toEqual(['LC3_Junction_SM', 'LC3-F1-R121'])
+    const panel = screen.getByRole('region', { name: 'นำทาง' })
+    expect(within(panel).getByRole('textbox', { name: 'จุดเริ่มต้น' })).toHaveValue('ทางเข้าอาคาร 1')
+    expect(within(panel).getByText('ห้อง 121')).toBeInTheDocument()
+
+    // Click swap button
+    const swapBtn = within(panel).getByRole('button', { name: 'สลับจุดเริ่มต้นและปลายทาง' })
+    await user.click(swapBtn)
+
+    // Route is now calculated in reverse: Room 121 -> Entrance 1
+    expect(lastRouteCall()).toEqual(['LC3-F1-R121', 'LC3_Junction_SM'])
+    expect(within(panel).getByRole('textbox', { name: 'จุดเริ่มต้น' })).toHaveValue('ห้อง 121')
+    expect(within(panel).getByText('ทางเข้าอาคาร 1')).toBeInTheDocument()
+
+    // Click swap button again to restore
+    await user.click(swapBtn)
+    expect(lastRouteCall()).toEqual(['LC3_Junction_SM', 'LC3-F1-R121'])
+    expect(within(panel).getByRole('textbox', { name: 'จุดเริ่มต้น' })).toHaveValue('ทางเข้าอาคาร 1')
+    expect(within(panel).getByText('ห้อง 121')).toBeInTheDocument()
   })
 
   it('starts navigation from a destination supplied by the public search link', () => {
@@ -584,7 +612,7 @@ describe('MapPage navigation (issue #145)', () => {
 
     const steps = within(screen.getByRole('list', { name: 'ขั้นตอนเส้นทาง' })).getAllByRole('button')
     expect(steps.map((step) => step.textContent)).toEqual([
-      expect.stringContaining('เดินจากทางเข้าอาคาร ไปที่บันได'),
+      expect.stringContaining('เดินจากทางเข้าอาคาร 1 ไปที่บันได'),
       expect.stringContaining('เดินต่อไปยังห้อง 121'),
     ])
     expect(within(screen.getByRole('region', { name: 'นำทาง' })).getByText('ขึ้นบันไดไปชั้น 2')).toBeInTheDocument()
@@ -705,13 +733,28 @@ describe('MapPage navigation (issue #145)', () => {
     await user.type(screen.getByRole('textbox', { name: 'จุดเริ่มต้น' }), '105')
     const options = within(screen.getByRole('list', { name: 'ตัวเลือกจุดเริ่มต้น' })).getAllByRole('button')
     // The entrance is always offered; the destination itself never is.
-    expect(options[0]).toHaveTextContent('ทางเข้าอาคาร')
+    expect(options[0]).toHaveTextContent('ทางเข้าอาคาร 1')
+    expect(options[1]).toHaveTextContent('ทางเข้าอาคาร 2')
     expect(options.some((option) => option.textContent?.includes('ห้อง 121'))).toBe(false)
 
     await user.click(options.find((option) => option.textContent?.includes('ห้อง 105'))!)
     expect(lastRouteCall()).toEqual(['LC3-F1-R105', 'LC3-F1-R121'])
     expect(screen.getByRole('textbox', { name: 'จุดเริ่มต้น' })).toHaveValue('ห้อง 105')
     expect(screen.queryByRole('list', { name: 'ตัวเลือกจุดเริ่มต้น' })).not.toBeInTheDocument()
+  })
+
+  it('picks entrance 2 as the starting point and routes from north bridge walkway', async () => {
+    mockViewport(true)
+    const user = await startNavigation()
+
+    await user.click(screen.getByRole('textbox', { name: 'จุดเริ่มต้น' }))
+    const options = within(screen.getByRole('list', { name: 'ตัวเลือกจุดเริ่มต้น' })).getAllByRole('button')
+    const entrance2Option = options.find((opt) => opt.textContent?.includes('ทางเข้าอาคาร 2'))
+    expect(entrance2Option).toBeDefined()
+
+    await user.click(entrance2Option!)
+    expect(lastRouteCall()).toEqual(['LC3_Junction_NM', 'LC3-F1-R121'])
+    expect(screen.getByRole('textbox', { name: 'จุดเริ่มต้น' })).toHaveValue('ทางเข้าอาคาร 2')
   })
 
   it('tapping a room on the map while navigating makes it the destination', async () => {
@@ -746,6 +789,54 @@ describe('MapPage navigation (issue #145)', () => {
     expect(document.querySelector('[data-sheet-handle="true"]')).toBeNull()
     expect(effectivePointerEvents(card)).toBe('auto')
     expect(rootZIndex(card)).toBeLessThan(rootZIndex(screen.getByTestId('map-top-bar')))
+  })
+
+  it('on mobile, collapsing the navigation sheet keeps the route active and can be expanded back', async () => {
+    mockViewport(false)
+    const user = await startNavigation()
+
+    const card = screen.getByTestId('mobile-navigation')
+    expect(within(card).getByRole('region', { name: 'นำทาง' })).toBeInTheDocument()
+
+    // Tap grab handle to collapse
+    const handle = card.querySelector('[data-nav-handle="true"]') as HTMLElement
+    expect(handle).not.toBeNull()
+    await user.click(handle)
+
+    // Route must NOT be cleared!
+    expect(lastRouteCall()).toEqual(['LC3_Junction_SM', 'LC3-F1-R121'])
+    expect(within(card).getByText('แตะเพื่อดูวิธีเดิน')).toBeInTheDocument()
+
+    // Tap the collapsed card to expand it back
+    await user.click(within(card).getByText('แตะเพื่อดูวิธีเดิน'))
+    expect(within(card).getByRole('region', { name: 'นำทาง' })).toBeInTheDocument()
+    expect(lastRouteCall()).toEqual(['LC3_Junction_SM', 'LC3-F1-R121'])
+
+    // Clicking "ล้างเส้นทาง" clears the route completely
+    await user.click(within(card).getByRole('button', { name: 'ล้างเส้นทาง' }))
+    expect(screen.queryByTestId('mobile-navigation')).not.toBeInTheDocument()
+    expect(lastRouteCall()).toEqual([null, null])
+  })
+
+  it('on desktop, collapsing the sidebar keeps navigation active without floating room chips', async () => {
+    mockViewport(true)
+    const user = await startNavigation()
+
+    // Collapse sidebar via TopBar's sidebar toggle button beside the logo
+    const collapseBtn = screen.getByRole('button', { name: 'ซ่อนแผงด้านซ้าย' })
+    await user.click(collapseBtn)
+
+    // Route remains active!
+    expect(lastRouteCall()).toEqual(['LC3_Junction_SM', 'LC3-F1-R121'])
+
+    // No floating chip saying "คลิกเพื่อดูข้อมูล"
+    expect(screen.queryByText('คลิกเพื่อดูข้อมูล')).not.toBeInTheDocument()
+
+    // Expand sidebar back via TopBar's toggle button
+    const expandBtn = screen.getByRole('button', { name: 'ขยายแผงด้านซ้าย' })
+    await user.click(expandBtn)
+    expect(screen.getByRole('region', { name: 'นำทาง' })).toBeInTheDocument()
+    expect(lastRouteCall()).toEqual(['LC3_Junction_SM', 'LC3-F1-R121'])
   })
 })
 

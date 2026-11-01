@@ -182,10 +182,10 @@ export default function TopBar({
           {/* Brand lockup + console title + sidebar toggle */}
           <div className="flex min-w-0 items-center gap-2 sm:gap-3">
             <Link
-              to="/"
+              to={pathname === '/map' ? `/map${location.search}` : '/map'}
               data-testid="back-to-home"
-              aria-label="กลับหน้าแรก"
-              title="กลับหน้าแรก"
+              aria-label="กลับหน้าแผนที่"
+              title="กลับหน้าแผนที่"
               className="flex shrink-0 items-center"
             >
               <img

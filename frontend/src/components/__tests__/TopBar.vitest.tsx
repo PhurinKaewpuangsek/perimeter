@@ -55,11 +55,11 @@ describe('TopBar (Shared Component)', () => {
     vi.useRealTimers()
   })
 
-  it('renders back-to-home link pointing directly to /', () => {
+  it('renders back-to-home link pointing directly to /map', () => {
     renderTopBar()
     const homeLink = screen.getByTestId('back-to-home')
     expect(homeLink).toBeInTheDocument()
-    expect(homeLink).toHaveAttribute('href', '/')
+    expect(homeLink).toHaveAttribute('href', '/map')
   })
 
   it('renders enlarged Perimeter logo inside back-to-home link', () => {

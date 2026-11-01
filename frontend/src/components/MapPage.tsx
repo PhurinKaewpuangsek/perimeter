@@ -15,7 +15,6 @@ import {
   X,
   MapPin,
   CalendarPlus,
-  ArrowCounterClockwise,
   BookOpen,
   GraduationCap,
   NavigationArrow,
@@ -31,7 +30,8 @@ import { useIsDesktop } from '../hooks/useIsDesktop'
 import { useSchedules } from '../hooks/useSchedules'
 import { usePreloadImages } from '../hooks/usePreloadImages'
 import { useRoute } from '../hooks/useRoute'
-import { BUILDING_ENTRANCE_FLOOR, BUILDING_ENTRANCE_ID } from '../services/routeService'
+import { BUILDING_ENTRANCE_FLOOR, BUILDING_ENTRANCE_ID, BUILDING_ENTRANCE_2_ID } from '../services/routeService'
+import { getEntranceLabel } from '../services/routeDisplay'
 import MapContainer from './map/MapContainer'
 import { FLOOR_CONFIGS } from './map/floorConfig'
 import LoadingScreen from './LoadingScreen'
@@ -42,11 +42,15 @@ import CategoryFilter from './CategoryFilter'
 import SearchResultList from './SearchResultList'
 import PinButton from './PinButton'
 import WeeklyTimetable from './WeeklyTimetable'
+import ExamAgendaList from './ExamAgendaList'
 import {
   filterRooms,
   getExpandedSearchTerms,
   scheduleMatchesQuery,
   DEFAULT_CATEGORY_KEY,
+  parseExamQuery,
+  isExamKeywordQuery,
+  resolveScheduleTabOnRoomSelect,
 } from '../services/filterRooms'
 import { useExamSearch } from '../hooks/useExamSearch'
 import {
@@ -126,6 +130,7 @@ interface RoomDetailContentProps {
   closure?: Closure
   /** Set when closures could not be loaded, so "open" cannot be confirmed; retries the load. */
   onRetryClosures?: () => void
+  highlightExamCode?: string | null
 }
 
 function RoomDetailContent({
@@ -141,8 +146,8 @@ function RoomDetailContent({
   reloadSchedules,
   closure,
   onRetryClosures,
+  highlightExamCode,
 }: RoomDetailContentProps) {
-  const activeSchedules = activeScheduleTab === 'class' ? classSchedules : examSchedules
 
   const renderScheduleActions = (slot: ScheduleSlot) => {
     const scheduleSlot = computeScheduleSlot(slot)
@@ -183,8 +188,8 @@ function RoomDetailContent({
 
   return (
     <div className="space-y-4 animate-fade-in">
-      {/* ROOM HERO CARD (square white card, room number as the heading) */}
-      <div className="card p-4">
+      {/* ROOM HERO CARD (square white card on desktop; seamless in mobile bottom sheet) */}
+      <div className="sm:card p-0 sm:p-4 border-0 sm:border shadow-none sm:shadow-card">
         {/* Header Row: location breadcrumb + close button */}
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
@@ -339,10 +344,22 @@ function RoomDetailContent({
           </p>
         ) : (
           <div key={activeScheduleTab} className="animate-gooey-content-swap">
-            <WeeklyTimetable
-              slots={activeSchedules}
-              renderActions={renderScheduleActions}
-            />
+            {activeScheduleTab === 'class' ? (
+              <WeeklyTimetable
+                slots={classSchedules}
+                renderActions={renderScheduleActions}
+                layout="compact"
+                title={`ห้อง ${room.roomNumber || room.code || ''}${room.nameThai ? ` (${room.nameThai})` : ''}`}
+                roomCode={room.code || room.roomNumber}
+              />
+            ) : (
+              <ExamAgendaList
+                slots={examSchedules}
+                renderActions={renderScheduleActions}
+                roomCode={room.code || room.roomNumber}
+                highlightEventCode={highlightExamCode}
+              />
+            )}
           </div>
         )}
       </div>
@@ -402,12 +419,26 @@ export default function MapPage() {
     Boolean(initialQuery && !initialRoomId && !initialDestinationId)
   )
   const [isFilterExpanded, setIsFilterExpanded] = useState(false)
-  const [activeScheduleTab, setActiveScheduleTab] = useState<'class' | 'exam'>('class')
+  const [targetExamCode, setTargetExamCode] = useState<string | null>(() => {
+    if (!initialQuery) return null
+    const parsed = parseExamQuery(initialQuery).courseCode
+    return /^[A-Z]+\d+[A-Z0-9]*$/i.test(parsed) ? parsed : null
+  })
+  const [activeScheduleTab, setActiveScheduleTab] = useState<'class' | 'exam'>(() => {
+    if (!initialQuery) return 'class'
+    if (isExamKeywordQuery(initialQuery)) return 'exam'
+    const parsed = parseExamQuery(initialQuery).courseCode
+    if (/^[A-Z]+\d+[A-Z0-9]*$/i.test(parsed)) {
+      return 'exam'
+    }
+    return 'class'
+  })
   // Navigation (#145): active while a destination is set. Indoors there is no usable
   // GPS, so the start is picked by hand and defaults to the building entrance.
   const [routeFrom, setRouteFrom] = useState(BUILDING_ENTRANCE_ID)
   const [routeTo, setRouteTo] = useState<string | null>(initialDestinationId)
   const isNavigating = routeTo !== null
+  const [isNavCollapsed, setIsNavCollapsed] = useState(false)
   const routeState = useRoute(isNavigating ? routeFrom : null, routeTo)
 
   const inputRef = useRef<HTMLInputElement>(null)
@@ -419,6 +450,18 @@ export default function MapPage() {
     isHandle: boolean
   } | null>(null)
   const hasDraggedRef = useRef<boolean>(false)
+
+  const navSheetRef = useRef<HTMLDivElement>(null)
+  const navPeekRef = useRef<HTMLDivElement>(null)
+  const navSheetContentRef = useRef<HTMLDivElement>(null)
+  const navTouchStartRef = useRef<{
+    startY: number
+    startTime: number
+    isHandle: boolean
+    sheetHeight: number
+    startCollapsed: boolean
+  } | null>(null)
+  const navHasDraggedRef = useRef<boolean>(false)
 
   const selectedRoom = useMemo(
     () => rooms.find((r) => r.id === selectedRoomId),
@@ -468,12 +511,28 @@ export default function MapPage() {
     toggleShowPastExams,
   } = useExamSearch(query, rooms, schedules, formatLocalDate(now))
 
-  function handleSelectRoom(roomId: string) {
+  function handleSelectRoom(roomId: string, eventCode?: string, explicitTab?: 'class' | 'exam') {
     setSelectedRoomId(roomId)
     setIsSidebarCollapsed(false)
     setIsDropdownOpen(false)
     if (!isDesktop) setIsFilterExpanded(false)
+
     const targetRoom = rooms.find((r) => r.id === roomId)
+    const roomCodeLower = targetRoom?.code?.toLowerCase()
+    const targetRoomSchedules = schedules.filter(
+      (s) => s.roomCode?.toLowerCase() === roomCodeLower
+    )
+
+    const resolution = resolveScheduleTabOnRoomSelect({
+      query,
+      roomSchedules: targetRoomSchedules,
+      explicitTab,
+      targetEventCode: eventCode,
+    })
+
+    setActiveScheduleTab(resolution.tab)
+    setTargetExamCode(resolution.targetCode)
+
     if (targetRoom && targetRoom.floor !== currentFloor) {
       setCurrentFloor(targetRoom.floor)
     }
@@ -495,24 +554,19 @@ export default function MapPage() {
 
   function handleUnpinRoom() {
     setSelectedRoomId(null)
-  }
-
-  function handleResetMap() {
-    setSelectedRoomId(null)
-    setRouteTo(null)
-    setQuery('')
-    setIsDropdownOpen(false)
+    setTargetExamCode(null)
   }
 
   /** The floor a route starts on, so the map opens where the user is standing. */
   function getStartFloor(fromId: string) {
-    if (fromId === BUILDING_ENTRANCE_ID) return BUILDING_ENTRANCE_FLOOR
+    if (fromId === BUILDING_ENTRANCE_ID || fromId === BUILDING_ENTRANCE_2_ID) return BUILDING_ENTRANCE_FLOOR
     return rooms.find((r) => r.id === fromId)?.floor ?? currentFloor
   }
 
   function handleNavigate(roomId: string) {
     setRouteTo(roomId)
     setSelectedRoomId(roomId)
+    setIsNavCollapsed(false)
     setIsDropdownOpen(false)
     setIsSidebarCollapsed(false)
     if (!isDesktop) setIsFilterExpanded(false)
@@ -524,8 +578,29 @@ export default function MapPage() {
     setCurrentFloor(getStartFloor(fromId))
   }
 
+  function handleSwapLocations() {
+    if (!routeTo) return
+    const prevFrom = routeFrom
+    const prevTo = routeTo
+
+    if (prevFrom === prevTo) return
+
+    setRouteFrom(prevTo)
+    setRouteTo(prevFrom)
+
+    const newDestIsRoom = rooms.some((r) => r.id === prevFrom)
+    if (newDestIsRoom) {
+      setSelectedRoomId(prevFrom)
+    } else {
+      setSelectedRoomId(null)
+    }
+
+    setCurrentFloor(getStartFloor(prevTo))
+  }
+
   function handleClearRoute() {
     setRouteTo(null)
+    setIsNavCollapsed(false)
   }
 
   function handleMapBackgroundClick() {
@@ -667,6 +742,194 @@ export default function MapPage() {
     }
   }
 
+  useEffect(() => {
+    if (!navSheetRef.current) return
+    navSheetRef.current.style.transition = 'transform 260ms cubic-bezier(0.16, 1, 0.3, 1)'
+    if (isNavCollapsed) {
+      navSheetRef.current.style.transform = 'translateY(calc(100% - 68px))'
+    } else {
+      navSheetRef.current.style.transform = 'translateY(0)'
+    }
+    if (navPeekRef.current) {
+      navPeekRef.current.style.transition = 'opacity 200ms ease'
+      navPeekRef.current.style.opacity = isNavCollapsed ? '1' : '0'
+      navPeekRef.current.style.pointerEvents = isNavCollapsed ? 'auto' : 'none'
+    }
+    if (navSheetContentRef.current) {
+      navSheetContentRef.current.style.transition = 'opacity 200ms ease'
+      navSheetContentRef.current.style.opacity = isNavCollapsed ? '0' : '1'
+      navSheetContentRef.current.style.pointerEvents = isNavCollapsed ? 'none' : 'auto'
+    }
+  }, [isNavCollapsed])
+
+  function handleNavTouchStart(e: React.TouchEvent<HTMLDivElement>) {
+    const touch = e.touches[0]
+    const target = e.target as HTMLElement
+    const isHandle = Boolean(target.closest('[data-nav-handle]'))
+    const isAtTop = !navSheetContentRef.current || navSheetContentRef.current.scrollTop <= 0
+
+    navHasDraggedRef.current = false
+
+    if (isHandle || isAtTop || isNavCollapsed) {
+      const sheetHeight = navSheetRef.current?.offsetHeight || 380
+      navTouchStartRef.current = {
+        startY: touch.clientY,
+        startTime: performance.now(),
+        isHandle: isHandle || isNavCollapsed,
+        sheetHeight,
+        startCollapsed: isNavCollapsed,
+      }
+      if (navSheetRef.current) {
+        navSheetRef.current.style.animation = 'none'
+        navSheetRef.current.style.transition = 'none'
+      }
+      if (navPeekRef.current) {
+        navPeekRef.current.style.transition = 'none'
+      }
+      if (navSheetContentRef.current) {
+        navSheetContentRef.current.style.transition = 'none'
+      }
+    } else {
+      navTouchStartRef.current = null
+    }
+  }
+
+  function handleNavTouchMove(e: React.TouchEvent<HTMLDivElement>) {
+    if (!navTouchStartRef.current || !navSheetRef.current) return
+    const touch = e.touches[0]
+    const { startY, sheetHeight, startCollapsed } = navTouchStartRef.current
+    const deltaY = touch.clientY - startY
+    const collapsedOffset = Math.max(sheetHeight - 68, 100)
+
+    if (startCollapsed) {
+      // Dragging from collapsed peek state
+      if (deltaY < 0) {
+        // Dragging UP towards expanded (0)
+        navHasDraggedRef.current = true
+        const currentY = Math.max(0, collapsedOffset + deltaY)
+        navSheetRef.current.style.transform = `translateY(${currentY}px)`
+
+        const progress = Math.min(1, Math.max(0, 1 - currentY / collapsedOffset))
+        if (navPeekRef.current) {
+          navPeekRef.current.style.opacity = String(Math.max(0, 1 - progress * 2))
+        }
+        if (navSheetContentRef.current) {
+          navSheetContentRef.current.style.opacity = String(Math.min(1, progress * 1.5))
+        }
+      } else {
+        // Dragging DOWN from collapsed: rubber-band resistance
+        const damped = Math.min(deltaY * 0.15, 15)
+        navSheetRef.current.style.transform = `translateY(${collapsedOffset + damped}px)`
+      }
+      return
+    }
+
+    // Dragging from expanded state
+    if (!navTouchStartRef.current.isHandle) {
+      const currentScrollTop = navSheetContentRef.current?.scrollTop ?? 0
+      if (currentScrollTop > 0) {
+        navTouchStartRef.current = null
+        navSheetRef.current.style.transform = 'translateY(0)'
+        return
+      }
+      if (deltaY < 0 && !navHasDraggedRef.current) {
+        return
+      }
+    }
+
+    if (deltaY > 0) {
+      // Dragging DOWN towards collapsed (collapsedOffset)
+      navHasDraggedRef.current = true
+      const currentY = Math.min(collapsedOffset, deltaY)
+      navSheetRef.current.style.transform = `translateY(${currentY}px)`
+
+      const progress = Math.min(1, Math.max(0, 1 - currentY / collapsedOffset))
+      if (navPeekRef.current) {
+        navPeekRef.current.style.opacity = String(Math.max(0, 1 - progress * 2))
+      }
+      if (navSheetContentRef.current) {
+        navSheetContentRef.current.style.opacity = String(Math.min(1, progress * 1.5))
+      }
+    } else if (navTouchStartRef.current.isHandle) {
+      // Dragging UP from expanded: rubber-band resistance
+      const damped = Math.max(deltaY * 0.15, -20)
+      navSheetRef.current.style.transform = `translateY(${damped}px)`
+    }
+  }
+
+  function handleNavTouchEnd(e: React.TouchEvent<HTMLDivElement>) {
+    if (!navTouchStartRef.current || !navSheetRef.current) return
+    const { startY, startTime, startCollapsed } = navTouchStartRef.current
+    const wasDragged = navHasDraggedRef.current
+    navTouchStartRef.current = null
+
+    if (navSheetRef.current) {
+      navSheetRef.current.style.transition = 'transform 260ms cubic-bezier(0.16, 1, 0.3, 1)'
+    }
+    if (navPeekRef.current) {
+      navPeekRef.current.style.transition = 'opacity 200ms ease'
+    }
+    if (navSheetContentRef.current) {
+      navSheetContentRef.current.style.transition = 'opacity 200ms ease'
+    }
+
+    if (!wasDragged) {
+      // Tap without dragging
+      if (startCollapsed) {
+        setIsNavCollapsed(false)
+      } else {
+        navSheetRef.current.style.transform = 'translateY(0)'
+      }
+      return
+    }
+
+    setTimeout(() => {
+      navHasDraggedRef.current = false
+    }, 150)
+
+    const touch = e.changedTouches[0]
+    const deltaY = touch.clientY - startY
+    const elapsed = performance.now() - startTime
+    const velocity = deltaY / Math.max(elapsed, 1)
+
+    if (startCollapsed) {
+      const shouldExpand = deltaY < -40 || (deltaY < -15 && velocity < -0.3)
+      if (shouldExpand) {
+        setIsNavCollapsed(false)
+      } else {
+        navSheetRef.current.style.transform = 'translateY(calc(100% - 68px))'
+        if (navPeekRef.current) navPeekRef.current.style.opacity = '1'
+        if (navSheetContentRef.current) navSheetContentRef.current.style.opacity = '0'
+      }
+    } else {
+      const shouldCollapse = deltaY > 50 || (deltaY > 15 && velocity > 0.3)
+      if (shouldCollapse) {
+        setIsNavCollapsed(true)
+      } else {
+        navSheetRef.current.style.transform = 'translateY(0)'
+        if (navPeekRef.current) navPeekRef.current.style.opacity = '0'
+        if (navSheetContentRef.current) navSheetContentRef.current.style.opacity = '1'
+      }
+    }
+  }
+
+  function handleNavTouchCancel() {
+    navTouchStartRef.current = null
+    navHasDraggedRef.current = false
+    if (navSheetRef.current) {
+      navSheetRef.current.style.transition = 'transform 200ms cubic-bezier(0.16, 1, 0.3, 1)'
+      navSheetRef.current.style.transform = isNavCollapsed ? 'translateY(calc(100% - 68px))' : 'translateY(0)'
+    }
+    if (navPeekRef.current) {
+      navPeekRef.current.style.transition = 'opacity 200ms ease'
+      navPeekRef.current.style.opacity = isNavCollapsed ? '1' : '0'
+    }
+    if (navSheetContentRef.current) {
+      navSheetContentRef.current.style.transition = 'opacity 200ms ease'
+      navSheetContentRef.current.style.opacity = isNavCollapsed ? '0' : '1'
+    }
+  }
+
   if (error) return <LoadingScreen error={error} onRetry={() => reload()} />
   if (loading || !floorPlansReady) return <LoadingScreen />
 
@@ -674,12 +937,14 @@ export default function MapPage() {
     <NavigationPanel
       rooms={rooms}
       fromId={routeFrom}
+      toId={routeTo}
       onChangeFrom={handleChangeRouteFrom}
       destination={rooms.find((r) => r.id === routeTo)}
       routeState={routeState}
       currentFloor={currentFloor}
       onFloorChange={setCurrentFloor}
       onClose={handleClearRoute}
+      onSwapLocations={handleSwapLocations}
     />
   )
 
@@ -714,7 +979,9 @@ export default function MapPage() {
           onClearSelection={handleMapBackgroundClick}
           viewMode={mapView}
           onViewModeChange={setMapView}
-          hideBottomControls={isDesktop}
+          hideBottomControls={isDesktop || (isNavigating && !isNavCollapsed)}
+          hideFloorSwitcher={isNavigating && !isNavCollapsed}
+          isNavCollapsed={isNavCollapsed}
           route={routeState.route}
           closedRoomIds={closedRoomIds}
         />
@@ -725,46 +992,35 @@ export default function MapPage() {
         {isDesktop ? (
           <>
             <aside
-              className={`pointer-events-none absolute top-0 bottom-0 left-0 z-2 w-[460px] transition-transform duration-300 ease-in-out ${
+              className={`pointer-events-none absolute top-0 bottom-0 left-0 z-40 w-[460px] transition-transform duration-300 ease-in-out ${
                 isSidebarCollapsed ? '-translate-x-full' : 'translate-x-0'
               }`}
             >
               <div className="pointer-events-auto relative flex h-full flex-col border-r border-line-soft bg-white">
                 {/* Search Controls (Pinned at top of sidebar); the navigation panel replaces them */}
                 <div className="border-b border-line-soft p-4" hidden={isNavigating}>
-                  <div className="flex items-center gap-2">
-                    <div className="min-w-0 flex-1">
-                      <SearchBar
-                        inputRef={inputRef}
-                        value={query}
-                        onChange={(newQuery) => {
-                          setQuery(newQuery)
-                          setIsDropdownOpen(true)
-                        }}
-                        onClear={() => {
-                          setQuery('')
-                          setIsDropdownOpen(false)
-                        }}
-                        onFocus={() => {
-                          setIsDropdownOpen(true)
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Escape') setIsDropdownOpen(false)
-                        }}
-                        isFilterOpen={isFilterExpanded}
-                        hasActiveFilter={hasActiveFilter}
-                        onToggleFilter={() => setIsFilterExpanded((prev) => !prev)}
-                      />
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleResetMap}
-                      aria-label="รีเซ็ตแผนที่"
-                      title="รีเซ็ตแผนที่"
-                      className="btn btn-tertiary btn-icon h-11 w-11"
-                    >
-                      <ArrowCounterClockwise size={16} weight="bold" />
-                    </button>
+                  <div className="w-full">
+                    <SearchBar
+                      inputRef={inputRef}
+                      value={query}
+                      onChange={(newQuery) => {
+                        setQuery(newQuery)
+                        setIsDropdownOpen(true)
+                      }}
+                      onClear={() => {
+                        setQuery('')
+                        setIsDropdownOpen(false)
+                      }}
+                      onFocus={() => {
+                        setIsDropdownOpen(true)
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Escape') setIsDropdownOpen(false)
+                      }}
+                      isFilterOpen={isFilterExpanded}
+                      hasActiveFilter={hasActiveFilter}
+                      onToggleFilter={() => setIsFilterExpanded((prev) => !prev)}
+                    />
                   </div>
 
                   {/* Category Filter Pills Collapsible */}
@@ -805,6 +1061,7 @@ export default function MapPage() {
                       reloadSchedules={reloadRoomSchedules}
                       closure={roomClosures.get(selectedRoom.id)}
                       onRetryClosures={retryClosures}
+                      highlightExamCode={targetExamCode}
                     />
                   ) : isShowingSearchResults ? (
                     /* STATE 2: SEARCH RESULTS LIST */
@@ -845,83 +1102,37 @@ export default function MapPage() {
               </div>
             </aside>
 
-            {/* Desktop floating pill when sidebar is collapsed but a room is pinned */}
-            {isSidebarCollapsed && selectedRoom && (
-              <div className="pointer-events-auto absolute bottom-6 left-6 z-2 flex items-center gap-2 border border-line-soft bg-white px-3 py-2 text-xs shadow-floating animate-fade-in">
-                <div
-                  className="flex cursor-pointer items-center gap-2 text-ink transition-opacity hover:opacity-80"
-                  onClick={() => {
-                    setIsSidebarCollapsed(false)
-                    setIsDropdownOpen(false)
-                    if (selectedRoom.floor !== currentFloor) {
-                      setCurrentFloor(selectedRoom.floor)
-                    }
-                  }}
-                  title="ดูรายละเอียดห้อง"
-                >
-                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-accent text-white">
-                    <MapPin size={16} weight="fill" />
-                  </div>
-                  <div className="flex flex-col text-left">
-                    <span className="text-button leading-tight font-bold text-ink">
-                      {selectedRoom.roomNumber ? `ห้อง ${selectedRoom.roomNumber}` : selectedRoom.nameThai || selectedRoom.code}
-                    </span>
-                    <span className="text-xs font-medium text-ink-3">คลิกเพื่อดูข้อมูล</span>
-                  </div>
-                </div>
-                <span aria-hidden="true" className="mx-0.5 h-5 w-px bg-line-soft" />
-                <button
-                  type="button"
-                  onClick={handleUnpinRoom}
-                  aria-label="ยกเลิกการปักหมุด"
-                  className="btn btn-ghost btn-icon-sm"
-                  title="ยกเลิกปักหมุด"
-                >
-                  <X size={14} weight="bold" />
-                </button>
-              </div>
-            )}
-          </>
+            </>
         ) : (
           <>
             {/* =========================================================================
                 MOBILE FLOATING SEARCH PANEL (Mobile only: < sm), just below the top bar
                 ========================================================================= */}
             <div className="pointer-events-none absolute inset-x-3 top-3 z-101 sm:hidden" hidden={isNavigating}>
-              <div className="pointer-events-auto relative z-2 flex flex-col">
-                <div className="flex w-full items-center gap-2">
-                  <div className="min-w-0 flex-1 shadow-floating">
-                    <SearchBar
-                      inputRef={inputRef}
-                      value={query}
-                      onChange={(newQuery) => {
-                        setQuery(newQuery)
-                        setIsDropdownOpen(true)
-                      }}
-                      onClear={() => {
-                        setQuery('')
-                        setIsDropdownOpen(false)
-                      }}
-                      onFocus={() => {
-                        setIsDropdownOpen(true)
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Escape') setIsDropdownOpen(false)
-                      }}
-                      isFilterOpen={isFilterExpanded}
-                      hasActiveFilter={hasActiveFilter}
-                      onToggleFilter={() => setIsFilterExpanded((prev) => !prev)}
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleResetMap}
-                    aria-label="รีเซ็ตแผนที่"
-                    title="รีเซ็ตแผนที่"
-                    className="btn btn-tertiary btn-icon h-11 w-11 shadow-floating"
-                  >
-                    <ArrowCounterClockwise size={16} weight="bold" />
-                  </button>
+              <div className="pointer-events-auto relative z-10 flex flex-col">
+                <div className="w-full shadow-floating">
+                  <SearchBar
+                    inputRef={inputRef}
+                    value={query}
+                    placeholder={isDesktop ? 'ค้นหาห้องหรือรหัสวิชา เช่น 109, CS361' : 'ค้นหาห้อง เช่น 105, CS341'}
+                    onChange={(newQuery) => {
+                      setQuery(newQuery)
+                      setIsDropdownOpen(true)
+                    }}
+                    onClear={() => {
+                      setQuery('')
+                      setIsDropdownOpen(false)
+                    }}
+                    onFocus={() => {
+                      setIsDropdownOpen(true)
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Escape') setIsDropdownOpen(false)
+                    }}
+                    isFilterOpen={isFilterExpanded}
+                    hasActiveFilter={hasActiveFilter}
+                    onToggleFilter={() => setIsFilterExpanded((prev) => !prev)}
+                  />
                 </div>
 
                 {/* Collapsible Category Filter on Mobile */}
@@ -958,7 +1169,7 @@ export default function MapPage() {
                   />
                   <div
                     data-testid="mobile-search-results"
-                    className="card no-scrollbar pointer-events-auto relative z-2 mt-2 max-h-[65dvh] overflow-y-auto p-3 shadow-modal animate-fade-in"
+                    className="card no-scrollbar pointer-events-auto relative z-20 mt-2 max-h-[65dvh] overflow-y-auto p-3 shadow-modal animate-fade-in"
                   >
                     <div className="mb-2 flex items-center justify-between border-b border-line-soft pb-2">
                       <span className="text-xs font-bold text-ink-2">
@@ -996,15 +1207,100 @@ export default function MapPage() {
               )}
             </div>
 
-            {/* MOBILE NAVIGATION CARD: takes the search panel's place below the top bar,
-                leaving the bottom of the map and its floor/view controls free. */}
+            {/* MOBILE NAVIGATION BOTTOM SHEET (Mobile only: < sm)
+                Docks cleanly at the bottom like Google Maps/Apple Maps, leaving the entire 3D route map clear above */}
             {navigationPanel && (
               <div
+                ref={navSheetRef}
                 data-testid="mobile-navigation"
-                className="card no-scrollbar pointer-events-auto absolute inset-x-3 top-3 z-101 max-h-[45dvh] overflow-y-auto overscroll-contain p-4 shadow-floating animate-fade-in sm:hidden"
+                onAnimationEnd={() => {
+                  if (navSheetRef.current) {
+                    navSheetRef.current.style.animation = 'none'
+                  }
+                }}
+                onTouchStart={handleNavTouchStart}
+                onTouchMove={handleNavTouchMove}
+                onTouchEnd={handleNavTouchEnd}
+                onTouchCancel={handleNavTouchCancel}
+                style={{
+                  transform: isNavCollapsed ? 'translateY(calc(100% - 68px))' : 'translateY(0)',
+                }}
+                className="pointer-events-auto fixed inset-x-0 bottom-0 z-101 flex h-[50dvh] max-h-[50dvh] flex-col rounded-t-2xl border-t border-line-soft bg-white shadow-modal will-change-transform sm:hidden"
               >
-                {navigationPanel}
-              </div>
+                {/* Grab Handle Header Bar (Touch drag zone & tap to toggle collapse) */}
+                <div
+                  data-nav-handle="true"
+                  className="flex w-full shrink-0 cursor-grab touch-none items-center justify-center pt-2.5 pb-1 select-none active:cursor-grabbing"
+                  onClick={() => {
+                    if (navHasDraggedRef.current) return
+                    setIsNavCollapsed((prev) => !prev)
+                  }}
+                  title={isNavCollapsed ? 'เลื่อนขึ้นเพื่อดูรายละเอียด' : 'เลื่อนลงเพื่อดูแผนที่เต็ม'}
+                >
+                  <div className="h-1.5 w-12 rounded-full bg-line-soft transition-colors active:bg-line" />
+                </div>
+
+                {/* Relative Content Viewport */}
+                <div className="relative flex-1 overflow-hidden">
+                  {/* Collapsed Peek Content Bar */}
+                  <div
+                    ref={navPeekRef}
+                    aria-hidden={!isNavCollapsed}
+                    className="absolute inset-x-0 top-0 flex items-center justify-between px-4 pb-2.5 cursor-pointer select-none transition-opacity duration-200"
+                    style={{
+                      opacity: isNavCollapsed ? 1 : 0,
+                      pointerEvents: isNavCollapsed ? 'auto' : 'none',
+                    }}
+                    onClick={() => setIsNavCollapsed(false)}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-ink text-white">
+                        <NavigationArrow size={14} weight="fill" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-button font-bold text-ink">
+                          {(() => {
+                            const destEntrance = getEntranceLabel(routeTo ?? '')
+                            if (destEntrance) return destEntrance
+                            const dest = rooms.find((r) => r.id === routeTo)
+                            return dest?.roomNumber
+                              ? `ห้อง ${dest.roomNumber}`
+                              : dest?.nameThai || dest?.code || 'นำทาง'
+                          })()}
+                        </p>
+                        <p className="text-[11px] text-ink-3">แตะเพื่อดูวิธีเดิน</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center shrink-0 ml-2">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleClearRoute()
+                        }}
+                        aria-label="ล้างเส้นทาง"
+                        title="ล้างเส้นทาง"
+                        className="btn btn-ghost btn-sm text-ink-2 hover:text-ink px-2"
+                      >
+                        <X size={14} weight="bold" />
+                        <span>ล้างเส้นทาง</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Expanded Full Directions */}
+                  <div
+                    ref={navSheetContentRef}
+                    aria-hidden={isNavCollapsed}
+                    className="no-scrollbar h-full overflow-y-auto overscroll-contain px-4 pt-1 pb-5 transition-opacity duration-200"
+                    style={{
+                      opacity: isNavCollapsed ? 0 : 1,
+                      pointerEvents: isNavCollapsed ? 'none' : 'auto',
+                    }}
+                  >
+                    {navigationPanel}
+                  </div>
+                </div>              </div>
             )}
 
             {/* =========================================================================
@@ -1055,6 +1351,7 @@ export default function MapPage() {
                     reloadSchedules={reloadRoomSchedules}
                     closure={roomClosures.get(selectedRoom.id)}
                     onRetryClosures={retryClosures}
+                    highlightExamCode={targetExamCode}
                   />
                 </div>
               </div>
