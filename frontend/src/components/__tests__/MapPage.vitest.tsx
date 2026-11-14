@@ -203,6 +203,15 @@ describe('MapPage course search (issue #91)', () => {
     expect(screen.queryByRole('button', { name: 'ซ่อนตัวกรอง' })).not.toBeInTheDocument()
   })
 
+  it('on mobile, the search placeholder says course codes can be searched too (#193)', () => {
+    mockViewport(false)
+    renderMap()
+    expect(screen.getByRole('textbox', { name: 'ค้นหาห้อง' })).toHaveAttribute(
+      'placeholder',
+      'ค้นหาห้องหรือรหัสวิชา เช่น 116, ES357'
+    )
+  })
+
   it('on desktop, choosing a result keeps the sidebar filter open', async () => {
     mockViewport(true)
     const user = userEvent.setup()

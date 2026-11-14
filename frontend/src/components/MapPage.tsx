@@ -75,6 +75,9 @@ const FLOOR_PLAN_ASSETS = FLOOR_CONFIGS.map((config) => config.asset)
  * cancel, or one that starts or ends, shows up without a page reload.
  */
 const CLOSURE_CLOCK_MS = 60_000
+// Short enough for a 375px screen, but still says course codes work: a tester on Android
+// was unsure the search found courses when it only said "ค้นหาห้อง" (#193).
+const MOBILE_SEARCH_PLACEHOLDER = 'ค้นหาห้องหรือรหัสวิชา เช่น 116, ES357'
 
 /** Shown in the room panel when closures failed to load, so the room may be closed. */
 function ClosureStatusUnavailable({ onRetry }: { onRetry: () => void }) {
@@ -1114,7 +1117,7 @@ export default function MapPage() {
                   <SearchBar
                     inputRef={inputRef}
                     value={query}
-                    placeholder={isDesktop ? 'ค้นหาห้องหรือรหัสวิชา เช่น 109, CS361' : 'ค้นหาห้อง เช่น 105, CS341'}
+                    placeholder={isDesktop ? 'ค้นหาห้องหรือรหัสวิชา เช่น 109, CS361' : MOBILE_SEARCH_PLACEHOLDER}
                     onChange={(newQuery) => {
                       setQuery(newQuery)
                       setIsDropdownOpen(true)
