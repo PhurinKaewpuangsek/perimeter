@@ -407,6 +407,15 @@ describe('AdminPage exam date (event_date)', () => {
     )
   })
 
+  it('offers a link to check the saved schedule on the public map (#197)', async () => {
+    const { user, form } = await openCreateForm()
+    await fillRequired(user, form)
+    await user.click(form.getByRole('button', { name: /บันทึกตารางสอน/ }))
+
+    const link = await screen.findByRole('link', { name: 'ดูผลบนแผนที่' })
+    expect(link.getAttribute('href')).toMatch(/^\/map\?room=/)
+  })
+
   it('does not send event_date for a lecture', async () => {
     const { user, form } = await openCreateForm()
     await fillRequired(user, form)

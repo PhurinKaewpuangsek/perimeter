@@ -62,6 +62,22 @@ describe('TopBar (Shared Component)', () => {
     expect(homeLink).toHaveAttribute('href', '/map')
   })
 
+  it('on /staff, shows a labelled link back to the public map (#197)', () => {
+    render(
+      <MemoryRouter initialEntries={['/staff']}>
+        <TopBar />
+      </MemoryRouter>
+    )
+    const link = screen.getByTestId('view-public-map')
+    expect(link).toHaveAttribute('href', '/map')
+    expect(link).toHaveTextContent('ดูแผนที่ (มุมมองผู้ใช้)')
+  })
+
+  it('does not show the map link outside the staff and admin consoles', () => {
+    renderTopBar()
+    expect(screen.queryByTestId('view-public-map')).not.toBeInTheDocument()
+  })
+
   it('renders enlarged Perimeter logo inside back-to-home link', () => {
     renderTopBar()
     const homeLink = screen.getByTestId('back-to-home')
