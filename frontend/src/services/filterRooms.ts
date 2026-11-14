@@ -342,11 +342,14 @@ export function resolveScheduleTabOnRoomSelect({
   roomSchedules = [],
   explicitTab,
   targetEventCode,
+  today = formatLocalDate(new Date()),
 }: {
   query?: string
   roomSchedules?: ScheduleSlot[]
   explicitTab?: 'class' | 'exam'
   targetEventCode?: string
+  /** YYYY-MM-DD; exams before this date no longer pull the room to the exam tab. */
+  today?: string
 }): { tab: 'class' | 'exam'; targetCode: string | null } {
   // 1. ถ้าผู้ใช้คลิกเลือกแท็บหรือการ์ดประเภทนั้นโดยตรง เช่น คลิก [ดูตารางห้อง] ในผลการสอบ
   if (explicitTab === 'exam') {
@@ -375,18 +378,20 @@ export function resolveScheduleTabOnRoomSelect({
     const matchingClass = roomSchedules.find(
       (s) => !isExamSchedule(s) && matchesCourseCode(s, courseCode)
     )
-    const matchingExam = roomSchedules.find(
+    const matchingExams = roomSchedules.filter(
       (s) => isExamSchedule(s) && matchesCourseCode(s, courseCode)
     )
+    const upcomingExam = matchingExams.find((s) => !s.eventDate || s.eventDate >= today)
 
-    // ถ้ามีคาบเรียนปกติในห้องนี้ (ตารางเรียน) ต้องให้ความสำคัญกับตารางเรียนเป็นหลักเสมอ!
-    if (matchingClass) {
+    // มีคาบเรียนปกติ และไม่มีสอบที่กำลังจะมาถึง -> ตารางเรียน
+    if (matchingClass && !upcomingExam) {
       return { tab: 'class', targetCode: null }
     }
 
-    // ถ้าไม่มีคาบเรียนปกติในห้องนี้เลย แต่มีคาบสอบ (เช่น BAS350 ในห้อง 103)
-    // แสดงว่าผู้ใช้ค้นหารหัสวิชานี้เพื่อมาดูห้องสอบ -> สลับไปตารางสอบ
-    if (matchingExam) {
+    // มีสอบของวิชานี้ในห้องนี้ (เช่น BAS350 ในห้อง 103) -> ตารางสอบ
+    // ถ้าวิชาเดียวกันมีทั้งเรียนและสอบที่ยังไม่ถึงในห้องเดียวกัน ให้แสดงสอบก่อน
+    // เพราะผู้ทดสอบจริงหาห้องสอบไม่เจอเมื่อตารางเรียนขึ้นมาแทน (#192)
+    if (matchingExams.length > 0) {
       return { tab: 'exam', targetCode: courseCode }
     }
   }
