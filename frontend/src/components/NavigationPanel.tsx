@@ -35,6 +35,8 @@ import {
   ROUTE_FAILURE_MESSAGES,
   calculateLegDistance,
   calculateRouteSummary,
+  formatArrivalNeighbours,
+  getArrivalNeighbours,
   getEntranceLabel,
   getFloorChangeLabel,
   getLegKeyMilestones,
@@ -220,6 +222,13 @@ export default function NavigationPanel({
 
   const legs = routeState.route ? splitRouteByFloor(routeState.route.path) : []
   const routeSummary = calculateRouteSummary(legs)
+  // Orientation cues (#194): which side of the building the start entrance is on, and the
+  // rooms beside the destination door, since many doors have no room-number sign.
+  const fromEntrance = BUILDING_ENTRANCES.find((entrance) => entrance.id === fromId)
+  const arrivalHint =
+    destination && routeState.route
+      ? formatArrivalNeighbours(getArrivalNeighbours(routeState.route.path, destination, rooms))
+      : ''
 
   return (
     <section aria-label="นำทาง" className="space-y-3">
@@ -483,6 +492,9 @@ export default function NavigationPanel({
                               {walk}
                               {to}
                             </span>
+                            {index === 0 && fromEntrance?.description && (
+                              <p className="mt-1 text-xs text-ink-3">เริ่มที่{fromEntrance.description}</p>
+                            )}
 
                             {/* In multi-floor routes, show individual leg distance */}
                             {legs.length > 1 && (
@@ -536,6 +548,19 @@ export default function NavigationPanel({
                     )
                   })}
                 </ol>
+
+                {arrivalHint && (
+                  <p
+                    data-testid="arrival-hint"
+                    className="flex items-start gap-2 border-t border-line-soft bg-white px-4 py-2.5 text-xs text-ink-2"
+                  >
+                    <DoorOpen size={16} weight="bold" className="mt-px shrink-0 text-ink" aria-hidden="true" />
+                    <span>
+                      <span className="font-semibold text-ink">ถึง{destinationLabel}เมื่อหันหน้าเข้าห้องแล้วเห็น: </span>
+                      {arrivalHint}
+                    </span>
+                  </p>
+                )}
               </div>
             </div>
           )}

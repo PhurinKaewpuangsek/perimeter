@@ -9,6 +9,8 @@ import {
   calculateLegDistance,
   calculateRouteSummary,
   calculateTurnAngle,
+  formatArrivalNeighbours,
+  getArrivalNeighbours,
   generateLegInstructions,
   getDisplayRoutePoints,
   getFloorChangeLabel,
@@ -456,5 +458,44 @@ describe('isRouteTransitionStair', () => {
       closuresAvoided: [],
     }
     expect(isRouteTransitionStair(stairF1, routeToStair, 1)).toBe(false)
+  })
+})
+
+describe('getArrivalNeighbours (#194)', () => {
+  const room = (id: string, roomNumber: string, x: number, y: number, floor = 2): Room =>
+    ({ id, roomNumber, nameThai: '', code: `LC3-${roomNumber}`, floor, coordinates: { x, y } }) as Room
+  const destination = room('R210', '210', 400, 300)
+  // Walk north (up the screen) to the door at (400, 300).
+  const path: RoutePoint[] = [
+    { nodeId: 'a', floor: 2, x: 400, y: 500 },
+    { nodeId: 'b', floor: 2, x: 400, y: 300, locationId: 'R210' },
+  ]
+
+  it('names the nearest rooms with the side they are on when facing the door', () => {
+    const rooms = [
+      destination,
+      room('R209', '209', 340, 300), // west = left when facing north
+      room('R211', '211', 470, 300), // east = right
+      room('R250', '250', 900, 300), // too far
+      room('R109', '109', 340, 300, 1), // other floor
+    ]
+    expect(getArrivalNeighbours(path, destination, rooms)).toEqual([
+      { label: 'ห้อง 209', side: 'left' },
+      { label: 'ห้อง 211', side: 'right' },
+    ])
+  })
+
+  it('leaves the side out for a room straight ahead', () => {
+    const rooms = [destination, room('R220', '220', 400, 200)]
+    expect(getArrivalNeighbours(path, destination, rooms)).toEqual([{ label: 'ห้อง 220', side: null }])
+  })
+
+  it('formats the hint in Thai', () => {
+    expect(
+      formatArrivalNeighbours([
+        { label: 'ห้อง 209', side: 'left' },
+        { label: 'ห้องน้ำ', side: null },
+      ])
+    ).toBe('ห้อง 209 อยู่ซ้ายมือ · ห้องน้ำ อยู่ใกล้ ๆ')
   })
 })
