@@ -172,6 +172,15 @@ describe('MapPage course search (issue #91)', () => {
     expect(screen.queryByText('EXM-104')).not.toBeInTheDocument()
   })
 
+  it('the empty sidebar offers example searches that fill the search box', async () => {
+    mockViewport(true)
+    const user = userEvent.setup()
+    renderMap()
+    const examples = screen.getByRole('list', { name: 'ตัวอย่างการค้นหา' })
+    await user.click(within(examples).getByRole('button', { name: /ES357/ }))
+    expect(screen.getByRole('textbox', { name: 'ค้นหาห้อง' })).toHaveValue('ES357')
+  })
+
   it('filters search results by room category', async () => {
     mockViewport(true)
     const user = userEvent.setup()
