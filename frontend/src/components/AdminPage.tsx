@@ -975,6 +975,7 @@ export default function AdminPage() {
                   <button
                     type="button"
                     onClick={() => setScheduleDayFilter('ALL')}
+                    aria-pressed={scheduleDayFilter === 'ALL'}
                     className={`chip text-xs py-1 px-2.5 ${
                       scheduleDayFilter === 'ALL' ? 'chip-active' : ''
                     }`}
@@ -986,6 +987,7 @@ export default function AdminPage() {
                       key={d.value}
                       type="button"
                       onClick={() => setScheduleDayFilter(d.value)}
+                      aria-pressed={scheduleDayFilter === d.value}
                       className={`chip text-xs py-1 px-2.5 ${
                         scheduleDayFilter === d.value ? 'chip-active' : ''
                       }`}
