@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, it, expect, vi } from 'vitest'
 import ExamAgendaList from '../ExamAgendaList'
@@ -56,7 +57,7 @@ describe('ExamAgendaList', () => {
   it('groups exams by date into distinct chronological sections (no date-flattening collision)', () => {
     render(
       <MemoryRouter>
-        <ExamAgendaList slots={SAMPLE_EXAMS} roomCode="LC3-104" />
+        <ExamAgendaList slots={SAMPLE_EXAMS} roomCode="LC3-104" today="2026-05-01" />
       </MemoryRouter>
     )
 
@@ -81,9 +82,55 @@ describe('ExamAgendaList', () => {
     expect(screen.getByText('Seats 8-14')).toBeInTheDocument()
     expect(screen.getByText('Seats 1-10')).toBeInTheDocument()
 
-    // Dates rendered on each card
-    expect(screen.getAllByText('วันสอบ: 2026-05-08')).toHaveLength(2)
-    expect(screen.getByText('วันสอบ: 2026-05-15')).toBeInTheDocument()
+    // The date header already says the date, and this is the room's own list: rows do not
+    // repeat the date, the room, or an event name that only restates code/seats/date.
+    expect(screen.queryByText(/วันสอบ:/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/ห้อง LC3-104/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Exam - NP307/)).not.toBeInTheDocument()
+  })
+
+  it('folds past exams away and lists upcoming ones first', async () => {
+    const user = userEvent.setup()
+    render(
+      <MemoryRouter>
+        <ExamAgendaList slots={SAMPLE_EXAMS} roomCode="LC3-104" today="2026-05-10" />
+      </MemoryRouter>
+    )
+
+    expect(screen.getByText('ST218')).toBeInTheDocument()
+    expect(screen.queryByText('NP307')).not.toBeInTheDocument()
+    const toggle = screen.getByRole('button', { name: /สอบที่ผ่านไปแล้ว \(2\)/ })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+
+    await user.click(toggle)
+    expect(screen.getByText('NP307')).toBeInTheDocument()
+    expect(screen.getByText('CS352')).toBeInTheDocument()
+  })
+
+  it('says when nothing is upcoming, and opens the past section for a searched past exam', () => {
+    render(
+      <MemoryRouter>
+        <ExamAgendaList slots={SAMPLE_EXAMS} roomCode="LC3-104" today="2026-11-15" highlightEventCode="NP307" />
+      </MemoryRouter>
+    )
+
+    expect(screen.getByText('ไม่มีสอบที่กำลังจะมาถึงในห้องนี้')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /สอบที่ผ่านไปแล้ว \(3\)/ })).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByTestId('exam-card-highlighted')).toHaveTextContent('NP307')
+  })
+
+  it('keeps an event name that adds information, and shows another room', () => {
+    render(
+      <MemoryRouter>
+        <ExamAgendaList
+          slots={[{ ...SAMPLE_EXAMS[0], eventName: 'Final - Network Programming (8 พ.ค. 2569)', roomCode: 'LC3-105' }]}
+          roomCode="LC3-104"
+          today="2026-05-01"
+        />
+      </MemoryRouter>
+    )
+
+    expect(screen.getByText(/Final - Network Programming · ห้อง LC3-105/)).toBeInTheDocument()
   })
 
   it('renders unannounced exams with fallback label', () => {
@@ -114,6 +161,7 @@ describe('ExamAgendaList', () => {
       <MemoryRouter>
         <ExamAgendaList
           slots={SAMPLE_EXAMS.slice(0, 1)}
+          today="2026-05-01"
           renderActions={(slot) => (
             <button type="button" data-testid={`custom-action-${slot.eventCode}`}>
               Custom Button

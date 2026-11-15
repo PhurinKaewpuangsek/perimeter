@@ -277,7 +277,8 @@ describe('MapPage course search (issue #91)', () => {
         eventCode: 'EXAM-A',
         eventName: 'Exam A',
         eventType: 'exam',
-        eventDate: '2026-05-18',
+        // Far in the future so it is upcoming whenever the test runs.
+        eventDate: '2099-05-18',
       },
       {
         ...slot('LC3-103', 'MON'),
@@ -291,12 +292,12 @@ describe('MapPage course search (issue #91)', () => {
 
     await user.click(screen.getByRole('button', { name: /ตารางสอบ/ }))
 
-    // Dated exam should display date once (not duplicate)
-    expect(screen.getByText('วันสอบ: 2026-05-18')).toBeInTheDocument()
-    expect(screen.queryAllByText(/2026-05-18/)).toHaveLength(1)
+    // Dated exam shows its date once, in the group header (not again on the row)
+    expect(screen.queryAllByText(/18 พฤษภาคม/)).toHaveLength(1)
+    expect(screen.queryByText(/วันสอบ:/)).not.toBeInTheDocument()
 
     // Undated exam should display fallback
-    expect(screen.getByText('date to be announced')).toBeInTheDocument()
+    expect(screen.getByText(/date to be announced/)).toBeInTheDocument()
   })
 
   describe('MapPage navigation and clear/dismiss behavior (issue #99)', () => {
