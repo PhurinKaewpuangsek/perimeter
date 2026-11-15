@@ -170,6 +170,36 @@ export default function TopBar({
   const hasViewToggle = mapView !== undefined && Boolean(onToggleMapView)
   // The My Schedule drawer sits below the top bar (z-95 < z-100), so the dock hides while it is open.
   const showDock = (isStaffOrAdmin || Boolean(dockExtra) || hasFloorSwitcher || hasViewToggle) && !isDrawerOpen
+  // The dock is centred over the map, but on a narrow window that pushes part of it off
+  // screen. Measure it and slide it back inside the window (12 px margin) when needed.
+  const dockRef = useRef<HTMLElement>(null)
+  const [dockFit, setDockFit] = useState<{ width: number; viewport: number } | null>(null)
+  useEffect(() => {
+    const el = dockRef.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const measure = () => {
+      const next = { width: el.offsetWidth, viewport: window.innerWidth }
+      setDockFit((prev) => (prev && prev.width === next.width && prev.viewport === next.viewport ? prev : next))
+    }
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(el)
+    window.addEventListener('resize', measure)
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', measure)
+    }
+  }, [showDock])
+  let dockLeft = dockCenterLeft
+  if (dockFit && dockFit.width > 0) {
+    const { width, viewport } = dockFit
+    const sidebar = sidebarWidth && !isSidebarCollapsed ? sidebarWidth : 0
+    const centre = viewport / 2 + sidebar / 2
+    const half = width / 2 + 12
+    if (centre - half < 0 || centre + half > viewport) {
+      dockLeft = `${Math.round(Math.min(Math.max(centre, half), viewport - half))}px`
+    }
+  }
 
   function closeWorkspace() {
     setIsWorkspaceOpen(false)
@@ -245,8 +275,11 @@ export default function TopBar({
       {showDock && (
         <nav
           aria-label="แถบควบคุมแผนที่"
-          style={{ left: dockCenterLeft }}
-          className="fixed bottom-5 z-100 hidden -translate-x-1/2 items-center gap-1 rounded-full border border-line-soft bg-white p-1 shadow-floating transition-[left] duration-300 ease-in-out select-none sm:flex"
+          ref={dockRef}
+          style={{ left: dockLeft }}
+          // w-max: a fixed element with `left` set may only be as wide as the space to the
+          // right of `left`; on narrow windows that crushed the dock's buttons on top of each other.
+          className="fixed bottom-5 z-100 hidden w-max -translate-x-1/2 items-center gap-1 rounded-full border border-line-soft bg-white p-1 shadow-floating transition-[left] duration-300 ease-in-out select-none sm:flex"
         >
           {isStaffOrAdmin && (
             <div className="relative" ref={workspaceRef}>
