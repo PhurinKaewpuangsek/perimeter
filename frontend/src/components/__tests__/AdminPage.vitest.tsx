@@ -367,6 +367,11 @@ describe('AdminPage', () => {
       const dialog = screen.getByRole('dialog', { name: 'เพิ่มตารางสอนใหม่' })
       expect(within(dialog).queryByText('ห้องน้ำชาย')).not.toBeInTheDocument()
       expect(within(dialog).getAllByText(/ห้องบรรยาย 101/).length).toBeGreaterThan(0)
+      await user.click(within(dialog).getByRole('button', { name: 'ยกเลิก' }))
+
+      // Nor does the restroom take up an empty row in the master timetable.
+      await user.click(screen.getByRole('button', { name: /ตารางเวลา/ }))
+      expect(await screen.findByText(/ห้องเรียน \(2\)/)).toBeInTheDocument()
     } finally {
       mockRooms.pop()
     }

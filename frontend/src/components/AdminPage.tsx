@@ -269,7 +269,13 @@ export default function AdminPage() {
 
   const masterTimetableRooms = useMemo(() => {
     const q = scheduleSearchQuery.trim().toLowerCase()
+    const roomsWithSchedules = new Set(schedules.map((s) => s.roomCode))
     return rooms.filter((r) => {
+      // Restrooms, stairs and storage only add empty rows above the real rooms; keep one
+      // only if something is actually scheduled there.
+      if (NON_BOOKABLE_CATEGORIES.has(r.category) && !roomsWithSchedules.has(r.code)) {
+        return false
+      }
       if (scheduleFloorFilter !== null && r.floor !== scheduleFloorFilter) {
         return false
       }
