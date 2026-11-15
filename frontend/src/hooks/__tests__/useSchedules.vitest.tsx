@@ -1,10 +1,15 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, waitFor, act } from '@testing-library/react'
 import { useSchedules, _resetSchedulesCacheForTesting } from '../useSchedules'
 import type { ScheduleSlot } from '../../types/schedule'
 
 const getSchedulesMock = vi.hoisted(() => vi.fn<(options?: { bypassCache?: boolean }) => Promise<ScheduleSlot[]>>())
-vi.mock('../../services/schedulesService.ts', () => ({ getSchedules: getSchedulesMock }))
+vi.mock('../../services/schedulesService.ts', () => ({
+  getSchedules: getSchedulesMock,
+  SCHEDULES_CACHE_TTL_MS: 60_000,
+}))
+
+import { SCHEDULES_CACHE_TTL_MS } from '../../services/schedulesService'
 
 const slot = (eventCode: string): ScheduleSlot => ({
   roomCode: 'LC3-104',
@@ -18,8 +23,13 @@ const slot = (eventCode: string): ScheduleSlot => ({
 
 describe('useSchedules reload()', () => {
   beforeEach(() => {
+    vi.useRealTimers()
     _resetSchedulesCacheForTesting()
     getSchedulesMock.mockReset()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   it('resolves after the refreshed list is in state', async () => {
@@ -77,12 +87,38 @@ describe('useSchedules reload()', () => {
     getSchedulesMock.mockResolvedValueOnce([slot('EVENT1')]).mockResolvedValueOnce([slot('EVENT2')])
     const { result } = renderHook(() => useSchedules())
     await waitFor(() => expect(result.current.schedules).toHaveLength(1))
-    expect(getSchedulesMock).toHaveBeenLastCalledWith({ bypassCache: false })
+    expect(getSchedulesMock).toHaveBeenLastCalledWith({ bypassCache: true })
 
     let done!: Promise<void>
     act(() => { done = result.current.reload(true) })
     await act(() => done)
     expect(getSchedulesMock).toHaveBeenLastCalledWith({ bypassCache: true })
+  })
+
+  it('refreshes schedules from the server at the 60-second cache TTL', async () => {
+    vi.useFakeTimers()
+    getSchedulesMock.mockResolvedValueOnce([slot('OLD')]).mockResolvedValueOnce([slot('NEW')])
+    const { result, unmount } = renderHook(() => useSchedules())
+
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    expect(result.current.schedules[0]?.eventCode).toBe('OLD')
+    expect(SCHEDULES_CACHE_TTL_MS).toBe(60_000)
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(SCHEDULES_CACHE_TTL_MS - 1)
+    })
+    expect(getSchedulesMock).toHaveBeenCalledTimes(1)
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1)
+    })
+    expect(result.current.schedules[0]?.eventCode).toBe('NEW')
+    expect(getSchedulesMock).toHaveBeenLastCalledWith({ bypassCache: true })
+    unmount()
   })
 
   it('transfers waiters across superseded reloads so they resolve only when the latest succeeds', async () => {

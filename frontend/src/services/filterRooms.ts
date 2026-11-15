@@ -1,5 +1,6 @@
 import type { Room } from '../types/room.ts'
 import type { ScheduleSlot } from '../types/schedule.ts'
+import { formatLocalDate, isExamSchedule } from './scheduleDisplay.ts'
 
 export interface CategoryFilterOption {
   /** ค่าที่ใช้อ้างอิงปุ่มนี้ภายในแอป (ส่งเข้า filterRooms เป็นพารามิเตอร์ category) */
@@ -186,6 +187,278 @@ export function scheduleMatchesQuery(schedule: ScheduleSlot, searchTerms: string
 
   const searchableValues = [schedule.eventCode, schedule.eventName].map(normalize)
   return searchTerms.some((term) => searchableValues.some((value) => value.includes(term)))
+}
+
+interface ParsedExamQuery {
+  courseCode: string
+  time: string | null
+  date: string | null
+}
+
+export interface FindExamsOptions {
+  today: string
+  includePast?: boolean
+}
+
+const THAI_MONTH_NUMBERS: Record<string, number> = {
+  'ม.ค.': 1,
+  'ก.พ.': 2,
+  'มี.ค.': 3,
+  'เม.ย.': 4,
+  'พ.ค.': 5,
+  'มิ.ย.': 6,
+  'ก.ค.': 7,
+  'ส.ค.': 8,
+  'ก.ย.': 9,
+  'ต.ค.': 10,
+  'พ.ย.': 11,
+  'ธ.ค.': 12,
+}
+
+function normalizeDate(year: number, month: number, day: number): string | null {
+  if (year >= 2400) year -= 543
+  const date = new Date(Date.UTC(year, month - 1, day))
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  ) {
+    return null
+  }
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+}
+
+export function parseExamQuery(
+  query: string,
+  defaultYear = Number(formatLocalDate(new Date()).slice(0, 4))
+): ParsedExamQuery {
+  let remaining = query.trim()
+  let date: string | null = null
+  const datePatterns = [
+    /\b(\d{4})-(\d{1,2})-(\d{1,2})\b/,
+    /\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/,
+    new RegExp(
+      `(?:^|\\s)(\\d{1,2})\\s*(${Object.keys(THAI_MONTH_NUMBERS)
+        .map((month) => month.replaceAll('.', '\\.'))
+        .join('|')})(?:\\s*(\\d{4}))?(?=\\s|$)`,
+      'i'
+    ),
+  ]
+
+  for (const [index, pattern] of datePatterns.entries()) {
+    const dateMatch = remaining.match(pattern)
+    if (!dateMatch) continue
+
+    if (index === 0) {
+      date =
+        normalizeDate(Number(dateMatch[1]), Number(dateMatch[2]), Number(dateMatch[3])) ??
+        dateMatch[0]
+    } else if (index === 1) {
+      date =
+        normalizeDate(Number(dateMatch[3]), Number(dateMatch[2]), Number(dateMatch[1])) ??
+        dateMatch[0]
+    } else {
+      const month = Object.entries(THAI_MONTH_NUMBERS).find(
+        ([label]) => label.toLowerCase() === dateMatch[2].toLowerCase()
+      )?.[1]
+      if (month) {
+        date =
+          normalizeDate(Number(dateMatch[3] ?? defaultYear), month, Number(dateMatch[1])) ??
+          dateMatch[0]
+      }
+    }
+
+    remaining = remaining.replace(dateMatch[0], ' ')
+    break
+  }
+
+  const timeMatch = remaining.match(/\b([01]?\d|2[0-3])([:.])([0-5]\d)\b/)
+  const time = timeMatch ? `${timeMatch[1].padStart(2, '0')}:${timeMatch[3]}` : null
+  if (timeMatch) remaining = remaining.replace(timeMatch[0], ' ')
+
+  return {
+    courseCode: remaining.replace(/\s+/g, '').toUpperCase(),
+    time,
+    date,
+  }
+}
+
+function matchesCourseCode(schedule: ScheduleSlot, courseCode: string): boolean {
+  const searchableCodes = [schedule.eventCode, schedule.eventName]
+    .flatMap((value) => value.split(/[/,;]/))
+    .map((value) => value.replace(/\s+/g, '').toUpperCase())
+
+  return searchableCodes.includes(courseCode)
+}
+
+function timeIsWithinSchedule(time: string, schedule: ScheduleSlot): boolean {
+  const toMinutes = (value: string) => {
+    const match = value.match(/^([01]\d|2[0-3]):([0-5]\d)$/)
+    return match ? Number(match[1]) * 60 + Number(match[2]) : null
+  }
+
+  const queryMinutes = toMinutes(time)
+  const startMinutes = toMinutes(schedule.startTime)
+  const endMinutes = toMinutes(schedule.endTime)
+
+  return (
+    queryMinutes !== null &&
+    startMinutes !== null &&
+    endMinutes !== null &&
+    queryMinutes >= startMinutes &&
+    queryMinutes < endMinutes
+  )
+}
+
+/**
+ * ตรวจสอบว่า query เป็นคำค้นหาที่เกี่ยวข้องกับการสอบโดยตรงหรือไม่
+ * เช่น "exam", "สอบ", "ตารางสอบ", "midterm", "final", "การสอบ"
+ */
+export function isExamKeywordQuery(query: string): boolean {
+  const q = query.trim().toLowerCase()
+  if (!q) return false
+  const EXAM_WORDS = [
+    'exam',
+    'exams',
+    'examination',
+    'midterm',
+    'final',
+    'สอบ',
+    'การสอบ',
+    'ตารางสอบ',
+    'ปลายภาค',
+    'กลางภาค',
+  ]
+  return EXAM_WORDS.some((word) => q === word || q.startsWith(word) || q.includes(word))
+}
+
+/**
+ * ตัดสินใจว่าการเลือกห้องควรเปิดแท็บใด ('class' หรือ 'exam')
+ * โดย 'class' (ตารางเรียน) เป็นค่าเริ่มต้นตามธรรมชาติเสมอ
+ * จะสลับไป 'exam' (ตารางสอบ) เฉพาะเมื่อมีเจตนาค้นหาการสอบที่ชัดเจนเท่านั้น
+ */
+export function resolveScheduleTabOnRoomSelect({
+  query = '',
+  roomSchedules = [],
+  explicitTab,
+  targetEventCode,
+}: {
+  query?: string
+  roomSchedules?: ScheduleSlot[]
+  explicitTab?: 'class' | 'exam'
+  targetEventCode?: string
+}): { tab: 'class' | 'exam'; targetCode: string | null } {
+  // 1. ถ้าผู้ใช้คลิกเลือกแท็บหรือการ์ดประเภทนั้นโดยตรง เช่น คลิก [ดูตารางห้อง] ในผลการสอบ
+  if (explicitTab === 'exam') {
+    return { tab: 'exam', targetCode: targetEventCode || null }
+  }
+  if (explicitTab === 'class') {
+    return { tab: 'class', targetCode: null }
+  }
+
+  // 2. ถ้า query มีคำค้นหาเกี่ยวกับการสอบโดยตรง (เช่น "exam", "สอบ", "ตารางสอบ", "final", "midterm")
+  if (isExamKeywordQuery(query)) {
+    const courseToken = query
+      .split(/\s+/)
+      .map((token) => token.toUpperCase())
+      .find((token) => /^[A-Z]+\d+[A-Z0-9]*$/.test(token))
+    return { tab: 'exam', targetCode: targetEventCode || courseToken || null }
+  }
+
+  // 3. ตรวจสอบกรณีรหัสวิชาที่มีตัวเลขระบุชัดเจน (เช่น CS341, BAS350)
+  // รหัสกว้างๆ ที่ไม่มีตัวเลข เช่น "CS", "MA" จะไม่เข้าเคสนี้ และดีฟอลต์เป็น 'class' เสมอ
+  const parsed = parseExamQuery(query)
+  const isSpecificCourse = /^[A-Z]+\d+[A-Z0-9]*$/i.test(parsed.courseCode)
+
+  if (isSpecificCourse) {
+    const courseCode = parsed.courseCode.toUpperCase()
+    const matchingClass = roomSchedules.find(
+      (s) => !isExamSchedule(s) && matchesCourseCode(s, courseCode)
+    )
+    const matchingExam = roomSchedules.find(
+      (s) => isExamSchedule(s) && matchesCourseCode(s, courseCode)
+    )
+
+    // ถ้ามีคาบเรียนปกติในห้องนี้ (ตารางเรียน) ต้องให้ความสำคัญกับตารางเรียนเป็นหลักเสมอ!
+    if (matchingClass) {
+      return { tab: 'class', targetCode: null }
+    }
+
+    // ถ้าไม่มีคาบเรียนปกติในห้องนี้เลย แต่มีคาบสอบ (เช่น BAS350 ในห้อง 103)
+    // แสดงว่าผู้ใช้ค้นหารหัสวิชานี้เพื่อมาดูห้องสอบ -> สลับไปตารางสอบ
+    if (matchingExam) {
+      return { tab: 'exam', targetCode: courseCode }
+    }
+  }
+
+  // 4. กรณีอื่นๆ ทั้งหมด (ค้นหาชื่อห้อง, คีย์เวิร์ดทั่วไป "CS", ค้นหาคาบเรียน ฯลฯ) -> ดีฟอลต์เป็นตารางเรียนเสมอ
+  return { tab: 'class', targetCode: null }
+}
+
+export function isExamSearchQuery(
+  query: string,
+  rooms: Room[] = [],
+  schedules: ScheduleSlot[] = []
+): boolean {
+  const parsed = parseExamQuery(query)
+  const courseCode = parsed.courseCode
+  if (!/^[A-Z]+\d+[A-Z0-9]*$/i.test(courseCode)) return false
+
+  const exactRoomSearch = rooms.some((room) =>
+    [room.code, room.roomNumber, room.id, ...room.aliases].some(
+      (value) => value.replace(/\s+/g, '').toUpperCase() === courseCode
+    )
+  )
+
+  if (exactRoomSearch) return false
+
+  const hasMatchingExam = schedules.some(
+    (schedule) => isExamSchedule(schedule) && matchesCourseCode(schedule, courseCode)
+  )
+  const matchesRoomText = rooms.some((room) =>
+    roomMatchesQuery(room, getExpandedSearchTerms(query))
+  )
+  if (!hasMatchingExam && matchesRoomText) return false
+
+  const hasDateOrTimeFilter = parsed.date !== null || parsed.time !== null
+  const matchesOnlyClassSchedules =
+    !hasDateOrTimeFilter &&
+    schedules.some(
+      (schedule) => !isExamSchedule(schedule) && matchesCourseCode(schedule, courseCode)
+    ) &&
+    !schedules.some(
+      (schedule) => isExamSchedule(schedule) && matchesCourseCode(schedule, courseCode)
+    )
+
+  return !matchesOnlyClassSchedules
+}
+
+/**
+ * Finds exam rows by course code with optional date/time filters.
+ * Past exams are excluded by default; pass includePast to show the full history.
+ */
+export function findExams(
+  schedules: ScheduleSlot[],
+  query: string,
+  options: Partial<FindExamsOptions> = {}
+): ScheduleSlot[] {
+  const today = options.today ?? formatLocalDate(new Date())
+  const includePast = options.includePast ?? false
+  const parsed = parseExamQuery(query, Number(today.slice(0, 4)))
+  if (!/^[A-Z]+\d+[A-Z0-9]*$/i.test(parsed.courseCode)) return []
+
+  return schedules
+    .filter((schedule) => {
+      if (!isExamSchedule(schedule) || !matchesCourseCode(schedule, parsed.courseCode)) return false
+      if (parsed.date && schedule.eventDate !== parsed.date) return false
+      if (parsed.time && !timeIsWithinSchedule(parsed.time, schedule)) return false
+      if (!includePast && schedule.eventDate && schedule.eventDate < today) return false
+      return true
+    })
+    .sort((a, b) => {
+      const dateOrder = (a.eventDate || '9999-12-31').localeCompare(b.eventDate || '9999-12-31')
+      return dateOrder || a.startTime.localeCompare(b.startTime) || a.roomCode.localeCompare(b.roomCode)
+    })
 }
 
 function roomMatchesSchedule(room: Room, schedules: ScheduleSlot[], searchTerms: string[]): boolean {

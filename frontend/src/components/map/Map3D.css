@@ -27,23 +27,64 @@
   position: absolute;
   left: 0;
   top: 0;
+  z-index: 10;
   pointer-events: auto;
   cursor: pointer;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+}
+/* Invisible hover hitbox buffer: prevents cursor boundary flicker on gooey expansion */
+.map3d-marker::before {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  pointer-events: auto;
+}
+.map3d-marker:focus-visible .map3d-marker-pill {
+  outline: 2px solid #0000ee;
+  outline-offset: 1px;
+}
+.map3d-marker[aria-pressed='true']:focus-visible .map3d-marker-pill,
+.map3d-marker[data-origin='true']:focus-visible .map3d-marker-pill,
+.map3d-marker[data-destination='true']:focus-visible .map3d-marker-pill {
+  outline: 2px solid #000000;
+  outline-offset: 1px;
+}
+/* The visual pill containing icon and room text */
+.map3d-marker-pill {
+  position: relative;
   background: #ffffff;
   color: #333333;
   border: 1px solid #d8d8d8;
-  border-radius: 999px;
+  border-radius: 9999px;
   padding: 3px 8px 3px 6px;
   font:
     500 11px/1.3 'Plus Jakarta Sans',
     'Prompt',
     system-ui,
     sans-serif;
-  box-shadow: 0 2px 8px rgb(0 0 0 / 0.08);
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.08);
   white-space: nowrap;
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  transform-origin: center center;
+  transform: scale(1);
+  transition:
+    transform 0.32s cubic-bezier(0.34, 1.56, 0.64, 1),
+    background-color 0.22s cubic-bezier(0.4, 0, 0.2, 1),
+    color 0.22s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.22s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.32s cubic-bezier(0.34, 1.56, 0.64, 1),
+    padding 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: transform, box-shadow;
 }
 /* Same category glyph and colour as the 2D map pins. */
 .map3d-icon {
@@ -55,31 +96,180 @@
   border-radius: 50%;
   background: var(--pin, #757575);
   flex: none;
+  transition: transform 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
-.map3d-marker:hover,
-.map3d-marker:focus-visible {
-  outline: 2px solid #0000ee;
-  outline-offset: 1px;
-  z-index: 2;
+/* Hover: organic gooey spring expansion in place */
+.map3d-marker:hover {
+  outline: none;
+  z-index: 18;
+}
+.map3d-marker:hover .map3d-marker-pill {
+  transform: scale(1.12);
+  border-color: #b0b0b0;
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.16),
+    0 1px 3px rgba(0, 0, 0, 0.06);
+}
+.map3d-marker:hover .map3d-icon {
+  transform: scale(1.08);
+}
+/* Active press: tactile squash */
+.map3d-marker:active .map3d-marker-pill {
+  transform: scale(0.96);
+  transition-duration: 0.08s;
 }
 /* Room closed right now (#147): tertiary ink label; the pin colour is set in JS. */
-.map3d-marker[data-closed='true'] {
+.map3d-marker[data-closed='true'] .map3d-marker-pill {
   color: #757575;
 }
-/* Selected room: the accent blue, like the 2D selected pin. */
+/* Selected room pill in the monochrome theme (uber-designmd.md). */
 .map3d-marker[aria-pressed='true'] {
-  color: #ffffff;
-  background: #0000ee;
-  border-color: #0000aa;
-  padding: 6px 10px 6px 8px;
-  z-index: 3;
+  z-index: 22;
 }
-/* Route floor change ("ขึ้นบันไดไปชั้น 2"): a primary pill, like the 2D button. */
+.map3d-marker[aria-pressed='true'] .map3d-marker-pill {
+  color: #ffffff;
+  background: #000000;
+  border-color: #000000;
+  padding: 6px 10px 6px 8px;
+  transform: scale(1.06);
+  box-shadow:
+    0 4px 14px rgba(0, 0, 0, 0.3),
+    0 1px 3px rgba(0, 0, 0, 0.16);
+}
+.map3d-marker[aria-pressed='true']:hover {
+  z-index: 24;
+}
+.map3d-marker[aria-pressed='true']:hover .map3d-marker-pill {
+  transform: scale(1.12);
+}
+/* Route origin (FROM) and route destination (TO): enlarged, bold, distinguished pills */
+.map3d-marker[data-origin='true'],
+.map3d-marker[data-destination='true'] {
+  z-index: 25;
+}
+.map3d-marker[data-origin='true'] .map3d-marker-pill,
+.map3d-marker[data-destination='true'] .map3d-marker-pill {
+  color: #ffffff;
+  background: #000000;
+  border: 1.5px solid rgba(255, 255, 255, 0.3);
+  border-radius: 9999px;
+  padding: 6px 13px 6px 9px;
+  font:
+    700 13px/1.3 'Plus Jakarta Sans',
+    'Prompt',
+    system-ui,
+    sans-serif;
+  letter-spacing: -0.01em;
+  gap: 7px;
+  transform: scale(1);
+  box-shadow:
+    0 4px 14px rgba(0, 0, 0, 0.35),
+    0 1px 3px rgba(0, 0, 0, 0.2);
+}
+.map3d-marker[data-origin='true']:hover,
+.map3d-marker[data-destination='true']:hover {
+  z-index: 27;
+}
+.map3d-marker[data-origin='true']:hover .map3d-marker-pill,
+.map3d-marker[data-destination='true']:hover .map3d-marker-pill {
+  transform: scale(1.08);
+}
+.map3d-marker[data-text-only='true'] {
+  padding: 6px 12px;
+}
+.map3d-marker[aria-pressed='true']:hover,
+.map3d-marker[data-origin='true']:hover,
+.map3d-marker[data-destination='true']:hover {
+  outline: none;
+}
+.map3d-marker[aria-pressed='true']:focus-visible,
+.map3d-marker[data-origin='true']:focus-visible,
+.map3d-marker[data-destination='true']:focus-visible {
+  outline: 2px solid #000000;
+  outline-offset: 1px;
+  z-index: 20;
+}
+.map3d-marker[aria-pressed='true'][data-closed='true'],
+.map3d-marker[data-origin='true'][data-closed='true'],
+.map3d-marker[data-destination='true'][data-closed='true'] {
+  color: #d8d8d8;
+}
+.map3d-marker[aria-pressed='true'] .map3d-icon,
+.map3d-marker[data-origin='true'] .map3d-icon,
+.map3d-marker[data-destination='true'] .map3d-icon {
+  box-shadow: 0 0 0 1.5px #ffffff;
+}
+/* Integrated Origin Glyph inside the start pill (Uber-style pickup circle) */
+.map3d-glyph-origin {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ff4d94 0%, #ec4899 50%, #db2777 100%);
+  border: 2px solid #ffffff;
+  box-sizing: border-box;
+  flex: none;
+  margin-left: -2px;
+}
+.map3d-glyph-origin-inner {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ffffff;
+  flex: none;
+}
+/* Integrated Destination Glyph inside the destination pill (Uber-style drop-off square) */
+.map3d-glyph-dest {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  background: linear-gradient(135deg, #fbbf24 0%, #f97316 50%, #ea580c 100%);
+  border: 2px solid #ffffff;
+  box-sizing: border-box;
+  flex: none;
+  margin-left: -2px;
+}
+.map3d-glyph-dest-inner {
+  width: 6px;
+  height: 6px;
+  border-radius: 1px;
+  background: #ffffff;
+  flex: none;
+}
+/* Ground-anchored drop pin stem pointing DOWN to the route line */
+.map3d-pin-stem {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 2px;
+  height: 16px;
+  background: #000000;
+  pointer-events: none;
+}
+.map3d-pin-stem::after {
+  content: '';
+  position: absolute;
+  bottom: -2.5px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #000000;
+}
+/* Route floor change ("ขึ้นบันไดไปชั้น 2"): a primary pill, like the 2D button.
+   Higher z-index than markers so the floor change call-to-action is never occluded. */
 .map3d-route-floor {
   position: absolute;
   left: 0;
   top: 0;
-  z-index: 4;
+  z-index: 25;
   pointer-events: auto;
   cursor: pointer;
   white-space: nowrap;
@@ -104,7 +294,14 @@
 .map3d-marker[aria-pressed='true'] .map3d-icon {
   box-shadow: 0 0 0 1.5px #ffffff;
 }
+.map3d-marker[data-compact='true']:not(:hover):not(:focus-visible) .map3d-marker-pill {
+  display: none;
+}
+.map3d-marker[data-compact='true']:not(:hover):not(:focus-visible)::before {
+  display: none;
+}
 .map3d-marker[data-compact='true']:not(:hover):not(:focus-visible) {
+  z-index: 1;
   width: 24px;
   height: 24px;
   min-width: 0;
@@ -131,48 +328,94 @@
 }
 .map3d-controls {
   position: absolute;
-  z-index: 2;
+  z-index: 30;
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
-  gap: 10px;
+  align-items: center;
+  gap: 8px;
 }
-/* Vertical zoom stack: square white card, floating shadow. */
-.map3d-zoom-stack {
-  display: flex;
-  flex-direction: column;
-  background: #ffffff;
-  border: 1px solid #d8d8d8;
-  border-radius: 0;
-  box-shadow: 0 2px 8px rgb(0 0 0 / 0.16);
-  overflow: hidden;
+.map3d-controls.hidden {
+  display: none !important;
 }
-.map3d-zoom-stack button {
+@media (min-width: 640px) {
+  .map3d-controls.sm\:flex {
+    display: flex !important;
+  }
+}
+
+/* Standalone circular compass button (matching Google Maps) */
+.map-compass-btn {
   cursor: pointer;
-  background: transparent;
-  color: #333333;
-  border: 0;
-  border-bottom: 1px solid #d8d8d8;
   width: 44px;
   height: 44px;
+  min-width: 44px;
   min-height: 44px;
+  border-radius: 9999px;
+  background: #202124;
+  border: 0;
   padding: 0;
   display: grid;
   place-items: center;
-  transition:
-    background-color 150ms ease,
-    color 150ms ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  transition: transform 150ms ease, filter 150ms ease, box-shadow 150ms ease;
 }
-.map3d-zoom-stack .map3d-zoom button:last-child {
-  border-bottom: 0;
+.map-compass-btn:hover {
+  filter: brightness(1.15);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
 }
-.map3d-zoom-stack button:hover {
-  background: #eeeeee;
-  color: #000000;
+.map-compass-btn:active {
+  transform: scale(0.95);
 }
-.map3d-zoom-stack button:focus-visible {
-  outline: 2px solid #0000ee;
+.map-compass-btn:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+@media (min-width: 640px) {
+  .map-compass-btn.sm\:hidden,
+  .sm\:hidden.map-compass-btn,
+  .sm\:\!hidden.map-compass-btn {
+    display: none !important;
+  }
+}
+
+/* Standalone vertical rounded zoom pill (+ / -) (matching Google Maps) */
+.map-zoom-pill {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 32px;
+  background: #202124;
+  border-radius: 9999px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+}
+.map-zoom-pill button {
+  cursor: pointer;
+  background: transparent;
+  color: #ffffff;
+  border: 0;
+  width: 32px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+.map-zoom-pill button:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+.map-zoom-pill button:active {
+  background: rgba(255, 255, 255, 0.25);
+}
+.map-zoom-pill button:focus-visible {
+  outline: 2px solid #ffffff;
   outline-offset: -2px;
+}
+.map-zoom-pill-divider {
+  width: 18px;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.2);
 }
 /* Floor switcher pill (phones and the landing preview). */
 .map3d-floors {
@@ -253,6 +496,11 @@
   /* clear the floating search panel at the top of the map area */
   .map-fallback-notice {
     top: 5rem;
+  }
+  .map3d-zoom-stack button {
+    width: 38px;
+    height: 38px;
+    min-height: 38px;
   }
 }
 /* Below this width the hint cannot fit between the sidebar, center dock, and control stack. */

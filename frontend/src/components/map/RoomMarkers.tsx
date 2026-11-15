@@ -67,11 +67,11 @@ const POI_INNER_RADIUS = 9.2
 const SELECTED_PIN_PATH =
   'M 0 0 C -1 -4 -8.13 -10.55 -11.31 -18.43 A 12.2 12.2 0 1 1 11.31 -18.43 C 8.13 -10.55 1 -4 0 0 Z'
 
-const SELECTED_PIN_COLOR = '#0000EE'
-const SELECTED_PIN_BORDER_COLOR = '#0000AA'
-const SELECTED_PIN_DOT_COLOR = '#0000AA'
+const SELECTED_PIN_COLOR = '#000000'
+const SELECTED_PIN_BORDER_COLOR = '#000000'
+const SELECTED_PIN_DOT_COLOR = '#FFFFFF'
 const SELECTED_PIN_DOT_RADIUS = 4.4
-const SELECTED_LABEL_COLOR = '#0000EE'
+const SELECTED_LABEL_COLOR = '#000000'
 
 /** System font stack for SVG canvas labels to avoid rasterizing remote web fonts at 60 FPS */
 const SVG_LABEL_FONT_FAMILY =

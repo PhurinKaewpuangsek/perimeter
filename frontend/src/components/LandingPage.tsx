@@ -10,16 +10,22 @@ import {
   Users,
 } from '@phosphor-icons/react'
 import { useRooms } from '../hooks/useRooms'
+import { useSchedules } from '../hooks/useSchedules'
+import { useGraph } from '../hooks/useGraph'
 import { useIsDesktop } from '../hooks/useIsDesktop'
 import { usePreloadImages } from '../hooks/usePreloadImages'
+import { activeRoomClosures } from '../services/closureModel'
 import MapContainer from './map/MapContainer'
 import { FLOOR_CONFIGS } from './map/floorConfig'
 import SearchResultList from './SearchResultList'
 import { PlaceholdersAndVanishInput } from './ui/PlaceholdersAndVanishInput'
 import {
   filterRooms,
+  getExpandedSearchTerms,
+  scheduleMatchesQuery,
   DEFAULT_CATEGORY_KEY,
 } from '../services/filterRooms'
+import { useExamSearch } from '../hooks/useExamSearch'
 import {
   getBuildingLabel,
   getCategoryLabel,
@@ -30,9 +36,11 @@ import { getCategoryIcon } from './categoryIcon'
 import perimeterLogoNoBg from '../assets/perimeter_logo_negative_nobg.png'
 
 const FLOOR_PLAN_ASSETS = FLOOR_CONFIGS.map((config) => config.asset)
+const CLOSURE_REFRESH_MS = 60_000
 
 const SEARCH_PLACEHOLDERS = [
-  'พิมพ์เลขห้อง เช่น LC3-101',
+  'รหัสวิชาหรือห้อง เช่น BAS350, LC3-101',
+  'ค้นหาการสอบ เช่น BAS350 13:00',
   'ค้นหาห้องบรรยาย เช่น บรรยาย 1',
   'ค้นหาห้องน้ำชาย / หญิง',
   'ค้นหาห้อง 108/1, 102...',
@@ -52,6 +60,24 @@ const SEARCH_PLACEHOLDERS = [
 export default function LandingPage() {
   const navigate = useNavigate()
   const { rooms, loading, error } = useRooms()
+  const {
+    schedules,
+    loading: schedulesLoading,
+    error: schedulesError,
+  } = useSchedules()
+  const { graph, error: graphError, reload: reloadGraph } = useGraph()
+  const [closureCheckAt, setClosureCheckAt] = useState(() => new Date())
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setClosureCheckAt(new Date())
+      reloadGraph().catch(() => {})
+    }, CLOSURE_REFRESH_MS)
+    return () => window.clearInterval(timer)
+  }, [reloadGraph])
+  const roomClosures = useMemo(
+    () => activeRoomClosures(graph, closureCheckAt),
+    [graph, closureCheckAt]
+  )
   usePreloadImages(FLOOR_PLAN_ASSETS)
 
   const isDesktop = useIsDesktop()
@@ -68,11 +94,26 @@ export default function LandingPage() {
     [rooms, selectedRoomId]
   )
 
-  // Landing page: Search ONLY by room number, name, and aliases (NO Course ID / Schedule search)
   const searchResults = useMemo(() => {
     if (!quickQuery.trim()) return []
-    return filterRooms(rooms, quickQuery, DEFAULT_CATEGORY_KEY, [])
-  }, [rooms, quickQuery])
+    return filterRooms(rooms, quickQuery, DEFAULT_CATEGORY_KEY, schedules)
+  }, [rooms, quickQuery, schedules])
+  const matchedActivities = useMemo(() => {
+    const searchTerms = getExpandedSearchTerms(quickQuery)
+    return schedules.filter(
+      (schedule) =>
+        schedule.eventType.toLowerCase() === 'other' &&
+        scheduleMatchesQuery(schedule, searchTerms)
+    )
+  }, [quickQuery, schedules])
+
+  const {
+    examResults,
+    examSearchActive,
+    pastExamsAvailable,
+    showPastExams,
+    toggleShowPastExams,
+  } = useExamSearch(quickQuery, rooms, schedules)
 
   function handleRoomSelect(roomId: string) {
     setDemoInterrupted(true)
@@ -84,13 +125,18 @@ export default function LandingPage() {
     }
   }
 
-  function handleEnterFullMap(targetRoomId?: string | null, query?: string) {
+  function handleEnterFullMap(
+    targetRoomId?: string | null,
+    query?: string,
+    navigationDestinationId?: string | null
+  ) {
     setIsSlidingOut(true)
     setTimeout(() => {
       let targetUrl = '/map'
       const params = new URLSearchParams()
       if (targetRoomId) params.set('room', targetRoomId)
       if (query && query.trim()) params.set('q', query.trim())
+      if (navigationDestinationId) params.set('navigate', navigationDestinationId)
       const paramStr = params.toString()
       if (paramStr) targetUrl += `?${paramStr}`
       navigate(targetUrl)
@@ -101,7 +147,12 @@ export default function LandingPage() {
     e.preventDefault()
     if (!quickQuery.trim()) return
 
-    const matches = filterRooms(rooms, quickQuery, DEFAULT_CATEGORY_KEY, [])
+    if (examSearchActive || matchedActivities.length > 0) {
+      setIsDropdownOpen(true)
+      return
+    }
+
+    const matches = filterRooms(rooms, quickQuery, DEFAULT_CATEGORY_KEY, schedules)
     if (matches.length > 0) {
       handleRoomSelect(matches[0].id)
     } else {
@@ -169,24 +220,24 @@ export default function LandingPage() {
           }}
           className="pointer-events-auto flex h-full w-full flex-col justify-between border-r border-line-soft bg-white p-5 sm:w-[460px] sm:p-8"
         >
-          <div className="flex flex-col items-center text-center sm:items-start sm:text-left">
-            {/* Top Branding (Prominent Logo) */}
-            <div className="mb-6 flex w-full items-center justify-between sm:mb-8">
+          <div className="my-auto flex flex-col items-center text-center sm:my-0 sm:items-start sm:text-left">
+            {/* Top Branding (Prominent Logo: Centered and enlarged on phones, left-aligned on desktop) */}
+            <div className="mb-4 flex w-full items-center justify-center sm:mb-8 sm:justify-start">
               <img
                 src={perimeterLogoNoBg}
                 alt="Perimeter"
-                className="h-14 w-auto cursor-pointer object-contain sm:h-16"
+                className="h-20 w-auto cursor-pointer object-contain sm:h-16"
                 onClick={() => handleEnterFullMap()}
                 title="Perimeter"
               />
             </div>
 
-            {/* Hero: H1 36px in the 460px panel, 28px on phones (DesignMD collapsing steps) */}
-            <h1 className="font-display text-[28px] leading-9 font-bold text-ink sm:text-h2">
+            {/* Hero Heading: Accessible to screen readers on phones, visible full heading on desktop */}
+            <h1 className="sr-only sm:not-sr-only sm:block font-display text-[28px] leading-9 font-bold text-ink sm:text-h2">
               <span className="sm:hidden">Perimeter</span>
               <span className="hidden sm:inline">ค้นหาห้องเรียนและสถานที่ได้ทันที</span>
             </h1>
-            <p className="mt-3 max-w-xs text-button text-ink-2 sm:max-w-none sm:text-body">
+            <p className="mt-1 max-w-xs text-button text-ink-2 sm:mt-3 sm:max-w-none sm:text-body">
               <span className="sm:hidden">
                 ผังอาคารเรียนรวม 3 (LC3) · ระบบแผนที่และสืบค้นห้องเรียน
               </span>
@@ -194,6 +245,23 @@ export default function LandingPage() {
                 ผังอาคารเรียนรวม 3 (LC3) ค้นหาตามเลขห้องหรือชื่อสถานที่ (ตารางเรียนดูได้ในโหมดแผนที่เต็ม)
               </span>
             </p>
+
+            {/* Mobile Only: Sign in + public map (clean hero action buttons) */}
+            <div className="mt-8 w-full max-w-xs sm:hidden">
+              <button type="button" onClick={handleSignIn} className="btn btn-primary btn-lg w-full">
+                <SignIn size={20} weight="bold" />
+                <span>เข้าสู่ระบบ (Sign in)</span>
+              </button>
+              {/* /map is public; without this a phone user has no way to reach it (the footer link is desktop-only). */}
+              <button
+                type="button"
+                onClick={() => handleEnterFullMap()}
+                className="btn btn-secondary btn-lg mt-3 w-full"
+              >
+                <MapTrifold size={20} weight="bold" />
+                <span>ดูแผนที่ (ไม่ต้องเข้าสู่ระบบ)</span>
+              </button>
+            </div>
 
             {/* Desktop Only: Instant Command-Bar Search & Live Dropdown */}
             <div ref={searchContainerRef} className="relative mt-8 hidden w-full sm:block">
@@ -254,33 +322,28 @@ export default function LandingPage() {
                 <div className="dropdown absolute inset-x-0 top-15 max-h-72 overflow-y-auto p-2 animate-fade-in">
                   <SearchResultList
                     rooms={searchResults}
-                    schedules={[]}
-                    schedulesLoading={false}
-                    schedulesError={null}
+                    allRooms={rooms}
+                    schedules={schedules}
+                    activityResults={matchedActivities}
+                    roomClosures={roomClosures}
+                    closureStatusUnavailable={graph === null && Boolean(graphError)}
+                    examResults={examResults}
+                    examSearchActive={examSearchActive}
+                    pastExamsAvailable={pastExamsAvailable}
+                    showPastExams={showPastExams}
+                    onToggleShowPastExams={toggleShowPastExams}
+                    schedulesLoading={schedulesLoading}
+                    schedulesError={schedulesError}
                     loading={loading}
                     error={error}
                     onSelectRoom={(roomId) => handleRoomSelect(roomId)}
+                    onNavigateToRoom={(roomId) =>
+                      handleEnterFullMap(null, quickQuery, roomId)
+                    }
                   />
                 </div>
               )}
             </div>
-          </div>
-
-          {/* Mobile Only: Sign in + public map (button group stacks full-width) */}
-          <div className="mx-auto my-auto w-full max-w-xs py-8 sm:hidden">
-            <button type="button" onClick={handleSignIn} className="btn btn-primary btn-lg w-full">
-              <SignIn size={20} weight="bold" />
-              <span>เข้าสู่ระบบ (Sign in)</span>
-            </button>
-            {/* /map is public; without this a phone user has no way to reach it (the footer link is desktop-only). */}
-            <button
-              type="button"
-              onClick={() => handleEnterFullMap()}
-              className="btn btn-secondary btn-lg mt-3 w-full"
-            >
-              <MapTrifold size={20} weight="bold" />
-              <span>ดูแผนที่ (ไม่ต้องเข้าสู่ระบบ)</span>
-            </button>
           </div>
 
           {/* Footer */}
@@ -403,6 +466,3 @@ export default function LandingPage() {
     </div>
   )
 }
-
-
-

@@ -8,13 +8,39 @@ import type {
 import { fetchWithRetry } from './apiClient.ts'
 
 /**
- * Graph node of the building entrance (`building_entrances` in lc3-graph.seed.json).
+ * Graph node of the building entrances (`building_entrances` in lc3-graph.seed.json).
  * GET /api/route takes a node_id as well as a location_id for `from`.
  */
 export const BUILDING_ENTRANCE_ID = 'LC3_Junction_SM'
+export const BUILDING_ENTRANCE_2_ID = 'LC3_Junction_NM'
 
-/** Floor the building entrance is on, so a route from it opens the map there. */
+/** Floor the building entrances are on, so a route from them opens the map there. */
 export const BUILDING_ENTRANCE_FLOOR = 1
+
+export interface BuildingEntrance {
+  id: string
+  label: string
+  floor: number
+  description?: string
+  coordinates: { x: number; y: number }
+}
+
+export const BUILDING_ENTRANCES: BuildingEntrance[] = [
+  {
+    id: BUILDING_ENTRANCE_ID,
+    label: 'ทางเข้าอาคาร 1',
+    floor: BUILDING_ENTRANCE_FLOOR,
+    description: 'ทางเข้าฝั่งทิศใต้ (ลานน้ำพุ)',
+    coordinates: { x: 632, y: 484 },
+  },
+  {
+    id: BUILDING_ENTRANCE_2_ID,
+    label: 'ทางเข้าอาคาร 2',
+    floor: BUILDING_ENTRANCE_FLOOR,
+    description: 'ทางเข้าฝั่งทิศเหนือ (สะพานทางเดินเชื่อม)',
+    coordinates: { x: 621, y: 116 },
+  },
+]
 
 const INVALID_ROUTE_MESSAGE = 'ข้อมูลเส้นทางจากเซิร์ฟเวอร์ไม่ถูกต้อง'
 

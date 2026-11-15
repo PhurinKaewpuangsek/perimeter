@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { getSchedules } from '../services/schedulesService.ts'
+import { getSchedules, SCHEDULES_CACHE_TTL_MS } from '../services/schedulesService.ts'
 import type { ScheduleSlot } from '../types/schedule.ts'
 
 export interface UseRoomSchedulesResult {
@@ -23,6 +23,7 @@ export function useRoomSchedules(roomCode: string | null | undefined): UseRoomSc
   }))
   const [attempt, setAttempt] = useState(0)
   const latestRequestIdRef = useRef(0)
+  const lastFetchedAtRef = useRef(0)
 
   useEffect(() => {
     let isMounted = true
@@ -31,8 +32,9 @@ export function useRoomSchedules(roomCode: string | null | undefined): UseRoomSc
     if (!roomCode) return
 
     const fetchRoomSchedules = (bypassCache = false) => {
-      if (!bypassCache && bypassInFlight) return
+      if (bypassInFlight) return
       const requestId = ++latestRequestIdRef.current
+      lastFetchedAtRef.current = Date.now()
       if (bypassCache) {
         bypassInFlight = true
       }
@@ -59,15 +61,22 @@ export function useRoomSchedules(roomCode: string | null | undefined): UseRoomSc
         })
     }
 
-    fetchRoomSchedules(attempt > 0)
+    fetchRoomSchedules(true)
 
-    const onFocus = () => fetchRoomSchedules(false)
+    const refreshIfStale = () => {
+      if (Date.now() - lastFetchedAtRef.current >= SCHEDULES_CACHE_TTL_MS) {
+        fetchRoomSchedules(true)
+      }
+    }
+    const onFocus = () => refreshIfStale()
+    const refreshTimer = window.setInterval(refreshIfStale, SCHEDULES_CACHE_TTL_MS)
     if (typeof window !== 'undefined') {
       window.addEventListener('focus', onFocus)
     }
 
     return () => {
       isMounted = false
+      window.clearInterval(refreshTimer)
       if (typeof window !== 'undefined') {
         window.removeEventListener('focus', onFocus)
       }

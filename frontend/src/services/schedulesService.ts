@@ -28,6 +28,8 @@ const API_BASE_URL = (import.meta.env?.VITE_API_BASE_URL ?? '').replace(/\/+$/, 
 
 export const SCHEDULES_ENDPOINT = `${API_BASE_URL}/api/schedules`
 
+export const SCHEDULES_CACHE_TTL_MS = 60 * 1000
+
 export interface GetSchedulesOptions {
   roomCode?: string
   bypassCache?: boolean

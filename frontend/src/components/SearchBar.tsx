@@ -1,5 +1,5 @@
 import type { RefObject, KeyboardEvent } from 'react'
-import { MagnifyingGlass, List, X } from '@phosphor-icons/react'
+import { MagnifyingGlass, Funnel, X } from '@phosphor-icons/react'
 
 interface SearchBarProps {
   value: string
@@ -14,6 +14,7 @@ interface SearchBarProps {
   isFilterOpen?: boolean
   hasActiveFilter?: boolean
   onToggleFilter?: () => void
+  variant?: 'default' | 'surface'
 }
 
 /**
@@ -32,6 +33,7 @@ export default function SearchBar({
   isFilterOpen,
   hasActiveFilter,
   onToggleFilter,
+  variant = 'default',
 }: SearchBarProps) {
   function handleClear() {
     onChange('')
@@ -40,7 +42,13 @@ export default function SearchBar({
   }
 
   return (
-    <div className="group flex h-11 w-full items-center gap-2 rounded-none border border-transparent bg-search px-3 transition-colors focus-within:border-accent focus-within:bg-white">
+    <div
+      className={
+        variant === 'surface'
+          ? 'group flex h-10 sm:h-11 w-full items-center gap-2 rounded-lg border border-line-soft bg-white px-3 transition-colors shadow-xs focus-within:border-accent'
+          : 'group flex h-11 w-full items-center gap-2 rounded-none border border-transparent bg-search px-3 transition-colors focus-within:border-accent focus-within:bg-white'
+      }
+    >
       <MagnifyingGlass
         size={18}
         weight="bold"
@@ -84,7 +92,7 @@ export default function SearchBar({
                 : 'text-ink-3 hover:bg-tertiary hover:text-ink'
           }`}
         >
-          <List size={17} weight={hasActiveFilter ? 'bold' : 'regular'} />
+          <Funnel size={17} weight={hasActiveFilter ? 'bold' : 'regular'} />
           {hasActiveFilter && !isFilterOpen && (
             <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-accent" />
           )}

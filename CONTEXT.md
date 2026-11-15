@@ -43,9 +43,24 @@ The temporal validity interval (`closed_from` to `closed_until`) during which a 
 
 ### Scheduling & Timetables
 
+**Room Schedule (`ตารางการใช้ห้อง`)**:
+The composite occupancy schedule for a physical room in the LC-3 building, partitioned into recurring weekly lectures (`ตารางเรียน`) and calendar-dated examinations (`ตารางสอบ`).
+- _Code identifiers_: `room_code`, `schedules`
+- _Avoid_: Room calendar, classroom bookings, room timetable
+
+**Class Timetable (`ตารางเรียน`)**:
+A recurring weekly timetable of academic lectures or lab sessions repeating identically on fixed weekdays across an entire 16-week semester without date variation.
+- _Code identifiers_: `event_type: 'class'`, `day_of_week`, `start_time`, `end_time`
+- _Avoid_: Class booking, lecture slot, recurring session, semester timetable
+
+**Exam Schedule (`ตารางสอบ`)**:
+A set of non-recurring, date-specific academic evaluation sessions tied to exact calendar dates (`event_date`), which can legitimately share a room concurrently via split seating or occupy the same room across different exam weeks.
+- _Code identifiers_: `event_type: 'exam'`, `event_date` (`YYYY-MM-DD`), `start_time`, `end_time`, `room_code`
+- _Avoid_: Test schedule, quiz timetable, finals matrix
+
 **Schedule Slot**:
-A recurring weekly or single-instance reservation of a room for an academic lecture, lab, examination, or event.
-- _Code identifiers_: `schedule_slot` (e.g. `MON_09:00_10:30`), `day_of_week`, `start_time`, `end_time`, `room_code`
+A single database or API interval representing either a recurring class meeting or a dated examination session in a specific room.
+- _Code identifiers_: `schedule_slot` (e.g. `MON#09:00#CS341`), `day_of_week`, `start_time`, `end_time`, `room_code`
 - _Avoid_: Reservation, booking, period, session
 
 **Event**:
