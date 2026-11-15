@@ -799,6 +799,18 @@ describe('MapPage navigation (issue #145)', () => {
     await user.click(within(panel).getByRole('textbox', { name: 'จุดเริ่มต้น' }))
     const options = within(screen.getByRole('list', { name: 'ตัวเลือกจุดเริ่มต้น' })).getAllByRole('button')
     expect(options[0]).toHaveTextContent('ทางเข้าอาคาร 1')
+
+    // After switching to the entrance, room 121 is offered first as the last destination.
+    await user.click(options[0])
+    expect(lastRouteCall()).toEqual(['LC3_Junction_SM', 'LC3-F1-R105'])
+    await user.click(within(panel).getByRole('textbox', { name: 'จุดเริ่มต้น' }))
+    const reopened = within(screen.getByRole('list', { name: 'ตัวเลือกจุดเริ่มต้น' })).getAllByRole('button')
+    expect(reopened[0]).toHaveTextContent('ห้อง 121')
+    expect(reopened[0]).toHaveTextContent('ปลายทางล่าสุด')
+
+    await user.click(reopened[0])
+    expect(lastRouteCall()).toEqual(['LC3-F1-R121', 'LC3-F1-R105'])
+    expect(within(panel).getByRole('textbox', { name: 'จุดเริ่มต้น' })).toHaveValue('ห้อง 121')
   })
 
   it('"ล้างเส้นทาง" stops navigating and returns to the room details', async () => {
