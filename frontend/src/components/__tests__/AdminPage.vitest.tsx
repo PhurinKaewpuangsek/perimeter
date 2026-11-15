@@ -345,6 +345,33 @@ describe('AdminPage', () => {
     ).toBeInTheDocument()
   })
 
+  it('leaves restrooms and other facilities out of the schedule room picker', async () => {
+    mockRooms.push({
+      ...mockRooms[0],
+      id: 'LC3-WC1',
+      code: 'LC3-WC1',
+      roomNumber: 'WC1',
+      nameThai: 'ห้องน้ำชาย',
+      category: 'toilet',
+      capacity: undefined,
+    })
+    try {
+      const user = userEvent.setup()
+      render(
+        <MemoryRouter>
+          <AdminPage />
+        </MemoryRouter>,
+      )
+      await user.click(screen.getByText('ห้อง 101').closest('button')!)
+      await user.click(screen.getByRole('button', { name: /เพิ่มตาราง/ }))
+      const dialog = screen.getByRole('dialog', { name: 'เพิ่มตารางสอนใหม่' })
+      expect(within(dialog).queryByText('ห้องน้ำชาย')).not.toBeInTheDocument()
+      expect(within(dialog).getAllByText(/ห้องบรรยาย 101/).length).toBeGreaterThan(0)
+    } finally {
+      mockRooms.pop()
+    }
+  })
+
   it('signs out via AccountMenu', async () => {
     const { signOut } = await import('../../services/authService')
     const user = userEvent.setup()

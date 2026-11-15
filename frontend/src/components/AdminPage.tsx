@@ -17,6 +17,11 @@ import {
 } from '../services/scheduleConflicts'
 import { getCategoryLabel, getLandmarkText } from '../services/roomDisplay'
 import { CATEGORY_FILTERS } from '../services/filterRooms'
+
+/** The "สิ่งอำนวยความสะดวก" group (restrooms, stairs, storage…): not places to book a class. */
+const NON_BOOKABLE_CATEGORIES = new Set(
+  CATEGORY_FILTERS.find((filter) => filter.key === 'facility')?.matchCategories ?? [],
+)
 import TopBar from './TopBar'
 import LoadingScreen from './LoadingScreen'
 import ClosureTab from './ClosurePanel'
@@ -348,13 +353,16 @@ export default function AdminPage() {
   const pickerRooms = useMemo(() => {
     const minCap = Number(pickerMinCapacity) || 0
     return rooms.filter((r) => {
+      // Never offer restrooms, stairs, storage and the like as a place to hold a class;
+      // the room already chosen stays listed so an existing row can still be saved.
+      if (NON_BOOKABLE_CATEGORIES.has(r.category) && r.code !== targetRoomCode) return false
       if (pickerFloorFilter !== 'ALL' && r.floor !== pickerFloorFilter) {
         return false
       }
       if (minCap > 0 && (r.capacity ?? 0) < minCap) return false
       return true
     })
-  }, [rooms, pickerFloorFilter, pickerMinCapacity])
+  }, [rooms, pickerFloorFilter, pickerMinCapacity, targetRoomCode])
 
   function selectRoom(room: Room | null) {
     setSelectedRoomId(room ? room.id : null)
@@ -1515,17 +1523,18 @@ export default function AdminPage() {
                                       e.stopPropagation()
                                       openEditScheduleModal(slot)
                                     }}
+                                    title={`${slot.eventCode} ${slot.startTime}–${slot.endTime}`}
                                     style={{
                                       left: `${leftPct}%`,
                                       width: `${widthPct}%`,
                                     }}
-                                    className={`group absolute top-1 bottom-1 z-10 px-1.5 py-0.5 overflow-hidden border flex items-center justify-between gap-1 ${
+                                    className={`group absolute top-1 bottom-1 z-10 px-1.5 py-0.5 overflow-hidden border flex items-center ${
                                       isExam
                                         ? 'bg-tertiary border-line text-ink border-l-4 border-l-ink'
                                         : 'bg-surface-2 border-line-soft text-ink border-l-4 border-l-accent'
                                     }`}
                                   >
-                                    <div className="min-w-0">
+                                    <div className="min-w-0 w-full">
                                       <p className="text-[10px] font-bold truncate leading-tight">
                                         {slot.eventCode}
                                       </p>
@@ -1533,7 +1542,9 @@ export default function AdminPage() {
                                         {slot.startTime}–{slot.endTime}
                                       </p>
                                     </div>
-                                    <div className="flex items-center gap-0.5 shrink-0">
+                                    {/* Edit/delete float over the block on hover or keyboard focus, so a
+                                        short class keeps its code readable instead of showing only icons. */}
+                                    <div className="absolute right-0.5 top-0.5 flex items-center gap-0.5 bg-white/95 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
                                       <button
                                         type="button"
                                         aria-label="แก้ไขตาราง"
