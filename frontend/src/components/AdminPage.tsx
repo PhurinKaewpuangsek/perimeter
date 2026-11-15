@@ -17,6 +17,7 @@ import {
 } from '../services/scheduleConflicts'
 import { getCategoryLabel, getLandmarkText } from '../services/roomDisplay'
 import { CATEGORY_FILTERS } from '../services/filterRooms'
+import { GRID_END_HOUR, GRID_START_HOUR, getTrackPlacement } from '../services/timetableTrack'
 
 /** The "สิ่งอำนวยความสะดวก" group (restrooms, stairs, storage…): not places to book a class. */
 const NON_BOOKABLE_CATEGORIES = new Set(
@@ -73,9 +74,6 @@ const DAYS: { value: DayOfWeek; label: string; short: string }[] = [
 ]
 
 const MINI_GRID_DAYS: DayOfWeek[] = ['MON', 'TUE', 'WED', 'THU', 'FRI']
-const GRID_START_HOUR = 8
-const GRID_END_HOUR = 20
-const GRID_TOTAL_MINUTES = (GRID_END_HOUR - GRID_START_HOUR) * 60
 const HOURS = Array.from(
   { length: GRID_END_HOUR - GRID_START_HOUR },
   (_, i) => GRID_START_HOUR + i,
@@ -110,11 +108,6 @@ function getWeekdayFromDateString(dateStr: string): DayOfWeek | null {
   return JS_DAY_TO_WEEKDAY[d.getUTCDay()]
 }
 
-function parseMinutes(hhmm: string): number {
-  const [h, m] = hhmm.split(':').map(Number)
-  return (h || 0) * 60 + (m || 0)
-}
-
 type LeftTab = 'rooms' | 'schedules' | 'closures'
 const LEFT_TABS: LeftTab[] = ['rooms', 'schedules', 'closures']
 
@@ -128,10 +121,20 @@ export default function AdminPage() {
     error: roomsError,
     reload: reloadRooms,
   } = useRooms()
-  const { schedules, reload: reloadSchedules } = useSchedules()
+  const {
+    schedules,
+    loading: schedulesLoading,
+    error: schedulesError,
+    reload: reloadSchedules,
+  } = useSchedules()
+  // Until the first schedule request succeeds `schedules` is just [], which would make
+  // every room look free. Availability is only shown once the list is really loaded.
+  const schedulesReady = !schedulesLoading && !schedulesError
   const floorPlansReady = usePreloadImages(FLOOR_PLAN_ASSETS)
   const dateInputId = useId()
   const roomComboboxId = useId()
+  const formIdBase = useId()
+  const formFieldId = (field: string) => `${formIdBase}-${field}`
 
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const [activeTab, setActiveTab] = useState<LeftTab>('rooms')
@@ -186,6 +189,9 @@ export default function AdminPage() {
     toRoom: string
     refreshFailed?: boolean
   } | null>(null)
+  // A save or delete went through but reloading the list afterwards failed.
+  const [scheduleRefreshFailed, setScheduleRefreshFailed] = useState(false)
+  const [scheduleRefreshing, setScheduleRefreshing] = useState(false)
 
   // Master Timetable filter state
   const [scheduleFloorFilter, setScheduleFloorFilter] = useState<number | null>(
@@ -270,32 +276,22 @@ export default function AdminPage() {
       })
   }, [schedules, selectedRoom])
 
-  const masterTimetableRooms = useMemo(() => {
+  // Rooms whose own code, number or Thai name match the timetable search. Both the rows
+  // and the schedules use this, so a room found by name keeps its schedules.
+  const scheduleSearchRoomCodes = useMemo(() => {
     const q = scheduleSearchQuery.trim().toLowerCase()
-    const roomsWithSchedules = new Set(schedules.map((s) => s.roomCode))
-    return rooms.filter((r) => {
-      // Restrooms, stairs and storage only add empty rows above the real rooms; keep one
-      // only if something is actually scheduled there.
-      if (NON_BOOKABLE_CATEGORIES.has(r.category) && !roomsWithSchedules.has(r.code)) {
-        return false
-      }
-      if (scheduleFloorFilter !== null && r.floor !== scheduleFloorFilter) {
-        return false
-      }
-      if (!q) return true
-      const roomMatches =
-        r.code.toLowerCase().includes(q) ||
-        r.roomNumber.toLowerCase().includes(q) ||
-        (r.nameThai && r.nameThai.toLowerCase().includes(q))
-      if (roomMatches) return true
-      return schedules.some(
-        (s) =>
-          s.roomCode === r.code &&
-          (s.eventCode.toLowerCase().includes(q) ||
-            s.eventName.toLowerCase().includes(q)),
-      )
-    })
-  }, [rooms, schedules, scheduleFloorFilter, scheduleSearchQuery])
+    if (!q) return null
+    return new Set(
+      rooms
+        .filter(
+          (r) =>
+            r.code.toLowerCase().includes(q) ||
+            r.roomNumber.toLowerCase().includes(q) ||
+            (r.nameThai && r.nameThai.toLowerCase().includes(q)),
+        )
+        .map((r) => r.code),
+    )
+  }, [rooms, scheduleSearchQuery])
 
   const filteredMasterSchedules = useMemo(() => {
     const q = scheduleSearchQuery.trim().toLowerCase()
@@ -307,56 +303,83 @@ export default function AdminPage() {
       ) {
         return false
       }
-      if (!q) return true
+      if (!q || !scheduleSearchRoomCodes) return true
       return (
+        scheduleSearchRoomCodes.has(s.roomCode) ||
         s.eventCode.toLowerCase().includes(q) ||
         s.eventName.toLowerCase().includes(q) ||
         s.roomCode.toLowerCase().includes(q)
       )
     })
-  }, [schedules, rooms, scheduleFloorFilter, scheduleSearchQuery])
+  }, [schedules, rooms, scheduleFloorFilter, scheduleSearchQuery, scheduleSearchRoomCodes])
+
+  const masterTimetableRooms = useMemo(() => {
+    const roomsWithSchedules = new Set(schedules.map((s) => s.roomCode))
+    const roomsWithMatches = new Set(filteredMasterSchedules.map((s) => s.roomCode))
+    return rooms.filter((r) => {
+      // Restrooms, stairs and storage only add empty rows above the real rooms; keep one
+      // only if something is actually scheduled there.
+      if (NON_BOOKABLE_CATEGORIES.has(r.category) && !roomsWithSchedules.has(r.code)) {
+        return false
+      }
+      if (scheduleFloorFilter !== null && r.floor !== scheduleFloorFilter) {
+        return false
+      }
+      if (!scheduleSearchRoomCodes) return true
+      return scheduleSearchRoomCodes.has(r.code) || roomsWithMatches.has(r.code)
+    })
+  }, [rooms, schedules, filteredMasterSchedules, scheduleFloorFilter, scheduleSearchRoomCodes])
+
+  // With a dated exam or event the weekday comes from the date, as it does when saving,
+  // so the conflict checks below look at the day that will actually be stored.
+  const dateSetsWeekday = DATE_REQUIRED_TYPES.has(formType) && Boolean(getWeekdayFromDateString(formDate))
+  const effectiveFormDay: DayOfWeek = (dateSetsWeekday && getWeekdayFromDateString(formDate)) || formDay
 
   const candidateRoomConflictsMap = useMemo(() => {
     if (!scheduleModalOpen) return new Map<string, ScheduleSlot[]>()
     return getRoomAvailabilityMap(schedules, {
-      dayOfWeek: formDay,
+      dayOfWeek: effectiveFormDay,
       startTime: formStart,
       endTime: formEnd,
       eventType: formType,
       eventDate: DATE_REQUIRED_TYPES.has(formType) ? formDate || null : null,
       excludeSlotId: editingSlotId,
+      excludeRoomCode: modalSourceRoomCode,
     })
   }, [
     schedules,
     scheduleModalOpen,
-    formDay,
+    effectiveFormDay,
     formStart,
     formEnd,
     formType,
     formDate,
     editingSlotId,
+    modalSourceRoomCode,
   ])
 
   const targetRoomConflicts = useMemo(() => {
     if (!scheduleModalOpen || !targetRoomCode) return []
     return findRoomConflicts(schedules, targetRoomCode, {
-      dayOfWeek: formDay,
+      dayOfWeek: effectiveFormDay,
       startTime: formStart,
       endTime: formEnd,
       eventType: formType,
       eventDate: DATE_REQUIRED_TYPES.has(formType) ? formDate || null : null,
       excludeSlotId: editingSlotId,
+      excludeRoomCode: modalSourceRoomCode,
     })
   }, [
     schedules,
     scheduleModalOpen,
     targetRoomCode,
-    formDay,
+    effectiveFormDay,
     formStart,
     formEnd,
     formType,
     formDate,
     editingSlotId,
+    modalSourceRoomCode,
   ])
 
   const pickerRooms = useMemo(() => {
@@ -541,13 +564,11 @@ export default function AdminPage() {
           ? { eventCode: formCode.trim(), toRoom: destinationRoomCode }
           : null
         closeScheduleModal()
-        try {
-          await reloadSchedules(true)
-          if (movedNotice) setMoveNotice(movedNotice)
-        } catch {
-          if (movedNotice) {
-            setMoveNotice({ ...movedNotice, refreshFailed: true })
-          }
+        const refreshed = await refreshSchedulesAfterSave()
+        if (movedNotice) {
+          setMoveNotice(refreshed ? movedNotice : { ...movedNotice, refreshFailed: true })
+          // The move notice already says the list is out of date.
+          if (!refreshed) setScheduleRefreshFailed(false)
         }
       } else {
         const createRoom = (targetRoomCode || sourceRoomCode).trim()
@@ -562,7 +583,7 @@ export default function AdminPage() {
           ...(dateRequired && trimmedDate ? { event_date: trimmedDate } : {}),
         })
         closeScheduleModal()
-        await reloadSchedules(true)
+        await refreshSchedulesAfterSave()
       }
     } catch (err) {
       setScheduleError(
@@ -584,9 +605,30 @@ export default function AdminPage() {
     }
     try {
       await deleteSchedule(slot.roomCode, slotId)
-      await reloadSchedules(true)
     } catch (err) {
       alert(err instanceof Error ? err.message : 'ลบไม่สำเร็จ')
+      return
+    }
+    await refreshSchedulesAfterSave()
+  }
+
+  /**
+   * Reloads the schedule list after a save or delete that already went through.
+   * A failure here is not a failed save, so it shows a page-level warning with a retry
+   * button instead of an error inside the (already closed) editor. Resolves to whether
+   * the reload worked.
+   */
+  async function refreshSchedulesAfterSave(): Promise<boolean> {
+    setScheduleRefreshing(true)
+    try {
+      await reloadSchedules(true)
+      setScheduleRefreshFailed(false)
+      return true
+    } catch {
+      setScheduleRefreshFailed(true)
+      return false
+    } finally {
+      setScheduleRefreshing(false)
     }
   }
 
@@ -597,6 +639,32 @@ export default function AdminPage() {
 
   const activeTabIdx = LEFT_TABS.indexOf(activeTab)
   const blobTransform = `translateX(${activeTabIdx * 100}%)`
+
+  // Shown wherever availability or the timetable would otherwise be drawn from an
+  // empty list that has not loaded yet.
+  const schedulesStatusNotice = schedulesReady ? null : (
+    <div
+      role={schedulesError ? 'alert' : 'status'}
+      className="flex items-center justify-between gap-2 border border-line-soft bg-surface-2 p-2.5 text-[11px] text-ink-2"
+    >
+      <span>
+        {schedulesError
+          ? 'โหลดตารางไม่สำเร็จ จึงยังบอกไม่ได้ว่าห้องไหนว่าง'
+          : 'กำลังโหลดตาราง…'}
+      </span>
+      {schedulesError && (
+        <button
+          type="button"
+          onClick={() => {
+            reloadSchedules().catch(() => {})
+          }}
+          className="shrink-0 font-semibold text-ink underline"
+        >
+          ลองอีกครั้ง
+        </button>
+      )}
+    </div>
+  )
 
   const dockModeSwitcher = (
     <div
@@ -688,7 +756,37 @@ export default function AdminPage() {
             : () => setMapView((prev) => (prev === '3d' ? '2d' : '3d'))
         }
         dockExtra={dockModeSwitcher}
+        showDockOnMobile
       />
+
+      {scheduleRefreshFailed && (
+        <div
+          role="alert"
+          className="fixed left-1/2 top-[76px] z-105 flex w-[min(92vw,520px)] -translate-x-1/2 items-center justify-between gap-3 border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 shadow-floating"
+        >
+          <span>บันทึกแล้ว แต่โหลดตารางล่าสุดไม่สำเร็จ รายการที่เห็นอาจยังไม่อัปเดต</span>
+          <span className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                void refreshSchedulesAfterSave()
+              }}
+              disabled={scheduleRefreshing}
+              className="font-semibold underline disabled:opacity-50"
+            >
+              {scheduleRefreshing ? 'กำลังโหลด…' : 'โหลดอีกครั้ง'}
+            </button>
+            <button
+              type="button"
+              aria-label="ปิดคำเตือน"
+              onClick={() => setScheduleRefreshFailed(false)}
+              className="p-0.5 hover:text-ink"
+            >
+              <X size={12} weight="bold" />
+            </button>
+          </span>
+        </div>
+      )}
 
       {/* Workspace below fixed 64px TopBar */}
       <div className="absolute inset-x-0 top-16 bottom-0 flex overflow-hidden">
@@ -738,6 +836,7 @@ export default function AdminPage() {
                       <Clock size={13} weight="bold" className="text-accent" />
                       กรองห้องว่างตามช่วงเวลา
                     </span>
+                    {schedulesReady && (
                     <span className="text-[11px] font-semibold text-emerald-700">
                       ว่าง{' '}
                       {
@@ -747,7 +846,9 @@ export default function AdminPage() {
                       }
                       /{filteredRooms.length} ห้อง
                     </span>
+                    )}
                   </div>
+                  {schedulesStatusNotice}
                   <div className="grid grid-cols-3 gap-1.5">
                     <select
                       aria-label="วันตรวจสอบห้องว่าง"
@@ -787,7 +888,7 @@ export default function AdminPage() {
             {activeTab === 'closures' ? (
               <div
                 ref={sidebarScrollRef}
-                className="flex-1 overflow-y-auto thin-scrollbar p-4"
+                className="flex-1 overflow-y-auto thin-scrollbar p-4 pb-40 sm:pb-4"
               >
                 <ClosureTab
                   rooms={rooms}
@@ -860,7 +961,7 @@ export default function AdminPage() {
                 {/* Scrollable Room Directory Cards */}
                 <div
                   ref={sidebarScrollRef}
-                  className="flex-1 overflow-y-auto px-4 py-3 space-y-2"
+                  className="flex-1 overflow-y-auto px-4 pt-3 pb-40 sm:pb-3 space-y-2"
                 >
                   {filteredRooms.length === 0 ? (
                     <div className="py-12 text-center text-xs text-ink-3">
@@ -904,7 +1005,7 @@ export default function AdminPage() {
                               </p>
                             </div>
                             <div className="flex flex-col items-end gap-1 shrink-0">
-                              {timeFilterActive ? (
+                              {!schedulesReady ? null : timeFilterActive ? (
                                 isBusy ? (
                                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200">
                                     ไม่ว่าง: {roomConflicts[0].eventCode}
@@ -961,8 +1062,9 @@ export default function AdminPage() {
             <div className="px-6 py-3.5 border-b border-line bg-surface flex flex-wrap items-center justify-between gap-3 shrink-0">
               <div>
                 <h2 className="text-base font-bold text-ink tracking-tight">
-                  สำรวจตารางเวลาทั้งหมด ({filteredMasterSchedules.length}/
-                  {schedules.length})
+                  สำรวจตารางเวลาทั้งหมด
+                  {schedulesReady &&
+                    ` (${filteredMasterSchedules.length}/${schedules.length})`}
                 </h2>
                 <p className="text-xs text-ink-2">
                   เปรียบเทียบห้องว่างและคาบเรียนรายชั่วโมง (คลิกช่องว่างเพื่อเพิ่มตาราง หรือคลิกวิชาเพื่อแก้ไข)
@@ -1048,8 +1150,11 @@ export default function AdminPage() {
             </div>
 
             {/* Room x Hour Matrix Grid */}
+            {!schedulesReady ? (
+              <div className="flex-1 bg-surface-2 p-6">{schedulesStatusNotice}</div>
+            ) : (
             <div className="flex-1 overflow-auto bg-surface-2">
-              <div className="min-w-[1100px]">
+              <div className="min-w-[1100px] pb-24">
                 {/* Sticky Hour Header */}
                 <div className="sticky top-0 z-20 flex bg-surface border-b border-line">
                   <div className="w-[220px] shrink-0 px-4 py-2.5 border-r border-line text-xs font-bold text-ink bg-surface sticky left-0 z-30">
@@ -1130,19 +1235,9 @@ export default function AdminPage() {
 
                         {/* Positioned Schedule Blocks */}
                         {rowSlots.map((slot) => {
-                          const startMins = Math.max(
-                            0,
-                            parseMinutes(slot.startTime) - GRID_START_HOUR * 60,
-                          )
-                          const endMins = Math.min(
-                            GRID_TOTAL_MINUTES,
-                            parseMinutes(slot.endTime) - GRID_START_HOUR * 60,
-                          )
-                          const leftPct = (startMins / GRID_TOTAL_MINUTES) * 100
-                          const widthPct = Math.max(
-                            ((endMins - startMins) / GRID_TOTAL_MINUTES) * 100,
-                            4,
-                          )
+                          const placement = getTrackPlacement(slot.startTime, slot.endTime, 4)
+                          if (!placement) return null
+                          const { leftPct, widthPct } = placement
                           const isExam = slot.eventType === 'exam'
 
                           return (
@@ -1186,6 +1281,7 @@ export default function AdminPage() {
                 })}
               </div>
             </div>
+            )}
           </section>
         ) : (
           <div className="relative flex-1 h-full overflow-hidden">
@@ -1249,7 +1345,7 @@ export default function AdminPage() {
             </div>
 
             {/* Scrollable Inspector Body */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div className="flex-1 overflow-y-auto p-4 pb-40 sm:pb-4 space-y-4">
               {/* Read-Only Room Summary Card */}
               <div className="card p-4 space-y-2.5">
                 <div className="flex items-start justify-between gap-2">
@@ -1475,6 +1571,8 @@ export default function AdminPage() {
                   </div>
                 </div>
 
+                {schedulesStatusNotice}
+
                 {/* 5-Day Mini Timetable Grid View */}
                 {inspectorScheduleView === 'grid' && (
                   <div className="card p-3 space-y-2">
@@ -1508,23 +1606,9 @@ export default function AdminPage() {
                               className="relative flex-1 h-12 bg-surface-2/60 border border-line-soft cursor-pointer hover:bg-surface-2 transition-colors"
                             >
                               {daySlots.map((slot) => {
-                                const startMins = Math.max(
-                                  0,
-                                  parseMinutes(slot.startTime) -
-                                    GRID_START_HOUR * 60,
-                                )
-                                const endMins = Math.min(
-                                  GRID_TOTAL_MINUTES,
-                                  parseMinutes(slot.endTime) -
-                                    GRID_START_HOUR * 60,
-                                )
-                                const leftPct =
-                                  (startMins / GRID_TOTAL_MINUTES) * 100
-                                const widthPct = Math.max(
-                                  ((endMins - startMins) / GRID_TOTAL_MINUTES) *
-                                    100,
-                                  12,
-                                )
+                                const placement = getTrackPlacement(slot.startTime, slot.endTime, 12)
+                                if (!placement) return null
+                                const { leftPct, widthPct } = placement
                                 const isExam = slot.eventType === 'exam'
 
                                 return (
@@ -1689,7 +1773,8 @@ export default function AdminPage() {
                   type="button"
                   aria-label="ปิดหน้าต่างตารางสอน"
                   onClick={closeScheduleModal}
-                  className="p-1.5 text-ink-2 hover:text-ink hover:bg-surface-2 transition-colors"
+                  disabled={scheduleSaving}
+                  className="p-1.5 disabled:cursor-not-allowed disabled:opacity-40 text-ink-2 hover:text-ink hover:bg-surface-2 transition-colors"
                 >
                   <X size={18} weight="bold" />
                 </button>
@@ -1701,10 +1786,14 @@ export default function AdminPage() {
                 <div className="p-6 space-y-3.5">
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-[11px] font-medium text-ink-2 mb-1">
+                      <label
+                        htmlFor={formFieldId('code')}
+                        className="block text-[11px] font-medium text-ink-2 mb-1"
+                      >
                         รหัสวิชา *
                       </label>
                       <input
+                        id={formFieldId('code')}
                         type="text"
                         required
                         value={formCode}
@@ -1714,15 +1803,21 @@ export default function AdminPage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] font-medium text-ink-2 mb-1">
+                      <label
+                        htmlFor={formFieldId('day')}
+                        className="block text-[11px] font-medium text-ink-2 mb-1"
+                      >
                         วัน *
                       </label>
                       <select
-                        value={formDay}
+                        id={formFieldId('day')}
+                        value={effectiveFormDay}
+                        disabled={dateSetsWeekday}
+                        aria-describedby={dateSetsWeekday ? formFieldId('day-hint') : undefined}
                         onChange={(e) =>
                           setFormDay(e.target.value as DayOfWeek)
                         }
-                        className="input-boxed py-2 text-xs"
+                        className="input-boxed py-2 text-xs disabled:opacity-70"
                       >
                         {DAYS.map((d) => (
                           <option key={d.value} value={d.value}>
@@ -1730,14 +1825,23 @@ export default function AdminPage() {
                           </option>
                         ))}
                       </select>
+                      {dateSetsWeekday && (
+                        <p id={formFieldId('day-hint')} className="mt-1 text-[10px] text-ink-3">
+                          ตามวันที่ที่เลือก
+                        </p>
+                      )}
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-medium text-ink-2 mb-1">
+                    <label
+                      htmlFor={formFieldId('name')}
+                      className="block text-[11px] font-medium text-ink-2 mb-1"
+                    >
                       ชื่อวิชา / กิจกรรม
                     </label>
                     <input
+                      id={formFieldId('name')}
                       type="text"
                       value={formName}
                       onChange={(e) => setFormName(e.target.value)}
@@ -1748,10 +1852,14 @@ export default function AdminPage() {
 
                   <div className="grid grid-cols-3 gap-2">
                     <div>
-                      <label className="block text-[11px] font-medium text-ink-2 mb-1">
+                      <label
+                        htmlFor={formFieldId('start')}
+                        className="block text-[11px] font-medium text-ink-2 mb-1"
+                      >
                         เวลาเริ่ม *
                       </label>
                       <input
+                        id={formFieldId('start')}
                         type="text"
                         required
                         value={formStart}
@@ -1761,10 +1869,14 @@ export default function AdminPage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] font-medium text-ink-2 mb-1">
+                      <label
+                        htmlFor={formFieldId('end')}
+                        className="block text-[11px] font-medium text-ink-2 mb-1"
+                      >
                         เวลาสิ้นสุด *
                       </label>
                       <input
+                        id={formFieldId('end')}
                         type="text"
                         required
                         value={formEnd}
@@ -1774,10 +1886,14 @@ export default function AdminPage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] font-medium text-ink-2 mb-1">
+                      <label
+                        htmlFor={formFieldId('type')}
+                        className="block text-[11px] font-medium text-ink-2 mb-1"
+                      >
                         ประเภท
                       </label>
                       <select
+                        id={formFieldId('type')}
                         value={formType}
                         onChange={(e) => {
                           const next = e.target.value as EventType
@@ -1917,6 +2033,8 @@ export default function AdminPage() {
                     />
                   </div>
 
+                  {schedulesStatusNotice}
+
                   {/* Interactive Conflict-Aware Candidate Room Cards */}
                   <div className="flex-1 max-h-56 overflow-y-auto space-y-1.5 pr-1">
                     {pickerRooms.map((room) => {
@@ -1956,7 +2074,7 @@ export default function AdminPage() {
                           </div>
 
                           <div className="shrink-0">
-                            {hasConflict ? (
+                            {!schedulesReady ? null : hasConflict ? (
                               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200">
                                 ชน: {conflicts[0].eventCode} (
                                 {conflicts[0].startTime}–{conflicts[0].endTime})
@@ -1979,6 +2097,7 @@ export default function AdminPage() {
                 <button
                   type="button"
                   onClick={closeScheduleModal}
+                  disabled={scheduleSaving}
                   className="btn btn-secondary py-2 px-5 text-xs"
                 >
                   ยกเลิก

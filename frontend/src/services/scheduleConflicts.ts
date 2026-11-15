@@ -7,6 +7,11 @@ export interface CandidateScheduleSlot {
   eventType?: EventType
   eventDate?: string | null
   excludeSlotId?: string | null
+  /**
+   * Room of the slot being edited. Slot ids are only unique within a room, so the
+   * edited slot is skipped only where both its id and its room match.
+   */
+  excludeRoomCode?: string | null
 }
 
 /**
@@ -45,7 +50,8 @@ export function schedulesOverlap(
 ): boolean {
   if (
     candidate.excludeSlotId &&
-    buildScheduleSlotId(existing) === candidate.excludeSlotId
+    buildScheduleSlotId(existing) === candidate.excludeSlotId &&
+    (!candidate.excludeRoomCode || existing.roomCode === candidate.excludeRoomCode)
   ) {
     return false
   }

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import AdminPage from '../AdminPage'
@@ -132,6 +132,7 @@ vi.mock('../../hooks/useRooms', () => ({
 }))
 
 const reloadSchedulesMock = vi.hoisted(() => vi.fn(async () => {}))
+const schedulesStateMock = vi.hoisted(() => ({ loading: false, error: null as Error | null }))
 
 const graphStateMock = vi.hoisted(() => ({
   graph: { graphId: 'LC3', nodes: [], edges: [] },
@@ -144,8 +145,8 @@ vi.mock('../../hooks/useGraph', () => ({ useGraph: () => graphStateMock }))
 vi.mock('../../hooks/useSchedules', () => ({
   useSchedules: () => ({
     schedules: mockSchedules,
-    loading: false,
-    error: null,
+    loading: schedulesStateMock.loading,
+    error: schedulesStateMock.error,
     reload: reloadSchedulesMock,
   }),
 }))
@@ -799,5 +800,128 @@ describe('AdminPage move schedule to another room (#153)', () => {
     ).toBeInTheDocument()
     expect(roomBox()).toHaveValue('LC3-201 · ห้องปฏิบัติการ 201')
     expect(screen.queryByText(/ไปห้อง LC3-201 แล้ว/)).not.toBeInTheDocument()
+  })
+})
+
+describe('AdminPage review fixes (#186)', () => {
+  beforeEach(() => {
+    currentSession = {
+      idToken: 'mock-token',
+      accessToken: 'mock-access',
+      expiresAt: Date.now() + 3600000,
+      user: { email: 'staff@torch.dev', sub: 'staff-sub', groups: ['staff'] },
+    }
+    Object.values(adminServiceMock).forEach((fn) => fn.mockClear())
+    reloadSchedulesMock.mockReset()
+    reloadSchedulesMock.mockImplementation(async () => {})
+    schedulesStateMock.loading = false
+    schedulesStateMock.error = null
+  })
+
+  function renderPage() {
+    const user = userEvent.setup()
+    render(
+      <MemoryRouter>
+        <AdminPage />
+      </MemoryRouter>,
+    )
+    return user
+  }
+
+  async function openAddForRoom101(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(screen.getByText('ห้อง 101').closest('button')!)
+    await user.click(screen.getByRole('button', { name: /เพิ่มตาราง/ }))
+    return within(screen.getByRole('dialog', { name: 'เพิ่มตารางสอนใหม่' }))
+  }
+
+  async function fillAndSave(dialog: ReturnType<typeof within>, user: ReturnType<typeof userEvent.setup>) {
+    await user.type(dialog.getByPlaceholderText('CS333'), 'CS999')
+    await user.type(dialog.getByPlaceholderText('09:00'), '17:00')
+    await user.type(dialog.getByPlaceholderText('12:00'), '18:00')
+    await user.click(dialog.getByRole('button', { name: 'บันทึกตารางสอน' }))
+  }
+
+  it('does not call any room free before the schedules have loaded', async () => {
+    schedulesStateMock.loading = true
+    const user = renderPage()
+    const dialog = await openAddForRoom101(user)
+
+    expect(dialog.getByText('กำลังโหลดตาราง…')).toBeInTheDocument()
+    expect(dialog.queryByText('ว่าง')).not.toBeInTheDocument()
+  })
+
+  it('offers a retry instead of an empty master timetable when schedules fail to load', async () => {
+    schedulesStateMock.error = new Error('network')
+    const user = renderPage()
+    await user.click(screen.getByRole('button', { name: /ตารางเวลาทั้งหมด/ }))
+
+    expect(screen.getByRole('alert')).toHaveTextContent('โหลดตารางไม่สำเร็จ')
+    expect(screen.queryByRole('button', { name: /เพิ่มตาราง LC3-101 เวลา/ })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'ลองอีกครั้ง' }))
+    expect(reloadSchedulesMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('takes the weekday from the exam date and links each label to its field', async () => {
+    const user = renderPage()
+    const dialog = await openAddForRoom101(user)
+    await user.type(dialog.getByLabelText('เวลาเริ่ม *'), '10:00')
+    await user.type(dialog.getByLabelText('เวลาสิ้นสุด *'), '11:00')
+    // Monday 10:00–11:00 overlaps CS101 in LC3-101.
+    expect(dialog.getByText(/คำเตือน: ห้อง LC3-101 มีตารางชน/)).toBeInTheDocument()
+
+    await user.selectOptions(dialog.getByLabelText('ประเภท'), 'exam')
+    await user.type(dialog.getByLabelText(/วันสอบ/), '2026-05-22') // a Friday
+
+    const day = dialog.getByLabelText('วัน *')
+    expect(day).toHaveValue('FRI')
+    expect(day).toBeDisabled()
+    expect(dialog.queryByText(/คำเตือน: ห้อง LC3-101 มีตารางชน/)).not.toBeInTheDocument()
+    expect(dialog.getByLabelText('รหัสวิชา *')).toHaveAttribute('placeholder', 'CS333')
+  })
+
+  it("keeps a room's schedules when the timetable is searched by its Thai name", async () => {
+    const user = renderPage()
+    await user.click(screen.getByRole('button', { name: /ตารางเวลาทั้งหมด/ }))
+    await user.click(screen.getByRole('button', { name: 'ทั้งหมด' }))
+    await user.type(screen.getByPlaceholderText(/ค้นหารหัสวิชา/), 'ห้องปฏิบัติการ 201')
+
+    expect(screen.getByText('CS201')).toBeInTheDocument()
+    expect(screen.getByText('BAS350')).toBeInTheDocument()
+    expect(screen.queryByText('CS101')).not.toBeInTheDocument()
+  })
+
+  it('warns on the page, with a retry, when the list cannot refresh after a save', async () => {
+    reloadSchedulesMock.mockRejectedValueOnce(new Error('network'))
+    const user = renderPage()
+    const dialog = await openAddForRoom101(user)
+    await fillAndSave(dialog, user)
+
+    expect(await screen.findByText(/บันทึกแล้ว แต่โหลดตารางล่าสุดไม่สำเร็จ/)).toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'โหลดอีกครั้ง' }))
+    expect(reloadSchedulesMock).toHaveBeenCalledTimes(2)
+    await waitFor(() =>
+      expect(screen.queryByText(/บันทึกแล้ว แต่โหลดตารางล่าสุดไม่สำเร็จ/)).not.toBeInTheDocument(),
+    )
+  })
+
+  it('cannot be closed while a save is still in flight', async () => {
+    let finishSave: () => void = () => {}
+    adminServiceMock.createSchedule.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishSave = () => resolve({ message: 'ok', schedule_slot: 'slot' })
+        }),
+    )
+    const user = renderPage()
+    const dialog = await openAddForRoom101(user)
+    await fillAndSave(dialog, user)
+
+    expect(dialog.getByRole('button', { name: 'ยกเลิก' })).toBeDisabled()
+    expect(dialog.getByRole('button', { name: 'ปิดหน้าต่างตารางสอน' })).toBeDisabled()
+
+    finishSave()
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
   })
 })

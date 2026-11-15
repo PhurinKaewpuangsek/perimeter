@@ -267,6 +267,25 @@ describe('TopBar (Shared Component)', () => {
     expect(screen.getByRole('link', { name: /ดูผังอาคาร lc3/i })).toHaveAttribute('href', '/map')
   })
 
+  it('shows the dock below sm only when the page asks for it (/staff)', () => {
+    const { rerender } = render(
+      <MemoryRouter>
+        <TopBar currentFloor={1} onFloorChange={vi.fn()} />
+      </MemoryRouter>,
+    )
+    expect(screen.getByRole('navigation', { name: 'แถบควบคุมแผนที่' })).toHaveClass('hidden')
+
+    rerender(
+      <MemoryRouter>
+        <TopBar currentFloor={1} onFloorChange={vi.fn()} showDockOnMobile />
+      </MemoryRouter>,
+    )
+    const dock = screen.getByRole('navigation', { name: 'แถบควบคุมแผนที่' })
+    expect(dock).not.toHaveClass('hidden')
+    // It wraps onto a second row rather than running off a narrow screen.
+    expect(dock).toHaveClass('flex', 'flex-wrap', 'sm:flex-nowrap')
+  })
+
   it('does not render workspace switcher for guest users', () => {
     renderTopBar()
     expect(screen.queryByTestId('workspace-switcher-trigger')).not.toBeInTheDocument()

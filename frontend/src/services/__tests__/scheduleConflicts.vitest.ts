@@ -60,6 +60,21 @@ describe('scheduleConflicts service', () => {
     expect(conflicts).toHaveLength(0)
   })
 
+  it('does not exclude a slot with the same id in another room', () => {
+    const twin: ScheduleSlot = { ...sampleSchedules[0], roomCode: 'LC3-301' }
+    const candidate = {
+      dayOfWeek: 'MON' as const,
+      startTime: '09:30',
+      endTime: '11:30',
+      excludeSlotId: 'MON#09:00#CS101',
+      excludeRoomCode: 'LC3-101',
+    }
+    const schedules = [...sampleSchedules, twin]
+    expect(findRoomConflicts(schedules, 'LC3-101', candidate)).toHaveLength(0)
+    expect(findRoomConflicts(schedules, 'LC3-301', candidate)).toEqual([twin])
+    expect(getRoomAvailabilityMap(schedules, candidate).get('LC3-301')).toEqual([twin])
+  })
+
   it('distinguishes dated exams on different calendar dates while flagging same-date conflicts', () => {
     const diffDateConflicts = findRoomConflicts(sampleSchedules, 'LC3-101', {
       dayOfWeek: 'MON',
