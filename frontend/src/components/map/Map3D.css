@@ -199,46 +199,37 @@
 .map3d-marker[data-destination='true'] .map3d-icon {
   box-shadow: 0 0 0 1.5px #ffffff;
 }
-/* Integrated Origin Glyph inside the start pill (Uber-style pickup circle) */
+/* Start glyph inside the origin pill: a hollow ring, Google Maps style (routeGlyphs.ts) */
 .map3d-glyph-origin {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #ff4d94 0%, #ec4899 50%, #db2777 100%);
-  border: 2px solid #ffffff;
-  box-sizing: border-box;
+  background: #000000;
+  box-shadow: 0 0 0 1.5px #ffffff;
   flex: none;
-  margin-left: -2px;
+  margin-left: -1px;
 }
 .map3d-glyph-origin-inner {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   background: #ffffff;
   flex: none;
 }
-/* Integrated Destination Glyph inside the destination pill (Uber-style drop-off square) */
+/* Destination glyph inside the destination pill: a red map pin (routeGlyphs.ts) */
 .map3d-glyph-dest {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 18px;
   height: 18px;
-  border-radius: 4px;
-  background: linear-gradient(135deg, #fbbf24 0%, #f97316 50%, #ea580c 100%);
-  border: 2px solid #ffffff;
-  box-sizing: border-box;
   flex: none;
   margin-left: -2px;
 }
 .map3d-glyph-dest-inner {
-  width: 6px;
-  height: 6px;
-  border-radius: 1px;
-  background: #ffffff;
   flex: none;
 }
 /* Ground-anchored drop pin stem pointing DOWN to the route line */

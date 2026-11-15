@@ -42,6 +42,7 @@ import {
   splitRouteByFloor,
 } from '../services/routeDisplay'
 import type { UseRouteResult } from '../hooks/useRoute'
+import { PIN_DOT, PIN_ICON_PATH, PIN_RED, PIN_RED_DARK } from './map/routeGlyphs'
 import type { Room } from '../types/room'
 
 interface NavigationPanelProps {
@@ -59,27 +60,18 @@ interface NavigationPanelProps {
 }
 
 /** Pickup dot (Gradient Pink) and drop-off square (Gradient Orange-Yellow) matching Perimeter brand (#145). */
+/** Start: a hollow ring, as in Google Maps directions (same as on the map). */
 function StartGlyph() {
-  return (
-    <span
-      aria-hidden="true"
-      className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full shadow-2xs"
-      style={{ background: 'linear-gradient(135deg, #ff4d94 0%, #ec4899 50%, #db2777 100%)' }}
-    >
-      <span className="h-1.5 w-1.5 rounded-full bg-white" />
-    </span>
-  )
+  return <span aria-hidden="true" className="h-3.5 w-3.5 shrink-0 rounded-full border-[3px] border-ink bg-white" />
 }
 
+/** Destination: a red map pin, as in Google Maps directions (same as on the map). */
 function EndGlyph() {
   return (
-    <span
-      aria-hidden="true"
-      className="flex h-4 w-4 shrink-0 items-center justify-center rounded-[3px] shadow-2xs"
-      style={{ background: 'linear-gradient(135deg, #fbbf24 0%, #f97316 50%, #ea580c 100%)' }}
-    >
-      <span className="h-1.5 w-1.5 bg-white rounded-[0.5px]" />
-    </span>
+    <svg aria-hidden="true" viewBox="0 0 256 256" width={22} height={22} className="shrink-0">
+      <circle cx={PIN_DOT.cx} cy={PIN_DOT.cy} r={PIN_DOT.r} fill={PIN_RED_DARK} />
+      <path d={PIN_ICON_PATH} fill={PIN_RED} />
+    </svg>
   )
 }
 
@@ -244,7 +236,7 @@ export default function NavigationPanel({
           {/* Left vertical glyph track: Continuous line from Circle to Rectangle */}
           <div className="relative flex flex-col items-center shrink-0 w-5 self-stretch pt-[30px] pb-[12px] select-none">
             <StartGlyph />
-            <span aria-hidden="true" className="w-0.5 flex-1 bg-ink my-1" />
+            <span aria-hidden="true" className="my-1 w-0 flex-1 border-l-[3px] border-dotted border-ink-3" />
             <EndGlyph />
           </div>
 

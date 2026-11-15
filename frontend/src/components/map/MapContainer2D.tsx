@@ -409,6 +409,7 @@ function MapContainer({
               selectedRoomId={selectedRoomId}
               onSelectRoom={onSelectRoom}
               closedRoomIds={closedRoomIds}
+              destinationRoomId={route?.path[route.path.length - 1]?.locationId ?? null}
             />
           </div>
         </TransformComponent>
