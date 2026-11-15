@@ -317,6 +317,10 @@ describe('AdminPage', () => {
     await user.click(schedulesTab)
 
     expect(screen.getByText(/สำรวจตารางเวลาทั้งหมด/)).toBeInTheDocument()
+    // It opens on a single day so different days' classes do not overlap in one row…
+    expect(screen.getByRole('button', { name: 'ทั้งหมด' })).not.toHaveClass('chip-active')
+    // …and "ทั้งหมด" still shows every day.
+    await user.click(screen.getByRole('button', { name: 'ทั้งหมด' }))
     expect(screen.getByText('CS101')).toBeInTheDocument()
     expect(screen.getByText('CS201')).toBeInTheDocument()
   })

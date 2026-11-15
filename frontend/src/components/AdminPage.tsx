@@ -191,9 +191,12 @@ export default function AdminPage() {
   const [scheduleFloorFilter, setScheduleFloorFilter] = useState<number | null>(
     null,
   )
-  const [scheduleDayFilter, setScheduleDayFilter] = useState<'ALL' | DayOfWeek>(
-    'ALL',
-  )
+  // One day at a time by default: under "ทั้งหมด" every weekday's classes share one row
+  // and overlap. Start on today (Monday at the weekend); "ทั้งหมด" is still a click away.
+  const [scheduleDayFilter, setScheduleDayFilter] = useState<'ALL' | DayOfWeek>(() => {
+    const today = (['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'] as const)[new Date().getDay()]
+    return today === 'SAT' || today === 'SUN' ? 'MON' : today
+  })
   const [scheduleSearchQuery, setScheduleSearchQuery] = useState('')
 
   const sidebarScrollRef = useRef<HTMLDivElement>(null)
