@@ -2,6 +2,10 @@ import { describe, it, expect } from 'vitest'
 import type { Room } from '../../types/room'
 import type { Graph } from '../../types/graph'
 import {
+  addHoursToInputValue,
+  describeFormWindow,
+  endOfDayInputValue,
+  formatDuration,
   activeRoomClosures,
   buildWalkways,
   formatWindow,
@@ -199,3 +203,25 @@ describe('Bangkok time helpers', () => {
     expect(windowError('2026-10-29T08:00:00+07:00', '2026-10-29T12:00:00+07:00', now)).toBeNull()
   })
 })
+
+describe('closure form window summary (#195)', () => {
+  it('formats durations in hours and minutes', () => {
+    expect(formatDuration('2026-10-28T13:00:00+07:00', '2026-10-28T15:00:00+07:00')).toBe('2 ชม.')
+    expect(formatDuration('2026-10-28T13:00:00+07:00', '2026-10-28T14:30:00+07:00')).toBe('1 ชม. 30 นาที')
+    expect(formatDuration('2026-10-28T13:00:00+07:00', '2026-10-28T13:45:00+07:00')).toBe('45 นาที')
+    expect(formatDuration('2026-10-28T13:00:00+07:00', undefined)).toBeNull()
+    expect(formatDuration('2026-10-28T15:00:00+07:00', '2026-10-28T13:00:00+07:00')).toBeNull()
+  })
+
+  it('describes the typed window in Thai with its length', () => {
+    const text = describeFormWindow('2026-10-28T13:00', '2026-10-28T15:00')
+    expect(text).toMatch(/^ปิด28 ต\.ค\. 2569 13:00 – 28 ต\.ค\. 2569 15:00 \(2 ชม\.\)$/)
+    expect(describeFormWindow('2026-10-28T13:00', '')).toMatch(/^ปิดตั้งแต่ 28 ต\.ค\. 2569 13:00 จนกว่าจะเปิด$/)
+  })
+
+  it('moves an input value by hours and to the end of its day', () => {
+    expect(addHoursToInputValue('2026-10-28T23:30', 1)).toBe('2026-10-29T00:30')
+    expect(endOfDayInputValue('2026-10-28T09:00')).toBe('2026-10-28T23:59')
+  })
+})
+

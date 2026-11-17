@@ -75,12 +75,12 @@ A formal, dated academic evaluation event tied to a course code and assigned to 
 
 **Room Conflict**:
 A scheduling collision occurring when two or more schedule slots assigned to the same room share the same day of the week and overlapping time intervals (`startA < endB` and `endA > startB`).
-- _Code identifiers_: `conflicts`, `isTimeOverlapping`, `getRoomConflicts`
+- _Code identifiers_: `timeIntervalsOverlap`, `schedulesOverlap`, `findRoomConflicts` (all in `services/scheduleConflicts.ts`)
 - _Avoid_: Double booking, clash, collision
 
 **Master Timetable**:
 A building-wide resource matrix displaying rooms along the vertical axis and hours of the day along the horizontal axis for a selected weekday.
-- _Code identifiers_: `MasterTimetableMatrix`
+- _Code identifiers_: `getRoomAvailabilityMap` (`services/scheduleConflicts.ts`), the master timetable in `AdminPage` (`masterTimetableRooms`)
 - _Avoid_: Global calendar, master grid, building schedule list
 
 **Pin**:

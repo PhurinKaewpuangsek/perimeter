@@ -1,8 +1,7 @@
-import { createElement, useEffect } from 'react'
-import type { ReactNode } from 'react'
+import { useEffect } from 'react'
 import { MapPin, X } from '@phosphor-icons/react'
-import { getCategoryIcon } from './categoryIcon.ts'
-import { getBuildingLabel, getCategoryLabel, getLandmarkText, getCategoryColor } from '../services/roomDisplay.ts'
+import CategoryBadge from './CategoryBadge'
+import { getBuildingLabel, getLandmarkText } from '../services/roomDisplay.ts'
 
 import type { Room } from '../types/room.ts'
 
@@ -15,15 +14,6 @@ export interface RoomDetailModalProps {
   /** ควบคุมการแสดงผล Modal — ถ้าไม่ระบุจะเปิดเมื่อ selectedRoomId !== null */
   isOpen?: boolean
   onClose: () => void
-}
-
-function renderCategoryIcon(category: string, name?: string): ReactNode {
-  return createElement(getCategoryIcon(category, name), {
-    size: 16,
-    weight: 'duotone',
-    className: 'text-current shrink-0',
-    'aria-hidden': true,
-  })
 }
 
 export function RoomDetailModal({
@@ -123,17 +113,7 @@ export function RoomDetailModal({
                 )}
               </div>
 
-              {(() => {
-                const color = getCategoryColor(room.category)
-                return (
-                  <span
-                    className={`mt-3 inline-flex items-center gap-1.5 w-fit rounded-full border ${color.border} ${color.bg} px-3 py-1 text-xs font-medium ${color.text}`}
-                  >
-                    {renderCategoryIcon(room.category, room.nameThai)}
-                    <span>{getCategoryLabel(room.category)}</span>
-                  </span>
-                )
-              })()}
+              <CategoryBadge category={room.category} className="mt-3" />
 
               <div className="mt-5 border-t border-line-soft pt-4">
                 <h3 className="text-button font-medium text-ink">จุดสังเกตใกล้เคียง</h3>

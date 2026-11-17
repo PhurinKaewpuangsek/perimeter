@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useId } from 'react'
+import { Link } from 'react-router-dom'
 import { useRooms } from '../hooks/useRooms'
 import { useSchedules } from '../hooks/useSchedules'
 import { usePreloadImages } from '../hooks/usePreloadImages'
@@ -16,6 +17,7 @@ import {
   getRoomAvailabilityMap,
 } from '../services/scheduleConflicts'
 import { getCategoryLabel, getLandmarkText } from '../services/roomDisplay'
+import CategoryBadge from './CategoryBadge'
 import { CATEGORY_FILTERS } from '../services/filterRooms'
 import { GRID_END_HOUR, GRID_START_HOUR, getTrackPlacement } from '../services/timetableTrack'
 
@@ -183,6 +185,8 @@ export default function AdminPage() {
   )
   const [pickerMinCapacity, setPickerMinCapacity] = useState<string>('')
 
+  // Room id whose schedule was just saved, so staff get a direct link to check it on /map (#197).
+  const [savedScheduleRoomId, setSavedScheduleRoomId] = useState<string | null>(null)
   // Post-move confirmation banner
   const [moveNotice, setMoveNotice] = useState<{
     eventCode: string
@@ -451,7 +455,8 @@ export default function AdminPage() {
     setFormDay((slot.dayOfWeek as DayOfWeek) || 'MON')
     setFormStart(slot.startTime)
     setFormEnd(slot.endTime)
-    setFormType((slot.eventType as EventType) || 'lecture')
+    // Seed/API rows use 'class' (CONTEXT.md), which has no <option>; show it as a lecture.
+    setFormType(slot.eventType === 'class' ? 'lecture' : (slot.eventType as EventType) || 'lecture')
     setFormDate(slot.eventDate ?? '')
     setScheduleError(null)
     setMoveNotice(null)
@@ -564,6 +569,7 @@ export default function AdminPage() {
           ? { eventCode: formCode.trim(), toRoom: destinationRoomCode }
           : null
         closeScheduleModal()
+        setSavedScheduleRoomId(destRoomObj?.id ?? null)
         const refreshed = await refreshSchedulesAfterSave()
         if (movedNotice) {
           setMoveNotice(refreshed ? movedNotice : { ...movedNotice, refreshFailed: true })
@@ -583,6 +589,7 @@ export default function AdminPage() {
           ...(dateRequired && trimmedDate ? { event_date: trimmedDate } : {}),
         })
         closeScheduleModal()
+        setSavedScheduleRoomId(rooms.find((r) => r.code === createRoom)?.id ?? null)
         await refreshSchedulesAfterSave()
       }
     } catch (err) {
@@ -1031,7 +1038,7 @@ export default function AdminPage() {
                           <div className="flex items-center gap-2 mt-2 text-[11px] text-ink-3">
                             <span>ชั้น {room.floor}</span>
                             <span>·</span>
-                            <span>{getCategoryLabel(room.category)}</span>
+                            <CategoryBadge category={room.category} />
                             {room.capacity !== undefined && (
                               <>
                                 <span>·</span>
@@ -1144,7 +1151,7 @@ export default function AdminPage() {
                   className="btn btn-primary btn-sm"
                 >
                   <Plus size={14} weight="bold" />
-                  เพิ่มตาราง
+                  เพิ่มตาราง/กิจกรรม
                 </button>
               </div>
             </div>
@@ -1370,9 +1377,7 @@ export default function AdminPage() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-ink-2 pt-1">
-                  <span className="px-2 py-0.5 bg-surface-2 border border-line-soft font-medium">
-                    {getCategoryLabel(selectedRoom.category)}
-                  </span>
+                  <CategoryBadge category={selectedRoom.category} />
                   <span className="px-2 py-0.5 bg-surface-2 border border-line-soft font-medium inline-flex items-center gap-1">
                     <Users size={12} weight="bold" />
                     {selectedRoom.capacity
@@ -1522,6 +1527,21 @@ export default function AdminPage() {
                 </div>
               )}
 
+              {savedScheduleRoomId === selectedRoom.id && !scheduleModalOpen && (
+                <div
+                  role="status"
+                  className="p-3 border border-emerald-200 bg-emerald-50 text-emerald-900 text-xs flex items-center justify-between gap-2"
+                >
+                  <span>บันทึกตาราง/กิจกรรมแล้ว</span>
+                  <Link
+                    to={`/map?room=${encodeURIComponent(selectedRoom.id)}`}
+                    className="btn btn-secondary btn-sm shrink-0"
+                  >
+                    ดูผลบนแผนที่
+                  </Link>
+                </div>
+              )}
+
               {/* Room Timetable Section */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between gap-2">
@@ -1566,7 +1586,7 @@ export default function AdminPage() {
                       className="btn btn-primary btn-sm text-xs"
                     >
                       <Plus size={12} weight="bold" />
-                      เพิ่มตาราง
+                      เพิ่มตาราง/กิจกรรม
                     </button>
                   </div>
                 </div>
@@ -1718,9 +1738,10 @@ export default function AdminPage() {
                                 type="button"
                                 aria-label="แก้ไขตาราง"
                                 onClick={() => openEditScheduleModal(slot)}
-                                className="p-1.5 text-ink-3 hover:text-ink transition-colors"
+                                className="btn btn-ghost btn-sm"
                               >
                                 <PencilSimple size={14} weight="bold" />
+                                <span>แก้ไข</span>
                               </button>
                               <button
                                 type="button"
@@ -1748,7 +1769,7 @@ export default function AdminPage() {
             role="dialog"
             aria-modal="true"
             aria-label={
-              editingSlotId ? 'แก้ไขข้อมูลตาราง' : 'เพิ่มตารางสอนใหม่'
+              editingSlotId ? 'แก้ไขข้อมูลตาราง' : 'เพิ่มตาราง/กิจกรรมใหม่'
             }
             className="fixed inset-0 z-110 bg-ink/40 backdrop-blur-[2px] flex items-center justify-center p-4"
           >
@@ -1760,7 +1781,7 @@ export default function AdminPage() {
               <div className="px-6 py-4 border-b border-line flex items-center justify-between bg-surface shrink-0">
                 <div>
                   <h3 className="text-base font-bold text-ink">
-                    {editingSlotId ? 'แก้ไขข้อมูลตาราง' : 'เพิ่มตารางสอนใหม่'}
+                    {editingSlotId ? 'แก้ไขข้อมูลตาราง' : 'เพิ่มตาราง/กิจกรรมใหม่'}
                   </h3>
                   <p className="text-xs text-ink-2 mt-0.5">
                     ห้องที่เลือก:{' '}
@@ -2111,7 +2132,7 @@ export default function AdminPage() {
                     ? 'กำลังบันทึก...'
                     : editingSlotId
                       ? 'บันทึกการแก้ไข'
-                      : 'บันทึกตารางสอน'}
+                      : 'บันทึกตาราง/กิจกรรม'}
                 </button>
               </div>
             </form>

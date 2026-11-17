@@ -44,7 +44,7 @@ const mockSchedules: ScheduleSlot[] = [
     endTime: '12:30',
     eventCode: 'CS101',
     eventName: 'Introduction to Computer Science',
-    eventType: 'lecture',
+    eventType: 'class',
   },
   {
     roomCode: 'LC3-201',
@@ -281,9 +281,9 @@ describe('AdminPage', () => {
 
     await user.click(screen.getByRole('button', { name: /แก้ไขข้อมูลห้อง/ }))
     expect(screen.queryByText('Danger Zone')).not.toBeInTheDocument()
-    expect(
-      screen.getByRole('button', { name: 'แก้ไขตาราง' }),
-    ).toBeInTheDocument()
+    // In the detailed list the edit action is labelled, not an icon alone (#196)
+    await user.click(screen.getByRole('button', { name: 'รายการ' }))
+    expect(screen.getByRole('button', { name: 'แก้ไขตาราง' })).toHaveTextContent('แก้ไข')
     const deleteBtn = screen.getByRole('button', { name: 'ลบตาราง' })
     expect(deleteBtn).toBeInTheDocument()
     await user.click(deleteBtn)
@@ -337,7 +337,7 @@ describe('AdminPage', () => {
     await user.click(screen.getByText('ห้อง 101').closest('button')!)
     await user.click(screen.getByRole('button', { name: /เพิ่มตาราง/ }))
 
-    const dialog = screen.getByRole('dialog', { name: 'เพิ่มตารางสอนใหม่' })
+    const dialog = screen.getByRole('dialog', { name: 'เพิ่มตาราง/กิจกรรมใหม่' })
     // Fill a Monday 10:00-11:00 slot, which overlaps CS101 (MON 09:30-12:30) in LC3-101
     await user.type(within(dialog).getByPlaceholderText('09:00'), '10:00')
     await user.type(within(dialog).getByPlaceholderText('12:00'), '11:00')
@@ -369,7 +369,7 @@ describe('AdminPage', () => {
       )
       await user.click(screen.getByText('ห้อง 101').closest('button')!)
       await user.click(screen.getByRole('button', { name: /เพิ่มตาราง/ }))
-      const dialog = screen.getByRole('dialog', { name: 'เพิ่มตารางสอนใหม่' })
+      const dialog = screen.getByRole('dialog', { name: 'เพิ่มตาราง/กิจกรรมใหม่' })
       expect(within(dialog).queryByText('ห้องน้ำชาย')).not.toBeInTheDocument()
       expect(within(dialog).getAllByText(/ห้องบรรยาย 101/).length).toBeGreaterThan(0)
       await user.click(within(dialog).getByRole('button', { name: 'ยกเลิก' }))
@@ -423,7 +423,7 @@ describe('AdminPage exam date (event_date)', () => {
     )
     await user.click(screen.getByText('ห้อง 101').closest('button')!)
     await user.click(screen.getByRole('button', { name: /เพิ่มตาราง/ }))
-    const form = screen.getByText('เพิ่มตารางสอนใหม่').closest('form')!
+    const form = screen.getByText('เพิ่มตาราง/กิจกรรมใหม่').closest('form')!
     return { user, form: within(form) }
   }
 
@@ -456,7 +456,7 @@ describe('AdminPage exam date (event_date)', () => {
     const { user, form } = await openCreateForm()
     await fillRequired(user, form)
     await user.selectOptions(form.getByDisplayValue('บรรยาย (Lecture)'), 'exam')
-    await user.click(form.getByRole('button', { name: /บันทึกตารางสอน/ }))
+    await user.click(form.getByRole('button', { name: /บันทึกตาราง\/กิจกรรม/ }))
 
     expect(form.getByLabelText(/วันสอบ/)).toBeInvalid()
     expect(adminServiceMock.createSchedule).not.toHaveBeenCalled()
@@ -484,7 +484,7 @@ describe('AdminPage exam date (event_date)', () => {
     await fillRequired(user, form)
     await user.selectOptions(form.getByDisplayValue('บรรยาย (Lecture)'), 'exam')
     await user.type(form.getByLabelText(/วันสอบ/), '2026-05-18')
-    await user.click(form.getByRole('button', { name: /บันทึกตารางสอน/ }))
+    await user.click(form.getByRole('button', { name: /บันทึกตาราง\/กิจกรรม/ }))
 
     expect(adminServiceMock.createSchedule).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -495,10 +495,33 @@ describe('AdminPage exam date (event_date)', () => {
     )
   })
 
+  it('offers a link to check the saved schedule on the public map (#197)', async () => {
+    const { user, form } = await openCreateForm()
+    await fillRequired(user, form)
+    await user.click(form.getByRole('button', { name: /บันทึกตาราง\/กิจกรรม/ }))
+
+    const link = await screen.findByRole('link', { name: 'ดูผลบนแผนที่' })
+    expect(link.getAttribute('href')).toMatch(/^\/map\?room=/)
+  })
+
+  it('opens a seed row whose type is "class" as a lecture', async () => {
+    const user = userEvent.setup()
+    render(
+      <MemoryRouter>
+        <AdminPage />
+      </MemoryRouter>,
+    )
+    await user.click(screen.getByText('ห้อง 101').closest('button')!)
+    const row = screen.getByText('CS101').closest('div.group') as HTMLElement
+    await user.click(within(row).getByRole('button', { name: 'แก้ไขตาราง' }))
+
+    expect(screen.getByDisplayValue('บรรยาย (Lecture)')).toBeInTheDocument()
+  })
+
   it('does not send event_date for a lecture', async () => {
     const { user, form } = await openCreateForm()
     await fillRequired(user, form)
-    await user.click(form.getByRole('button', { name: /บันทึกตารางสอน/ }))
+    await user.click(form.getByRole('button', { name: /บันทึกตาราง\/กิจกรรม/ }))
 
     expect(adminServiceMock.createSchedule).toHaveBeenCalledTimes(1)
     expect(adminServiceMock.createSchedule).toHaveBeenCalledWith(
@@ -516,7 +539,7 @@ describe('AdminPage exam date (event_date)', () => {
     await fillRequired(user, form)
     await user.selectOptions(form.getByDisplayValue('บรรยาย (Lecture)'), 'exam')
     await user.type(form.getByLabelText(/วันสอบ/), '2026-05-18')
-    await user.click(form.getByRole('button', { name: /บันทึกตารางสอน/ }))
+    await user.click(form.getByRole('button', { name: /บันทึกตาราง\/กิจกรรม/ }))
 
     expect(await form.findByText(/Invalid event_date/)).toBeInTheDocument()
   })
@@ -571,7 +594,7 @@ describe('AdminPage exam date (event_date)', () => {
     await user.type(form.getByPlaceholderText('CS333'), 'CS999')
     await user.type(form.getByPlaceholderText('09:00'), '25:99')
     await user.type(form.getByPlaceholderText('12:00'), '16:00')
-    await user.click(form.getByRole('button', { name: /บันทึกตารางสอน/ }))
+    await user.click(form.getByRole('button', { name: /บันทึกตาราง\/กิจกรรม/ }))
 
     expect(
       form.getByText(/กรุณาระบุเวลาเป็นรูปแบบ HH:MM/),
@@ -582,7 +605,7 @@ describe('AdminPage exam date (event_date)', () => {
     await user.type(form.getByPlaceholderText('09:00'), '16:00')
     await user.clear(form.getByPlaceholderText('12:00'))
     await user.type(form.getByPlaceholderText('12:00'), '09:00')
-    await user.click(form.getByRole('button', { name: /บันทึกตารางสอน/ }))
+    await user.click(form.getByRole('button', { name: /บันทึกตาราง\/กิจกรรม/ }))
 
     expect(
       form.getByText(/เวลาสิ้นสุดต้องมากกว่าเวลาเริ่ม/),
@@ -598,7 +621,7 @@ describe('AdminPage exam date (event_date)', () => {
     await user.type(form.getByLabelText(/วันสอบ/), '2026-10-30')
     expect(form.getByDisplayValue('วันศุกร์ (FRI)')).toBeInTheDocument()
 
-    await user.click(form.getByRole('button', { name: /บันทึกตารางสอน/ }))
+    await user.click(form.getByRole('button', { name: /บันทึกตาราง\/กิจกรรม/ }))
 
     expect(adminServiceMock.createSchedule).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -831,14 +854,14 @@ describe('AdminPage review fixes (#186)', () => {
   async function openAddForRoom101(user: ReturnType<typeof userEvent.setup>) {
     await user.click(screen.getByText('ห้อง 101').closest('button')!)
     await user.click(screen.getByRole('button', { name: /เพิ่มตาราง/ }))
-    return within(screen.getByRole('dialog', { name: 'เพิ่มตารางสอนใหม่' }))
+    return within(screen.getByRole('dialog', { name: 'เพิ่มตาราง/กิจกรรมใหม่' }))
   }
 
   async function fillAndSave(dialog: ReturnType<typeof within>, user: ReturnType<typeof userEvent.setup>) {
     await user.type(dialog.getByPlaceholderText('CS333'), 'CS999')
     await user.type(dialog.getByPlaceholderText('09:00'), '17:00')
     await user.type(dialog.getByPlaceholderText('12:00'), '18:00')
-    await user.click(dialog.getByRole('button', { name: 'บันทึกตารางสอน' }))
+    await user.click(dialog.getByRole('button', { name: 'บันทึกตาราง/กิจกรรม' }))
   }
 
   it('does not call any room free before the schedules have loaded', async () => {

@@ -245,3 +245,39 @@ export function windowError(fromIso: string | undefined, untilIso: string | unde
   if (until !== undefined && until < now.getTime()) return 'เวลาสิ้นสุดผ่านไปแล้ว กรุณาตรวจวันที่'
   return null
 }
+
+/** "2 ชม. 30 นาที" between two ISO times, or null if either is missing or the window is empty. */
+export function formatDuration(fromIso: string | undefined, untilIso: string | undefined): string | null {
+  if (!fromIso || !untilIso) return null
+  const minutes = Math.round((new Date(untilIso).getTime() - new Date(fromIso).getTime()) / 60_000)
+  if (!Number.isFinite(minutes) || minutes <= 0) return null
+  const hours = Math.floor(minutes / 60)
+  const rest = minutes % 60
+  if (hours === 0) return `${rest} นาที`
+  return rest === 0 ? `${hours} ชม.` : `${hours} ชม. ${rest} นาที`
+}
+
+/**
+ * Thai summary of the window typed in the closure form, e.g.
+ * "ปิด 28 ต.ค. 2569 13:00 – 28 ต.ค. 2569 15:00 (2 ชม.)" (#195). datetime-local inputs show
+ * the browser's own date format, which staff found hard to read.
+ */
+export function describeFormWindow(fromValue: string, untilValue: string): string {
+  const closedFrom = fromBangkokInputValue(fromValue)
+  const closedUntil = fromBangkokInputValue(untilValue)
+  const duration = formatDuration(closedFrom, closedUntil)
+  return `ปิด${formatWindow({ closed: true, closedFrom, closedUntil })}${duration ? ` (${duration})` : ''}`
+}
+
+/** A datetime-local value moved by some hours, in Bangkok time. */
+export function addHoursToInputValue(value: string, hours: number): string {
+  const iso = fromBangkokInputValue(value)
+  if (!iso) return value
+  return toBangkokInputValue(new Date(new Date(iso).getTime() + hours * 3_600_000))
+}
+
+/** The last minute of the day of a datetime-local value: "2026-10-28T23:59". */
+export function endOfDayInputValue(value: string): string {
+  return `${value.slice(0, 10)}T23:59`
+}
+
