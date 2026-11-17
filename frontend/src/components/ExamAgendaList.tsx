@@ -1,231 +1,209 @@
-import { useMemo, useRef, useEffect, useCallback } from 'react'
+import { useMemo, useRef, useEffect, useCallback, useState } from 'react'
 import type { ReactNode } from 'react'
-import { CalendarBlank, Clock, GraduationCap, MapPin, Users, Sparkle } from '@phosphor-icons/react'
+import { CaretDown, Users } from '@phosphor-icons/react'
 import type { ScheduleSlot } from '../types/schedule'
 import PinButton from './PinButton'
 import { buildClassColorMap, entryColors } from '../services/timetableColors'
-import { getExamDateLabel, formatThaiDateHeader, extractSeatsInfo } from '../services/scheduleDisplay'
+import { getExamDateLabel, formatThaiDateHeader, extractSeatsInfo, formatLocalDate } from '../services/scheduleDisplay'
 
 export interface ExamAgendaListProps {
   slots: ScheduleSlot[]
   renderActions?: (slot: ScheduleSlot) => ReactNode
+  /** The room this list belongs to; a slot in another room shows its room. */
   roomCode?: string
   highlightEventCode?: string | null
+  /** YYYY-MM-DD; exams before it are folded under "สอบที่ผ่านไปแล้ว". Defaults to today. */
+  today?: string
 }
 
 interface ExamDateGroup {
   dateKey: string
   formattedDate: string
-  dayOfWeek: string
   slots: ScheduleSlot[]
 }
 
+const slotKeyOf = (slot: ScheduleSlot) => `${slot.roomCode}-${slot.eventCode}-${slot.eventDate}-${slot.startTime}`
+
+/**
+ * What the event name adds beyond the row: "Exam - BAS353 (Seats 1-6) (6 พ.ค. 2569)" repeats
+ * the code, seats and date the row already shows, so nothing is left; a real title stays.
+ */
+function extraName(slot: ScheduleSlot): string | null {
+  if (!slot.eventName) return null
+  const rest = slot.eventName
+    .replace(/^\s*exam\s*-\s*/i, '')
+    .replace(/\([^)]*\)/g, '')
+    .replace(new RegExp(slot.eventCode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'), '')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return rest.length > 0 ? rest : null
+}
+
+function groupByDate(slots: ScheduleSlot[]): ExamDateGroup[] {
+  const sorted = [...slots].sort((a, b) => {
+    const dateA = a.eventDate || '9999-99-99'
+    const dateB = b.eventDate || '9999-99-99'
+    if (dateA !== dateB) return dateA.localeCompare(dateB)
+    if (a.startTime !== b.startTime) return (a.startTime || '').localeCompare(b.startTime || '')
+    return (a.eventCode || '').localeCompare(b.eventCode || '')
+  })
+  const groupMap = new Map<string, ExamDateGroup>()
+  for (const slot of sorted) {
+    const key = slot.eventDate || 'unannounced'
+    let group = groupMap.get(key)
+    if (!group) {
+      group = { dateKey: key, formattedDate: formatThaiDateHeader(slot.eventDate, slot.dayOfWeek), slots: [] }
+      groupMap.set(key, group)
+    }
+    group.slots.push(slot)
+  }
+  return Array.from(groupMap.values())
+}
+
+/**
+ * A room's exams as a compact agenda (one row per exam, grouped by date). Upcoming exams
+ * come first; past ones fold away so a long semester stays readable.
+ */
 export default function ExamAgendaList({
   slots,
   renderActions,
   roomCode,
   highlightEventCode,
+  today = formatLocalDate(new Date()),
 }: ExamAgendaListProps) {
   const colorMap = useMemo(() => buildClassColorMap(slots), [slots])
-  const highlightRef = useRef<HTMLDivElement | null>(null)
-
+  const highlightRef = useRef<HTMLLIElement | null>(null)
   const normalizedHighlight = highlightEventCode?.replace(/\s+/g, '').toUpperCase()
 
-  const isMatchSlot = useCallback((slot: ScheduleSlot) => {
-    if (!normalizedHighlight) return false
-    if (['EXAM', 'EXAMS', 'สอบ', 'การสอบ', 'ตารางสอบ', 'FINAL', 'MIDTERM'].includes(normalizedHighlight)) {
-      return false
-    }
-    const code = slot.eventCode?.replace(/\s+/g, '').toUpperCase()
-    const name = slot.eventName?.replace(/\s+/g, '').toUpperCase()
-    return (
-      code === normalizedHighlight ||
-      (Boolean(code) && normalizedHighlight.includes(code)) ||
-      (Boolean(name) && name.includes(normalizedHighlight))
-    )
-  }, [normalizedHighlight])
-
-  // Group and sort exams chronologically
-  const groups = useMemo(() => {
-    // Sort slots by date (ascending), then startTime, then eventCode
-    const sorted = [...slots].sort((a, b) => {
-      const dateA = a.eventDate || '9999-99-99'
-      const dateB = b.eventDate || '9999-99-99'
-      if (dateA !== dateB) return dateA.localeCompare(dateB)
-      if (a.startTime !== b.startTime) return (a.startTime || '').localeCompare(b.startTime || '')
-      return (a.eventCode || '').localeCompare(b.eventCode || '')
-    })
-
-    const groupMap = new Map<string, ExamDateGroup>()
-    for (const slot of sorted) {
-      const key = slot.eventDate || 'unannounced'
-      let grp = groupMap.get(key)
-      if (!grp) {
-        grp = {
-          dateKey: key,
-          formattedDate: formatThaiDateHeader(slot.eventDate, slot.dayOfWeek),
-          dayOfWeek: slot.dayOfWeek,
-          slots: [],
-        }
-        groupMap.set(key, grp)
+  const isMatchSlot = useCallback(
+    (slot: ScheduleSlot) => {
+      if (!normalizedHighlight) return false
+      if (['EXAM', 'EXAMS', 'สอบ', 'การสอบ', 'ตารางสอบ', 'FINAL', 'MIDTERM'].includes(normalizedHighlight)) {
+        return false
       }
-      grp.slots.push(slot)
-    }
+      const code = slot.eventCode?.replace(/\s+/g, '').toUpperCase()
+      const name = slot.eventName?.replace(/\s+/g, '').toUpperCase()
+      return (
+        code === normalizedHighlight ||
+        (Boolean(code) && normalizedHighlight.includes(code)) ||
+        (Boolean(name) && name.includes(normalizedHighlight))
+      )
+    },
+    [normalizedHighlight],
+  )
 
-    return Array.from(groupMap.values())
-  }, [slots])
+  const isPast = useCallback((slot: ScheduleSlot) => Boolean(slot.eventDate) && slot.eventDate! < today, [today])
+  const upcomingGroups = useMemo(() => groupByDate(slots.filter((s) => !isPast(s))), [slots, isPast])
+  const pastGroups = useMemo(() => groupByDate(slots.filter(isPast)).reverse(), [slots, isPast])
+  const pastCount = useMemo(() => slots.filter(isPast).length, [slots, isPast])
 
-  // Key of the first matching exam slot to attach highlightRef for auto slide-down
+  // A searched exam that already happened opens the past section so it can be shown.
+  const highlightIsPast = useMemo(() => slots.some((s) => isPast(s) && isMatchSlot(s)), [slots, isPast, isMatchSlot])
+  const [showPast, setShowPast] = useState<boolean | null>(null)
+  const pastOpen = showPast ?? highlightIsPast
+
   const firstMatchingKey = useMemo(() => {
     if (!normalizedHighlight) return null
-    for (const group of groups) {
-      for (const slot of group.slots) {
-        if (isMatchSlot(slot)) {
-          return `${slot.roomCode}-${slot.eventCode}-${slot.eventDate}-${slot.startTime}`
-        }
-      }
+    const visible = [...upcomingGroups, ...(pastOpen ? pastGroups : [])]
+    for (const group of visible) {
+      for (const slot of group.slots) if (isMatchSlot(slot)) return slotKeyOf(slot)
     }
     return null
-  }, [groups, normalizedHighlight, isMatchSlot])
+  }, [upcomingGroups, pastGroups, pastOpen, normalizedHighlight, isMatchSlot])
 
   useEffect(() => {
     if (!firstMatchingKey || !highlightRef.current) return
     const timer = setTimeout(() => {
-      highlightRef.current?.scrollIntoView?.({
-        behavior: 'smooth',
-        block: 'center',
-      })
+      highlightRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'center' })
     }, 180)
     return () => clearTimeout(timer)
   }, [firstMatchingKey, slots])
 
   if (slots.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-line-soft bg-surface-2/40 py-10 px-4 text-center">
-        <div className="mx-auto mb-2.5 flex h-10 w-10 items-center justify-center rounded-full bg-surface-3 text-ink-3">
-          <GraduationCap size={20} weight="duotone" />
-        </div>
-        <p className="text-button font-bold text-ink">ไม่มีข้อมูลการสอบในห้องนี้</p>
-        <p className="mt-1 text-xs text-ink-3">
-          ห้องนี้ไม่มีกำหนดการสอบในภาคการศึกษานี้ หรือยังไม่มีการประกาศตารางสอบ
-        </p>
-      </div>
+      <p className="py-6 text-center text-button text-ink-3">
+        <span className="block font-medium text-ink">ไม่มีข้อมูลการสอบในห้องนี้</span>
+        ยังไม่มีการประกาศตารางสอบของห้องนี้ในภาคการศึกษานี้
+      </p>
     )
   }
 
-  return (
-    <div className="space-y-4" data-testid="exam-agenda-list">
-      {groups.map((group) => (
-        <section key={group.dateKey} className="space-y-2">
-          {/* Group Date Header */}
-          <div className="flex items-center gap-2 pt-1">
-            <div className="flex items-center gap-1.5 rounded-lg border border-line-soft bg-surface-2 px-2.5 py-1 text-xs font-semibold text-ink">
-              <CalendarBlank size={14} weight="bold" className="text-secondary" />
-              <span>{group.formattedDate}</span>
-            </div>
-            <span className="text-[11px] font-medium text-ink-3">({group.slots.length} วิชา)</span>
-            <div className="flex-1 border-t border-line-soft/60" />
-          </div>
-
-          {/* Exam Cards for this date */}
-          <div className="grid gap-2.5">
-            {group.slots.map((slot) => {
-              const seats = extractSeatsInfo(slot.eventName)
-              const examDateLabel = getExamDateLabel(slot)
-              const colorClass = entryColors(slot, colorMap)
-              const resolvedRoom = slot.roomCode || roomCode
-              const slotKey = `${slot.roomCode}-${slot.eventCode}-${slot.eventDate}-${slot.startTime}`
-              const isHighlighted = isMatchSlot(slot)
-              const isFirstMatch = slotKey === firstMatchingKey
-
-              return (
-                <div
-                  ref={isFirstMatch ? highlightRef : undefined}
-                  key={slotKey}
-                  data-testid={isHighlighted ? 'exam-card-highlighted' : undefined}
-                  data-highlighted={isHighlighted ? 'true' : undefined}
-                  className={`card scroll-my-6 flex flex-col justify-between gap-3 p-3.5 transition-all duration-300 sm:flex-row sm:items-center ${
-                    isHighlighted
-                      ? 'border-2 border-accent bg-accent/5 ring-4 ring-accent/15 shadow-md'
-                      : 'border border-line-soft hover:border-line hover:shadow-xs'
-                  }`}
-                >
-                  <div className="flex items-start gap-3 min-w-0">
-                    {/* Course Color Pill Indicator */}
-                    <div
-                      className={`h-10 w-1.5 shrink-0 rounded-full ${colorClass}`}
-                      aria-hidden="true"
-                    />
-
-                    <div className="min-w-0 flex-1">
-                      {/* Top Row: Code + Highlight Badge + Seats Badge + Exam Date */}
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="font-mono text-base font-bold text-ink">
-                          {slot.eventCode}
-                        </span>
-                        {isHighlighted && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-accent px-2 py-0.5 text-[11px] font-bold text-white shadow-xs">
-                            <Sparkle size={12} weight="fill" />
-                            <span>วิชาที่ค้นหา</span>
-                          </span>
-                        )}
-                        {seats && (
-                          <span className="inline-flex items-center gap-1 rounded bg-secondary/10 px-1.5 py-0.5 text-[11px] font-medium text-secondary">
-                            <Users size={12} weight="bold" />
-                            <span>{seats}</span>
-                          </span>
-                        )}
-                        {slot.eventDate ? (
-                          <span className="text-[11px] text-ink-3">
-                            วันสอบ: {slot.eventDate}
-                          </span>
-                        ) : (
-                          <span className="text-[11px] text-amber-600 font-medium">
-                            {examDateLabel}
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Event Full Name if distinct from code */}
-                      {slot.eventName && slot.eventName !== slot.eventCode && (
-                        <p className="mt-0.5 truncate text-xs text-ink-2" title={slot.eventName}>
-                          {slot.eventName}
-                        </p>
-                      )}
-
-                      {/* Time and Room metadata */}
-                      <div className="mt-1.5 flex flex-wrap items-center gap-3 text-xs text-ink-3">
-                        <div className="flex items-center gap-1 font-mono">
-                          <Clock size={13} weight="bold" className="text-ink-2" />
-                          <span>
-                            {slot.startTime}–{slot.endTime}
-                          </span>
-                        </div>
-                        {resolvedRoom && (
-                          <div className="flex items-center gap-1 font-medium">
-                            <MapPin size={13} weight="fill" className="text-secondary" />
-                            <span>ห้อง {resolvedRoom}</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Actions (Pin button) */}
-                  <div className="shrink-0 self-end sm:self-center">
-                    {renderActions ? (
-                      renderActions(slot)
-                    ) : (
-                      <PinButton slot={slot} showLabel />
-                    )}
-                  </div>
+  const renderGroup = (group: ExamDateGroup) => (
+    <section key={group.dateKey} aria-label={group.formattedDate}>
+      <h4 className="mb-1.5 flex items-baseline gap-1.5 text-xs font-semibold text-ink">
+        <span>{group.formattedDate}</span>
+        <span className="font-normal text-ink-3">({group.slots.length} วิชา)</span>
+      </h4>
+      <ul className="divide-y divide-line-soft border border-line-soft bg-white">
+        {group.slots.map((slot) => {
+          const key = slotKeyOf(slot)
+          const seats = extractSeatsInfo(slot.eventName)
+          const extra = extraName(slot)
+          const isHighlighted = isMatchSlot(slot)
+          const otherRoom = slot.roomCode && roomCode && slot.roomCode !== roomCode ? slot.roomCode : null
+          return (
+            <li
+              key={key}
+              ref={key === firstMatchingKey ? highlightRef : undefined}
+              data-testid={isHighlighted ? 'exam-card-highlighted' : undefined}
+              data-highlighted={isHighlighted ? 'true' : undefined}
+              className={`scroll-my-6 flex items-center gap-2.5 py-2 pl-2 pr-1.5 ${isHighlighted ? 'bg-accent/5' : ''}`}
+            >
+              <span aria-hidden="true" className={`h-8 w-1 shrink-0 rounded-full ${entryColors(slot, colorMap)}`} />
+              <span className="w-[5.25rem] shrink-0 font-mono text-xs text-ink-2">
+                {slot.startTime}–{slot.endTime}
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-x-1.5">
+                  <span className="font-mono text-button font-bold text-ink">{slot.eventCode}</span>
+                  {seats && (
+                    <span className="inline-flex items-center gap-0.5 text-[11px] text-ink-3">
+                      <Users size={11} weight="bold" aria-hidden="true" />
+                      <span>{seats}</span>
+                    </span>
+                  )}
+                  {isHighlighted && <span className="text-[11px] font-semibold text-accent">วิชาที่ค้นหา</span>}
                 </div>
-              )
-            })}
-          </div>
-        </section>
-      ))}
+                {(extra || otherRoom || !slot.eventDate) && (
+                  <p className="truncate text-[11px] text-ink-3" title={slot.eventName}>
+                    {[extra, otherRoom && `ห้อง ${otherRoom}`, !slot.eventDate && getExamDateLabel(slot)]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </p>
+                )}
+              </div>
+              <div className="flex shrink-0 items-center gap-1">
+                {renderActions ? renderActions(slot) : <PinButton slot={slot} />}
+              </div>
+            </li>
+          )
+        })}
+      </ul>
+    </section>
+  )
+
+  return (
+    <div className="space-y-3" data-testid="exam-agenda-list">
+      {upcomingGroups.length > 0 ? (
+        upcomingGroups.map(renderGroup)
+      ) : (
+        <p className="text-button text-ink-3">ไม่มีสอบที่กำลังจะมาถึงในห้องนี้</p>
+      )}
+
+      {pastCount > 0 && (
+        <div className="space-y-3">
+          <button
+            type="button"
+            onClick={() => setShowPast(!pastOpen)}
+            aria-expanded={pastOpen}
+            className="flex w-full items-center justify-between border-t border-line-soft pt-2.5 text-xs font-medium text-ink-2 hover:text-ink"
+          >
+            <span>สอบที่ผ่านไปแล้ว ({pastCount})</span>
+            <CaretDown size={12} weight="bold" aria-hidden="true" className={pastOpen ? 'rotate-180' : ''} />
+          </button>
+          {pastOpen && pastGroups.map(renderGroup)}
+        </div>
+      )}
     </div>
   )
 }
-
