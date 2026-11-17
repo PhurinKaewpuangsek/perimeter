@@ -429,3 +429,51 @@ describe('resolveScheduleTabOnRoomSelect exam keyword queries', () => {
     assert.deepStrictEqual(result, { tab: 'exam', targetCode: 'CS101' })
   })
 })
+
+describe('resolveScheduleTabOnRoomSelect when a course has a class and an exam in one room (#192)', () => {
+  const classRow: ScheduleSlot = {
+    roomCode: 'LC3-201',
+    eventCode: 'EN101',
+    eventName: 'EN101',
+    dayOfWeek: 'TUE',
+    startTime: '09:30',
+    endTime: '11:00',
+    eventType: 'class',
+  }
+  const examRow = (eventDate: string): ScheduleSlot => ({
+    ...classRow,
+    eventName: 'Exam - EN101',
+    dayOfWeek: 'MON',
+    startTime: '13:00',
+    endTime: '16:00',
+    eventType: 'exam',
+    eventDate,
+  })
+
+  it('opens the exam tab and highlights the course when the exam is still ahead', () => {
+    const result = resolveScheduleTabOnRoomSelect({
+      query: 'EN101',
+      roomSchedules: [classRow, examRow('2026-11-16')],
+      today: '2026-11-15',
+    })
+    assert.deepStrictEqual(result, { tab: 'exam', targetCode: 'EN101' })
+  })
+
+  it('keeps the class tab once the exam has passed', () => {
+    const result = resolveScheduleTabOnRoomSelect({
+      query: 'EN101',
+      roomSchedules: [classRow, examRow('2026-11-01')],
+      today: '2026-11-15',
+    })
+    assert.deepStrictEqual(result, { tab: 'class', targetCode: null })
+  })
+
+  it('keeps the class tab for a course with no exam in the room', () => {
+    const result = resolveScheduleTabOnRoomSelect({
+      query: 'EN101',
+      roomSchedules: [classRow],
+      today: '2026-11-15',
+    })
+    assert.deepStrictEqual(result, { tab: 'class', targetCode: null })
+  })
+})
