@@ -29,6 +29,14 @@ export interface TopBarProps {
   onFloorChange?: (floor: number) => void
   mapView?: '2d' | '3d'
   onToggleMapView?: () => void
+  /** Optional control group rendered inside the bottom-center dock (e.g. /staff mode switcher). */
+  dockExtra?: ReactNode
+  /**
+   * Also show the dock below `sm`. Off by default because /map has its own mobile
+   * controls; /staff has none, so without the dock its modes and floors are unreachable.
+   * On a narrow screen the dock wraps onto more rows instead of running off screen.
+   */
+  showDockOnMobile?: boolean
 }
 
 /** Height of the fixed top bar in px. Pages offset their content with `top-16` / `pt-16`. */
@@ -98,8 +106,8 @@ function WorkspaceLink({
  *
  * - Left: back-to-home brand lockup, console title, sidebar toggle.
  * - Right: My Schedule link and the account menu / sign-in button.
- * - Bottom-centre dock (>= sm): workspace switcher (staff/admin), floor switcher, 2D/3D toggle,
- *   centred over the visible map canvas (offset by the sidebar width when it is open).
+ * - Bottom-centre dock (>= sm, or always with showDockOnMobile): workspace switcher (staff/admin), optional dockExtra,
+ *   floor switcher, 2D/3D toggle, centred over the visible map canvas.
  */
 export default function TopBar({
   className = '',
@@ -110,6 +118,8 @@ export default function TopBar({
   onFloorChange,
   mapView,
   onToggleMapView,
+  dockExtra,
+  showDockOnMobile = false,
 }: TopBarProps) {
   const [session, setSession] = useState<AuthSession | null>(() => getSession())
   const [isWorkspaceOpen, setIsWorkspaceOpen] = useState(false)
@@ -166,7 +176,40 @@ export default function TopBar({
   const hasFloorSwitcher = currentFloor !== undefined && Boolean(onFloorChange)
   const hasViewToggle = mapView !== undefined && Boolean(onToggleMapView)
   // The My Schedule drawer sits below the top bar (z-95 < z-100), so the dock hides while it is open.
-  const showDock = (isStaffOrAdmin || hasFloorSwitcher || hasViewToggle) && !isDrawerOpen
+  const showDock = (isStaffOrAdmin || Boolean(dockExtra) || hasFloorSwitcher || hasViewToggle) && !isDrawerOpen
+  // The dock is centred over the map, but on a narrow window that pushes part of it off
+  // screen. Measure it and slide it back inside the window (12 px margin) when needed.
+  const dockRef = useRef<HTMLElement>(null)
+  const [dockFit, setDockFit] = useState<{ width: number; viewport: number } | null>(null)
+  useEffect(() => {
+    const el = dockRef.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const measure = () => {
+      const next = { width: el.offsetWidth, viewport: window.innerWidth }
+      setDockFit((prev) => (prev && prev.width === next.width && prev.viewport === next.viewport ? prev : next))
+    }
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(el)
+    window.addEventListener('resize', measure)
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', measure)
+    }
+  }, [showDock])
+  let dockLeft = dockCenterLeft
+  if (dockFit && dockFit.width > 0) {
+    const { width, viewport } = dockFit
+    const sidebar = sidebarWidth && !isSidebarCollapsed ? sidebarWidth : 0
+    const centre = viewport / 2 + sidebar / 2
+    const half = width / 2 + 12
+    if (centre - half < 0 || centre + half > viewport) {
+      dockLeft = `${Math.round(Math.min(Math.max(centre, half), viewport - half))}px`
+    }
+  }
+
+  // Once the dock wraps on a phone, a divider can end up dangling at the end of a row.
+  const dockSeparatorVisibility = showDockOnMobile ? 'hidden sm:block' : ''
 
   function closeWorkspace() {
     setIsWorkspaceOpen(false)
@@ -253,8 +296,15 @@ export default function TopBar({
       {showDock && (
         <nav
           aria-label="แถบควบคุมแผนที่"
-          style={{ left: dockCenterLeft }}
-          className="fixed bottom-5 z-100 hidden -translate-x-1/2 items-center gap-1 rounded-full border border-line-soft bg-white p-1 shadow-floating transition-[left] duration-300 ease-in-out select-none sm:flex"
+          ref={dockRef}
+          style={{ left: dockLeft }}
+          // w-max: a fixed element with `left` set may only be as wide as the space to the
+          // right of `left`; on narrow windows that crushed the dock's buttons on top of each other.
+          className={`fixed bottom-5 z-100 w-max -translate-x-1/2 items-center gap-1 border border-line-soft bg-white p-1 shadow-floating transition-[left] duration-300 ease-in-out select-none sm:flex sm:max-w-none sm:flex-nowrap sm:rounded-full ${
+            showDockOnMobile
+              ? 'flex max-w-[calc(100vw-24px)] flex-wrap justify-center rounded-2xl'
+              : 'hidden rounded-full'
+          }`}
         >
           {isStaffOrAdmin && (
             <div className="relative" ref={workspaceRef}>
@@ -331,9 +381,18 @@ export default function TopBar({
             </div>
           )}
 
+          {dockExtra && (
+            <>
+              {isStaffOrAdmin && <span aria-hidden="true" className={`mx-1 h-5 w-px shrink-0 bg-line-soft ${dockSeparatorVisibility}`} />}
+              {dockExtra}
+            </>
+          )}
+
           {hasFloorSwitcher && onFloorChange && (
             <>
-              {isStaffOrAdmin && <span aria-hidden="true" className="mx-1 h-5 w-px shrink-0 bg-line-soft" />}
+              {(isStaffOrAdmin || Boolean(dockExtra)) && (
+                <span aria-hidden="true" className={`mx-1 h-5 w-px shrink-0 bg-line-soft ${dockSeparatorVisibility}`} />
+              )}
               <div role="group" aria-label="Floor switcher" className="gooey-switch-group">
                 {(() => {
                   const activeIdx = Math.max(
@@ -380,7 +439,7 @@ export default function TopBar({
 
           {hasViewToggle && onToggleMapView && (
             <>
-              <span aria-hidden="true" className="mx-1 h-5 w-px shrink-0 bg-line-soft" />
+              <span aria-hidden="true" className={`mx-1 h-5 w-px shrink-0 bg-line-soft ${dockSeparatorVisibility}`} />
               <button
                 type="button"
                 onClick={onToggleMapView}

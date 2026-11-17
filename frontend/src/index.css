@@ -178,6 +178,10 @@
   .chip {
     @apply inline-flex items-center gap-1.5 rounded-full border border-line-soft bg-white px-2.5 py-1 text-xs font-medium text-ink-2;
   }
+  /* Selected chip in a filter group (day, floor). */
+  .chip-active {
+    @apply border-ink bg-ink text-white;
+  }
   .link {
     @apply text-accent underline underline-offset-2 hover:text-accent-hover active:text-accent-active;
   }

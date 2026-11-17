@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import AdminPage from '../AdminPage'
@@ -44,7 +44,7 @@ const mockSchedules: ScheduleSlot[] = [
     endTime: '12:30',
     eventCode: 'CS101',
     eventName: 'Introduction to Computer Science',
-    eventType: 'lecture',
+    eventType: 'class',
   },
   {
     roomCode: 'LC3-201',
@@ -111,7 +111,10 @@ vi.mock('../../services/authService', () => ({
     currentSession = null
   }),
   isAdmin: () => currentSession?.user.groups.includes('admin') ?? false,
-  isStaff: () => (currentSession?.user.groups.includes('staff') || currentSession?.user.groups.includes('admin')) ?? false,
+  isStaff: () =>
+    (currentSession?.user.groups.includes('staff') ||
+      currentSession?.user.groups.includes('admin')) ??
+    false,
   getUserRole: () => {
     if (currentSession?.user.groups.includes('admin')) return 'admin'
     if (currentSession?.user.groups.includes('staff')) return 'staff'
@@ -129,6 +132,7 @@ vi.mock('../../hooks/useRooms', () => ({
 }))
 
 const reloadSchedulesMock = vi.hoisted(() => vi.fn(async () => {}))
+const schedulesStateMock = vi.hoisted(() => ({ loading: false, error: null as Error | null }))
 
 const graphStateMock = vi.hoisted(() => ({
   graph: { graphId: 'LC3', nodes: [], edges: [] },
@@ -141,8 +145,8 @@ vi.mock('../../hooks/useGraph', () => ({ useGraph: () => graphStateMock }))
 vi.mock('../../hooks/useSchedules', () => ({
   useSchedules: () => ({
     schedules: mockSchedules,
-    loading: false,
-    error: null,
+    loading: schedulesStateMock.loading,
+    error: schedulesStateMock.error,
     reload: reloadSchedulesMock,
   }),
 }))
@@ -152,9 +156,18 @@ vi.mock('../../hooks/usePreloadImages', () => ({
 }))
 
 vi.mock('../map/MapContainer', () => ({
-  default: ({ currentFloor, onSelectRoom }: { currentFloor: number; onSelectRoom: (id: string) => void }) => (
+  default: ({
+    currentFloor,
+    onSelectRoom,
+  }: {
+    currentFloor: number
+    onSelectRoom: (id: string) => void
+  }) => (
     <div data-testid="map-container" data-floor={currentFloor}>
-      <button data-testid="select-marker-button" onClick={() => onSelectRoom('LC3-101')}>
+      <button
+        data-testid="select-marker-button"
+        onClick={() => onSelectRoom('LC3-101')}
+      >
         Click Room 101
       </button>
     </div>
@@ -183,7 +196,9 @@ describe('AdminPage', () => {
     )
 
     expect(screen.getByText('Staff Console')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /บัญชีผู้ใช้ admin@torch.dev/i })).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: /บัญชีผู้ใช้ admin@torch.dev/i }),
+    ).toBeInTheDocument()
     expect(screen.getByText('ห้องและพื้นที่')).toBeInTheDocument()
     expect(screen.getByText('ตารางเวลาทั้งหมด')).toBeInTheDocument()
     expect(screen.getByText('ห้อง 101')).toBeInTheDocument()
@@ -198,18 +213,15 @@ describe('AdminPage', () => {
       </MemoryRouter>,
     )
 
-    // Initially both rooms are visible
     expect(screen.getByText('ห้อง 101')).toBeInTheDocument()
     expect(screen.getByText('ห้อง 201')).toBeInTheDocument()
 
-    // Click Floor 1 pill
     const floor1Pill = screen.getByRole('button', { name: /^ชั้น 1/ })
     await user.click(floor1Pill)
 
     expect(screen.getByText('ห้อง 101')).toBeInTheDocument()
     expect(screen.queryByText('ห้อง 201')).not.toBeInTheDocument()
 
-    // Click Floor 2 pill
     const floor2Pill = screen.getByRole('button', { name: /^ชั้น 2/ })
     await user.click(floor2Pill)
 
@@ -217,7 +229,7 @@ describe('AdminPage', () => {
     expect(screen.getByText('ห้อง 201')).toBeInTheDocument()
   })
 
-  it('shows Danger Zone and schedule delete buttons when logged in as admin', async () => {
+  it('shows Danger Zone and schedule delete buttons when logged in as admin via progressive disclosure', async () => {
     const user = userEvent.setup()
     render(
       <MemoryRouter>
@@ -229,14 +241,16 @@ describe('AdminPage', () => {
     await user.click(roomButton)
 
     expect(screen.getByText('กลับไปรายการห้อง')).toBeInTheDocument()
-    expect(screen.getByText('แก้ไขข้อมูลห้อง')).toBeInTheDocument()
+    expect(screen.getByText('CS101')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'ลบตาราง' })).toBeInTheDocument()
+
+    // Read-only by default until "แก้ไขข้อมูลห้อง" is clicked
+    expect(screen.queryByDisplayValue('ห้องบรรยาย 101')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /แก้ไขข้อมูลห้อง/ }))
+
     expect(screen.getByDisplayValue('ห้องบรรยาย 101')).toBeInTheDocument()
     expect(screen.getByDisplayValue('50')).toBeInTheDocument()
-    expect(screen.getByText('CS101')).toBeInTheDocument()
-
-    // Admin sees Danger Zone and delete button for schedule
     expect(screen.getByText('Danger Zone')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'ลบตาราง' })).toBeInTheDocument()
   })
 
   it('hides Danger Zone when logged in as staff while allowing schedule deletion (BUG-09)', async () => {
@@ -258,22 +272,25 @@ describe('AdminPage', () => {
       </MemoryRouter>,
     )
 
-    expect(screen.getByRole('button', { name: /บัญชีผู้ใช้ staff@torch.dev/i })).toHaveTextContent('staff')
+    expect(
+      screen.getByRole('button', { name: /บัญชีผู้ใช้ staff@torch.dev/i }),
+    ).toHaveTextContent('staff')
 
     const roomButton = screen.getByText('ห้อง 101').closest('button')!
     await user.click(roomButton)
 
-    expect(screen.getByText('แก้ไขข้อมูลห้อง')).toBeInTheDocument()
-    // Room deletion Danger Zone remains restricted to admin
+    await user.click(screen.getByRole('button', { name: /แก้ไขข้อมูลห้อง/ }))
     expect(screen.queryByText('Danger Zone')).not.toBeInTheDocument()
-    // Staff can both edit and delete schedule rows (BUG-09)
+    // In the detailed list the edit action is labelled, not an icon alone (#196)
+    await user.click(screen.getByRole('button', { name: 'รายการ' }))
     expect(screen.getByRole('button', { name: 'แก้ไขตาราง' })).toHaveTextContent('แก้ไข')
-    // The add-activity action is offered at the top of the room, not only below the form (#196)
-    expect(screen.getByRole('button', { name: 'เพิ่มตาราง/กิจกรรมในห้องนี้' })).toBeInTheDocument()
     const deleteBtn = screen.getByRole('button', { name: 'ลบตาราง' })
     expect(deleteBtn).toBeInTheDocument()
     await user.click(deleteBtn)
-    expect(adminServiceMock.deleteSchedule).toHaveBeenCalledWith('LC3-101', 'MON#09:30#CS101')
+    expect(adminServiceMock.deleteSchedule).toHaveBeenCalledWith(
+      'LC3-101',
+      'MON#09:30#CS101',
+    )
     confirmSpy.mockRestore()
   })
 
@@ -289,7 +306,7 @@ describe('AdminPage', () => {
     expect(screen.getByText('ยังไม่มีห้องหรือทางเดินที่ปิด')).toBeInTheDocument()
   })
 
-  it('switches to All Schedules view tab', async () => {
+  it('switches to All Schedules Master Timetable view tab', async () => {
     const user = userEvent.setup()
     render(
       <MemoryRouter>
@@ -301,8 +318,68 @@ describe('AdminPage', () => {
     await user.click(schedulesTab)
 
     expect(screen.getByText(/สำรวจตารางเวลาทั้งหมด/)).toBeInTheDocument()
+    // It opens on a single day so different days' classes do not overlap in one row…
+    expect(screen.getByRole('button', { name: 'ทั้งหมด' })).not.toHaveClass('chip-active')
+    // …and "ทั้งหมด" still shows every day.
+    await user.click(screen.getByRole('button', { name: 'ทั้งหมด' }))
     expect(screen.getByText('CS101')).toBeInTheDocument()
     expect(screen.getByText('CS201')).toBeInTheDocument()
+  })
+
+  it('shows live conflict badges in the 2-column schedule modal room picker', async () => {
+    const user = userEvent.setup()
+    render(
+      <MemoryRouter>
+        <AdminPage />
+      </MemoryRouter>,
+    )
+
+    await user.click(screen.getByText('ห้อง 101').closest('button')!)
+    await user.click(screen.getByRole('button', { name: /เพิ่มตาราง/ }))
+
+    const dialog = screen.getByRole('dialog', { name: 'เพิ่มตาราง/กิจกรรมใหม่' })
+    // Fill a Monday 10:00-11:00 slot, which overlaps CS101 (MON 09:30-12:30) in LC3-101
+    await user.type(within(dialog).getByPlaceholderText('09:00'), '10:00')
+    await user.type(within(dialog).getByPlaceholderText('12:00'), '11:00')
+
+    expect(
+      within(dialog).getByText(/ชน: CS101 \(09:30–12:30\)/),
+    ).toBeInTheDocument()
+    expect(
+      within(dialog).getByText(/คำเตือน: ห้อง LC3-101 มีตารางชน/),
+    ).toBeInTheDocument()
+  })
+
+  it('leaves restrooms and other facilities out of the schedule room picker', async () => {
+    mockRooms.push({
+      ...mockRooms[0],
+      id: 'LC3-WC1',
+      code: 'LC3-WC1',
+      roomNumber: 'WC1',
+      nameThai: 'ห้องน้ำชาย',
+      category: 'toilet',
+      capacity: undefined,
+    })
+    try {
+      const user = userEvent.setup()
+      render(
+        <MemoryRouter>
+          <AdminPage />
+        </MemoryRouter>,
+      )
+      await user.click(screen.getByText('ห้อง 101').closest('button')!)
+      await user.click(screen.getByRole('button', { name: /เพิ่มตาราง/ }))
+      const dialog = screen.getByRole('dialog', { name: 'เพิ่มตาราง/กิจกรรมใหม่' })
+      expect(within(dialog).queryByText('ห้องน้ำชาย')).not.toBeInTheDocument()
+      expect(within(dialog).getAllByText(/ห้องบรรยาย 101/).length).toBeGreaterThan(0)
+      await user.click(within(dialog).getByRole('button', { name: 'ยกเลิก' }))
+
+      // Nor does the restroom take up an empty row in the master timetable.
+      await user.click(screen.getByRole('button', { name: /ตารางเวลา/ }))
+      expect(await screen.findByText(/ห้องเรียน \(2\)/)).toBeInTheDocument()
+    } finally {
+      mockRooms.pop()
+    }
   })
 
   it('signs out via AccountMenu', async () => {
@@ -314,7 +391,9 @@ describe('AdminPage', () => {
       </MemoryRouter>,
     )
 
-    const accountTrigger = screen.getByRole('button', { name: /บัญชีผู้ใช้ admin@torch.dev/i })
+    const accountTrigger = screen.getByRole('button', {
+      name: /บัญชีผู้ใช้ admin@torch.dev/i,
+    })
     await user.click(accountTrigger)
 
     const signOutBtn = screen.getByRole('button', { name: /ออกจากระบบ/i })
@@ -343,12 +422,15 @@ describe('AdminPage exam date (event_date)', () => {
       </MemoryRouter>,
     )
     await user.click(screen.getByText('ห้อง 101').closest('button')!)
-    await user.click(screen.getByRole('button', { name: 'เพิ่มตาราง/กิจกรรมในห้องนี้' }))
+    await user.click(screen.getByRole('button', { name: /เพิ่มตาราง/ }))
     const form = screen.getByText('เพิ่มตาราง/กิจกรรมใหม่').closest('form')!
     return { user, form: within(form) }
   }
 
-  async function fillRequired(user: ReturnType<typeof userEvent.setup>, form: ReturnType<typeof within>) {
+  async function fillRequired(
+    user: ReturnType<typeof userEvent.setup>,
+    form: ReturnType<typeof within>,
+  ) {
     await user.type(form.getByPlaceholderText('CS333'), 'BAS350')
     await user.type(form.getByPlaceholderText('09:00'), '13:00')
     await user.type(form.getByPlaceholderText('12:00'), '16:00')
@@ -374,7 +456,7 @@ describe('AdminPage exam date (event_date)', () => {
     const { user, form } = await openCreateForm()
     await fillRequired(user, form)
     await user.selectOptions(form.getByDisplayValue('บรรยาย (Lecture)'), 'exam')
-    await user.click(form.getByRole('button', { name: /บันทึกตารางสอน/ }))
+    await user.click(form.getByRole('button', { name: /บันทึกตาราง\/กิจกรรม/ }))
 
     expect(form.getByLabelText(/วันสอบ/)).toBeInvalid()
     expect(adminServiceMock.createSchedule).not.toHaveBeenCalled()
@@ -402,26 +484,44 @@ describe('AdminPage exam date (event_date)', () => {
     await fillRequired(user, form)
     await user.selectOptions(form.getByDisplayValue('บรรยาย (Lecture)'), 'exam')
     await user.type(form.getByLabelText(/วันสอบ/), '2026-05-18')
-    await user.click(form.getByRole('button', { name: /บันทึกตารางสอน/ }))
+    await user.click(form.getByRole('button', { name: /บันทึกตาราง\/กิจกรรม/ }))
 
     expect(adminServiceMock.createSchedule).toHaveBeenCalledWith(
-      expect.objectContaining({ event_code: 'BAS350', event_type: 'exam', event_date: '2026-05-18' }),
+      expect.objectContaining({
+        event_code: 'BAS350',
+        event_type: 'exam',
+        event_date: '2026-05-18',
+      }),
     )
   })
 
   it('offers a link to check the saved schedule on the public map (#197)', async () => {
     const { user, form } = await openCreateForm()
     await fillRequired(user, form)
-    await user.click(form.getByRole('button', { name: /บันทึกตารางสอน/ }))
+    await user.click(form.getByRole('button', { name: /บันทึกตาราง\/กิจกรรม/ }))
 
     const link = await screen.findByRole('link', { name: 'ดูผลบนแผนที่' })
     expect(link.getAttribute('href')).toMatch(/^\/map\?room=/)
   })
 
+  it('opens a seed row whose type is "class" as a lecture', async () => {
+    const user = userEvent.setup()
+    render(
+      <MemoryRouter>
+        <AdminPage />
+      </MemoryRouter>,
+    )
+    await user.click(screen.getByText('ห้อง 101').closest('button')!)
+    const row = screen.getByText('CS101').closest('div.group') as HTMLElement
+    await user.click(within(row).getByRole('button', { name: 'แก้ไขตาราง' }))
+
+    expect(screen.getByDisplayValue('บรรยาย (Lecture)')).toBeInTheDocument()
+  })
+
   it('does not send event_date for a lecture', async () => {
     const { user, form } = await openCreateForm()
     await fillRequired(user, form)
-    await user.click(form.getByRole('button', { name: /บันทึกตารางสอน/ }))
+    await user.click(form.getByRole('button', { name: /บันทึกตาราง\/กิจกรรม/ }))
 
     expect(adminServiceMock.createSchedule).toHaveBeenCalledTimes(1)
     expect(adminServiceMock.createSchedule).toHaveBeenCalledWith(
@@ -431,13 +531,15 @@ describe('AdminPage exam date (event_date)', () => {
 
   it('shows the error message returned by the API', async () => {
     adminServiceMock.createSchedule.mockRejectedValueOnce(
-      new Error('Invalid event_date: use a real calendar date in YYYY-MM-DD format'),
+      new Error(
+        'Invalid event_date: use a real calendar date in YYYY-MM-DD format',
+      ),
     )
     const { user, form } = await openCreateForm()
     await fillRequired(user, form)
     await user.selectOptions(form.getByDisplayValue('บรรยาย (Lecture)'), 'exam')
     await user.type(form.getByLabelText(/วันสอบ/), '2026-05-18')
-    await user.click(form.getByRole('button', { name: /บันทึกตารางสอน/ }))
+    await user.click(form.getByRole('button', { name: /บันทึกตาราง\/กิจกรรม/ }))
 
     expect(await form.findByText(/Invalid event_date/)).toBeInTheDocument()
   })
@@ -451,7 +553,9 @@ describe('AdminPage exam date (event_date)', () => {
     )
     await user.click(screen.getByText('ห้อง 201').closest('button')!)
     const examRow = screen.getByText('BAS350').closest('div.group') as HTMLElement
-    await user.click(within(examRow).getByRole('button', { name: 'แก้ไขตาราง' }))
+    await user.click(
+      within(examRow).getByRole('button', { name: 'แก้ไขตาราง' }),
+    )
 
     expect(screen.getByLabelText(/วันสอบ/)).toHaveValue('2026-05-18')
     await user.click(screen.getByRole('button', { name: 'บันทึกการแก้ไข' }))
@@ -472,7 +576,9 @@ describe('AdminPage exam date (event_date)', () => {
     )
     await user.click(screen.getByText('ห้อง 201').closest('button')!)
     const examRow = screen.getByText('BAS350').closest('div.group') as HTMLElement
-    await user.click(within(examRow).getByRole('button', { name: 'แก้ไขตาราง' }))
+    await user.click(
+      within(examRow).getByRole('button', { name: 'แก้ไขตาราง' }),
+    )
     await user.selectOptions(screen.getByDisplayValue('การสอบ (Exam)'), 'lab')
     await user.click(screen.getByRole('button', { name: 'บันทึกการแก้ไข' }))
 
@@ -488,18 +594,22 @@ describe('AdminPage exam date (event_date)', () => {
     await user.type(form.getByPlaceholderText('CS333'), 'CS999')
     await user.type(form.getByPlaceholderText('09:00'), '25:99')
     await user.type(form.getByPlaceholderText('12:00'), '16:00')
-    await user.click(form.getByRole('button', { name: /บันทึกตารางสอน/ }))
+    await user.click(form.getByRole('button', { name: /บันทึกตาราง\/กิจกรรม/ }))
 
-    expect(form.getByText(/กรุณาระบุเวลาเป็นรูปแบบ HH:MM/)).toBeInTheDocument()
+    expect(
+      form.getByText(/กรุณาระบุเวลาเป็นรูปแบบ HH:MM/),
+    ).toBeInTheDocument()
     expect(adminServiceMock.createSchedule).not.toHaveBeenCalled()
 
     await user.clear(form.getByPlaceholderText('09:00'))
     await user.type(form.getByPlaceholderText('09:00'), '16:00')
     await user.clear(form.getByPlaceholderText('12:00'))
     await user.type(form.getByPlaceholderText('12:00'), '09:00')
-    await user.click(form.getByRole('button', { name: /บันทึกตารางสอน/ }))
+    await user.click(form.getByRole('button', { name: /บันทึกตาราง\/กิจกรรม/ }))
 
-    expect(form.getByText(/เวลาสิ้นสุดต้องมากกว่าเวลาเริ่ม/)).toBeInTheDocument()
+    expect(
+      form.getByText(/เวลาสิ้นสุดต้องมากกว่าเวลาเริ่ม/),
+    ).toBeInTheDocument()
     expect(adminServiceMock.createSchedule).not.toHaveBeenCalled()
   })
 
@@ -511,7 +621,7 @@ describe('AdminPage exam date (event_date)', () => {
     await user.type(form.getByLabelText(/วันสอบ/), '2026-10-30')
     expect(form.getByDisplayValue('วันศุกร์ (FRI)')).toBeInTheDocument()
 
-    await user.click(form.getByRole('button', { name: /บันทึกตารางสอน/ }))
+    await user.click(form.getByRole('button', { name: /บันทึกตาราง\/กิจกรรม/ }))
 
     expect(adminServiceMock.createSchedule).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -558,7 +668,11 @@ describe('AdminPage move schedule to another room (#153)', () => {
       .map((o) => o.textContent)
 
   /** Opens the room field, types the query and picks the option whose text starts with label. */
-  async function moveTo(user: ReturnType<typeof userEvent.setup>, query: string, label: RegExp) {
+  async function moveTo(
+    user: ReturnType<typeof userEvent.setup>,
+    query: string,
+    label: RegExp,
+  ) {
     await user.click(roomBox())
     await user.type(roomBox(), query)
     await user.click(screen.getByRole('option', { name: label }))
@@ -566,7 +680,9 @@ describe('AdminPage move schedule to another room (#153)', () => {
 
   it('shows the room field only while editing; it opens as a dropdown of every room', async () => {
     const user = await openRoom101()
-    expect(screen.queryByRole('combobox', { name: 'ย้ายไปห้อง' })).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('combobox', { name: 'ย้ายไปห้อง' }),
+    ).not.toBeInTheDocument()
 
     await editCs101(user)
     expect(roomBox()).toHaveValue('LC3-101 · ห้องบรรยาย 101')
@@ -614,7 +730,9 @@ describe('AdminPage move schedule to another room (#153)', () => {
 
     await user.type(roomBox(), '201{Enter}')
     expect(roomBox()).toHaveValue('LC3-201 · ห้องปฏิบัติการ 201')
-    expect(screen.getByText(/จะถูกย้ายจาก LC3-101 ไป LC3-201/)).toBeInTheDocument()
+    expect(
+      screen.getByText(/จะถูกย้ายจาก LC3-101 ไป LC3-201/),
+    ).toBeInTheDocument()
   })
 
   it('does not send room_code when the room is unchanged', async () => {
@@ -623,7 +741,8 @@ describe('AdminPage move schedule to another room (#153)', () => {
     await user.click(screen.getByRole('button', { name: 'บันทึกการแก้ไข' }))
 
     expect(adminServiceMock.updateSchedule).toHaveBeenCalledTimes(1)
-    const [, , payload] = adminServiceMock.updateSchedule.mock.calls[0] as unknown as [string, string, object]
+    const [, , payload] = adminServiceMock.updateSchedule.mock
+      .calls[0] as unknown as [string, string, object]
     expect(payload).not.toHaveProperty('room_code')
     expect(payload).not.toHaveProperty('location_id')
   })
@@ -632,7 +751,9 @@ describe('AdminPage move schedule to another room (#153)', () => {
     const user = await openRoom101()
     await editCs101(user)
     await moveTo(user, '201', /^LC3-201/)
-    expect(screen.getByText(/จะถูกย้ายจาก LC3-101 ไป LC3-201/)).toBeInTheDocument()
+    expect(
+      screen.getByText(/จะถูกย้ายจาก LC3-101 ไป LC3-201/),
+    ).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'บันทึกการแก้ไข' }))
 
@@ -644,13 +765,20 @@ describe('AdminPage move schedule to another room (#153)', () => {
     expect(await screen.findByText(/ไปห้อง LC3-201 แล้ว/)).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'ไปที่ห้อง LC3-201' }))
+    expect(
+      screen.getByRole('complementary', { name: 'ข้อมูลห้อง LC3-201' }),
+    ).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /แก้ไขข้อมูลห้อง/ }))
     expect(screen.getByDisplayValue('ห้องปฏิบัติการ 201')).toBeInTheDocument()
   })
 
   it('shows the move notice only after the schedule list has refreshed', async () => {
     let finishRefresh: () => void = () => {}
     reloadSchedulesMock.mockImplementationOnce(
-      () => new Promise<void>((resolve) => { finishRefresh = resolve }),
+      () =>
+        new Promise<void>((resolve) => {
+          finishRefresh = resolve
+        }),
     )
     const user = await openRoom101()
     await editCs101(user)
@@ -662,7 +790,9 @@ describe('AdminPage move schedule to another room (#153)', () => {
 
     finishRefresh()
     expect(await screen.findByText(/ไปห้อง LC3-201 แล้ว/)).toBeInTheDocument()
-    expect(screen.queryByText(/โหลดรายการล่าสุดไม่สำเร็จ/)).not.toBeInTheDocument()
+    expect(
+      screen.queryByText(/โหลดรายการล่าสุดไม่สำเร็จ/),
+    ).not.toBeInTheDocument()
   })
 
   it('says the list could not refresh when the reload after a move fails', async () => {
@@ -673,19 +803,148 @@ describe('AdminPage move schedule to another room (#153)', () => {
     await user.click(screen.getByRole('button', { name: 'บันทึกการแก้ไข' }))
 
     expect(
-      await screen.findByText(/ไปห้อง LC3-201 แล้ว แต่โหลดรายการล่าสุดไม่สำเร็จ กรุณารีเฟรชหน้า/),
+      await screen.findByText(
+        /ไปห้อง LC3-201 แล้ว แต่โหลดรายการล่าสุดไม่สำเร็จ กรุณารีเฟรชหน้า/,
+      ),
     ).toBeInTheDocument()
   })
 
   it('shows the 409 conflict message and keeps the editor open', async () => {
-    adminServiceMock.updateSchedule.mockRejectedValueOnce(new Error('มีรายการเวลา/รหัสเดียวกันในห้องนั้นแล้ว'))
+    adminServiceMock.updateSchedule.mockRejectedValueOnce(
+      new Error('มีรายการเวลา/รหัสเดียวกันในห้องนั้นแล้ว'),
+    )
     const user = await openRoom101()
     await editCs101(user)
     await moveTo(user, '201', /^LC3-201/)
     await user.click(screen.getByRole('button', { name: 'บันทึกการแก้ไข' }))
 
-    expect(await screen.findByText('มีรายการเวลา/รหัสเดียวกันในห้องนั้นแล้ว')).toBeInTheDocument()
+    expect(
+      await screen.findByText('มีรายการเวลา/รหัสเดียวกันในห้องนั้นแล้ว'),
+    ).toBeInTheDocument()
     expect(roomBox()).toHaveValue('LC3-201 · ห้องปฏิบัติการ 201')
     expect(screen.queryByText(/ไปห้อง LC3-201 แล้ว/)).not.toBeInTheDocument()
+  })
+})
+
+describe('AdminPage review fixes (#186)', () => {
+  beforeEach(() => {
+    currentSession = {
+      idToken: 'mock-token',
+      accessToken: 'mock-access',
+      expiresAt: Date.now() + 3600000,
+      user: { email: 'staff@torch.dev', sub: 'staff-sub', groups: ['staff'] },
+    }
+    Object.values(adminServiceMock).forEach((fn) => fn.mockClear())
+    reloadSchedulesMock.mockReset()
+    reloadSchedulesMock.mockImplementation(async () => {})
+    schedulesStateMock.loading = false
+    schedulesStateMock.error = null
+  })
+
+  function renderPage() {
+    const user = userEvent.setup()
+    render(
+      <MemoryRouter>
+        <AdminPage />
+      </MemoryRouter>,
+    )
+    return user
+  }
+
+  async function openAddForRoom101(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(screen.getByText('ห้อง 101').closest('button')!)
+    await user.click(screen.getByRole('button', { name: /เพิ่มตาราง/ }))
+    return within(screen.getByRole('dialog', { name: 'เพิ่มตาราง/กิจกรรมใหม่' }))
+  }
+
+  async function fillAndSave(dialog: ReturnType<typeof within>, user: ReturnType<typeof userEvent.setup>) {
+    await user.type(dialog.getByPlaceholderText('CS333'), 'CS999')
+    await user.type(dialog.getByPlaceholderText('09:00'), '17:00')
+    await user.type(dialog.getByPlaceholderText('12:00'), '18:00')
+    await user.click(dialog.getByRole('button', { name: 'บันทึกตาราง/กิจกรรม' }))
+  }
+
+  it('does not call any room free before the schedules have loaded', async () => {
+    schedulesStateMock.loading = true
+    const user = renderPage()
+    const dialog = await openAddForRoom101(user)
+
+    expect(dialog.getByText('กำลังโหลดตาราง…')).toBeInTheDocument()
+    expect(dialog.queryByText('ว่าง')).not.toBeInTheDocument()
+  })
+
+  it('offers a retry instead of an empty master timetable when schedules fail to load', async () => {
+    schedulesStateMock.error = new Error('network')
+    const user = renderPage()
+    await user.click(screen.getByRole('button', { name: /ตารางเวลาทั้งหมด/ }))
+
+    expect(screen.getByRole('alert')).toHaveTextContent('โหลดตารางไม่สำเร็จ')
+    expect(screen.queryByRole('button', { name: /เพิ่มตาราง LC3-101 เวลา/ })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'ลองอีกครั้ง' }))
+    expect(reloadSchedulesMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('takes the weekday from the exam date and links each label to its field', async () => {
+    const user = renderPage()
+    const dialog = await openAddForRoom101(user)
+    await user.type(dialog.getByLabelText('เวลาเริ่ม *'), '10:00')
+    await user.type(dialog.getByLabelText('เวลาสิ้นสุด *'), '11:00')
+    // Monday 10:00–11:00 overlaps CS101 in LC3-101.
+    expect(dialog.getByText(/คำเตือน: ห้อง LC3-101 มีตารางชน/)).toBeInTheDocument()
+
+    await user.selectOptions(dialog.getByLabelText('ประเภท'), 'exam')
+    await user.type(dialog.getByLabelText(/วันสอบ/), '2026-05-22') // a Friday
+
+    const day = dialog.getByLabelText('วัน *')
+    expect(day).toHaveValue('FRI')
+    expect(day).toBeDisabled()
+    expect(dialog.queryByText(/คำเตือน: ห้อง LC3-101 มีตารางชน/)).not.toBeInTheDocument()
+    expect(dialog.getByLabelText('รหัสวิชา *')).toHaveAttribute('placeholder', 'CS333')
+  })
+
+  it("keeps a room's schedules when the timetable is searched by its Thai name", async () => {
+    const user = renderPage()
+    await user.click(screen.getByRole('button', { name: /ตารางเวลาทั้งหมด/ }))
+    await user.click(screen.getByRole('button', { name: 'ทั้งหมด' }))
+    await user.type(screen.getByPlaceholderText(/ค้นหารหัสวิชา/), 'ห้องปฏิบัติการ 201')
+
+    expect(screen.getByText('CS201')).toBeInTheDocument()
+    expect(screen.getByText('BAS350')).toBeInTheDocument()
+    expect(screen.queryByText('CS101')).not.toBeInTheDocument()
+  })
+
+  it('warns on the page, with a retry, when the list cannot refresh after a save', async () => {
+    reloadSchedulesMock.mockRejectedValueOnce(new Error('network'))
+    const user = renderPage()
+    const dialog = await openAddForRoom101(user)
+    await fillAndSave(dialog, user)
+
+    expect(await screen.findByText(/บันทึกแล้ว แต่โหลดตารางล่าสุดไม่สำเร็จ/)).toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'โหลดอีกครั้ง' }))
+    expect(reloadSchedulesMock).toHaveBeenCalledTimes(2)
+    await waitFor(() =>
+      expect(screen.queryByText(/บันทึกแล้ว แต่โหลดตารางล่าสุดไม่สำเร็จ/)).not.toBeInTheDocument(),
+    )
+  })
+
+  it('cannot be closed while a save is still in flight', async () => {
+    let finishSave: () => void = () => {}
+    adminServiceMock.createSchedule.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishSave = () => resolve({ message: 'ok', schedule_slot: 'slot' })
+        }),
+    )
+    const user = renderPage()
+    const dialog = await openAddForRoom101(user)
+    await fillAndSave(dialog, user)
+
+    expect(dialog.getByRole('button', { name: 'ยกเลิก' })).toBeDisabled()
+    expect(dialog.getByRole('button', { name: 'ปิดหน้าต่างตารางสอน' })).toBeDisabled()
+
+    finishSave()
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
   })
 })
