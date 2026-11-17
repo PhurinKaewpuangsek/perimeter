@@ -225,4 +225,32 @@ describe('SearchResultList exam dates', () => {
     expect(screen.getByText(/MON 09:00-12:00 · 2026-05-18/)).toBeInTheDocument()
     expect(screen.getByText(/MON 09:00-12:00 · date to be announced/)).toBeInTheDocument()
   })
+
+  it('lists the exam before class rows in the room preview so it is not hidden (#192)', async () => {
+    const lecture = (dayOfWeek: string): ScheduleSlot => ({
+      roomCode: room.code,
+      eventCode: 'EN101',
+      eventName: 'EN101',
+      dayOfWeek,
+      startTime: '08:00',
+      endTime: '09:30',
+      eventType: 'class',
+    })
+    const onSelectRoom = vi.fn()
+    render(
+      <SearchResultList
+        rooms={[room]}
+        schedules={[lecture('MON'), lecture('TUE'), { ...exam('EN101', '2026-12-01'), dayOfWeek: 'FRI' }]}
+        schedulesLoading={false}
+        schedulesError={null}
+        loading={false}
+        error={null}
+        onSelectRoom={onSelectRoom}
+      />
+    )
+
+    const examBadge = screen.getByText('สอบ')
+    await userEvent.setup().click(examBadge)
+    expect(onSelectRoom).toHaveBeenCalledWith(room.id, 'EN101', 'exam')
+  })
 })
