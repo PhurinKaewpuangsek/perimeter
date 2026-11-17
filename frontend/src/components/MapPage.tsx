@@ -140,7 +140,7 @@ function RoomDetailContent({
   highlightExamCode,
 }: RoomDetailContentProps) {
 
-  const renderScheduleActions = (slot: ScheduleSlot) => {
+  const renderScheduleActions = (slot: ScheduleSlot, showLabel = true) => {
     const scheduleSlot = computeScheduleSlot(slot)
     const calendarSlot: PinnedSchedule = {
       ...slot,
@@ -152,7 +152,7 @@ function RoomDetailContent({
 
     return (
       <>
-        <PinButton slot={slot} showLabel />
+        <PinButton slot={slot} showLabel={showLabel} />
         {calendarUrl ? (
           <a
             href={calendarUrl}
@@ -346,7 +346,7 @@ function RoomDetailContent({
             ) : (
               <ExamAgendaList
                 slots={examSchedules}
-                renderActions={renderScheduleActions}
+                renderActions={(slot) => renderScheduleActions(slot, false)}
                 roomCode={room.code || room.roomNumber}
                 highlightEventCode={highlightExamCode}
               />
