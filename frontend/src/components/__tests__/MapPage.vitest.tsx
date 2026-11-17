@@ -172,6 +172,57 @@ describe('MapPage course search (issue #91)', () => {
     expect(screen.queryByText('EXM-104')).not.toBeInTheDocument()
   })
 
+  describe('an activity in the room timetable can be opened for details (#198)', () => {
+    const ACTIVITY: ScheduleSlot = {
+      ...slot('LC3-121', 'WED'),
+      eventCode: 'ACT-DS01',
+      eventName: 'Data Science Workshop',
+      startTime: '13:00',
+      endTime: '15:00',
+      eventType: 'other',
+      eventDate: '2026-10-28',
+    }
+    afterEach(() => {
+      schedulesForTest = SCHEDULES
+    })
+
+    it('on desktop, tapping it in the full timetable shows its details', async () => {
+      // Two entries, so the modal does not open one by itself and the tap is what selects it.
+      schedulesForTest = [ACTIVITY, { ...slot('LC3-121', 'MON'), eventCode: 'CS101' }]
+      mockViewport(true)
+      const user = userEvent.setup()
+      renderMap('/map?room=LC3-F1-R121')
+
+      await user.click(screen.getByTestId('compact-week-summary-btn'))
+      const modal = screen.getByRole('dialog')
+      expect(within(modal).queryByTestId('tu-reg-selected-card')).not.toBeInTheDocument()
+      await user.click(within(modal).getByRole('button', { name: /ACT-DS01/ }))
+
+      const card = within(modal).getByTestId('tu-reg-selected-card')
+      expect(card).toHaveTextContent('ACT-DS01')
+      expect(card).toHaveTextContent('Data Science Workshop')
+      expect(card).toHaveTextContent('13:00')
+    })
+
+    it('on mobile, the full timetable lists it with its name and time', async () => {
+      const originalInnerWidth = window.innerWidth
+      window.innerWidth = 375
+      try {
+        schedulesForTest = [ACTIVITY]
+        mockViewport(false)
+        const user = userEvent.setup()
+        renderMap('/map?room=LC3-F1-R121')
+
+        await user.click(screen.getAllByTestId('compact-week-summary-btn')[0])
+        const timetable = within(screen.getByRole('dialog')).getByTestId('tu-great-timetable')
+        expect(timetable).toHaveTextContent('Data Science Workshop')
+        expect(timetable).toHaveTextContent('13:00')
+      } finally {
+        window.innerWidth = originalInnerWidth
+      }
+    })
+  })
+
   it('filters search results by room category', async () => {
     mockViewport(true)
     const user = userEvent.setup()
