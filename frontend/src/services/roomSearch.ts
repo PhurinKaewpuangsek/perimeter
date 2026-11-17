@@ -38,5 +38,5 @@ export function searchRooms(rooms: Room[], query: string): Room[] {
 
 /** e.g. "LC3-105 · ห้องบรรยายเรียนรวม" */
 export function roomOptionLabel(room: Room): string {
-  return room.nameThai ? `${room.code} · ${room.nameThai}` : room.code
+  return room.nameThai ? `${room.code} ${room.nameThai}` : room.code
 }

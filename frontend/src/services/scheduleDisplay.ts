@@ -4,6 +4,28 @@ export function isExamSchedule(schedule: Pick<ScheduleSlot, 'eventType'>): boole
   return schedule.eventType.toLowerCase() === 'exam'
 }
 
+/** One-off activities (staff-added, not a course) are stored with the 'other' type. */
+export function isActivitySchedule(schedule: Pick<ScheduleSlot, 'eventType'>): boolean {
+  return schedule.eventType.toLowerCase() === 'other'
+}
+
+/** Text on a timetable block: an activity is known by its name, a class by its course code. */
+export function getSlotDisplayLabel(slot: Pick<ScheduleSlot, 'eventType' | 'eventCode' | 'eventName'>): string {
+  return isActivitySchedule(slot) && slot.eventName ? slot.eventName : slot.eventCode
+}
+
+/** YYYY-MM-DD `days` after `date`, on the local calendar. */
+export function addDays(date: string, days: number): string {
+  const [year, month, day] = date.split('-').map(Number)
+  return formatLocalDate(new Date(year, month - 1, day + days))
+}
+
+/** "วันนี้" / "พรุ่งนี้" when `date` is today or tomorrow, otherwise null. */
+export function getRelativeDayLabel(date: string, today: string): string | null {
+  if (date === today) return 'วันนี้'
+  return date === addDays(today, 1) ? 'พรุ่งนี้' : null
+}
+
 export function getExamDateLabel(
   schedule: Pick<ScheduleSlot, 'eventType' | 'eventDate'>
 ): string | null {
@@ -49,6 +71,15 @@ export function formatLocalDate(date: Date): string {
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const day = String(date.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
+}
+
+/** "16 พ.ย." for a YYYY-MM-DD date, or "16 พ.ย. 2569" with the year. */
+export function formatThaiShortDate(date: string, withYear = false): string {
+  const match = date.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (!match) return date
+  const [, year, month, day] = match
+  const label = `${Number(day)} ${THAI_SHORT_MONTHS[Number(month) - 1]}`
+  return withYear ? `${label} ${Number(year) + 543}` : label
 }
 
 export function getThaiShortDayLabel(dayOfWeek: string): string {

@@ -1037,11 +1037,9 @@ export default function AdminPage() {
                           </div>
                           <div className="flex items-center gap-2 mt-2 text-[11px] text-ink-3">
                             <span>ชั้น {room.floor}</span>
-                            <span>·</span>
                             <CategoryBadge category={room.category} />
                             {room.capacity !== undefined && (
                               <>
-                                <span>·</span>
                                 <span className="inline-flex items-center gap-1">
                                   <Users size={11} weight="bold" />
                                   {room.capacity} ที่นั่ง
@@ -1397,7 +1395,7 @@ export default function AdminPage() {
                     <span>
                       {selectedRoom.landmarks
                         .map((l) => getLandmarkText(l))
-                        .join(' · ')}
+                        .join(', ')}
                     </span>
                   </div>
                 )}
@@ -2085,7 +2083,7 @@ export default function AdminPage() {
                               </span>
                               {room.capacity !== undefined && (
                                 <span className="text-[10px] text-ink-2">
-                                  · {room.capacity} ที่นั่ง
+                                  {room.capacity} ที่นั่ง
                                 </span>
                               )}
                             </div>

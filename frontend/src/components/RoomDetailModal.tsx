@@ -93,7 +93,7 @@ export function RoomDetailModal({
           {!loading && !error && room && (
             <>
               <p className="text-xs font-medium text-ink-3 uppercase">
-                {getBuildingLabel(room.building)} · ชั้น {room.floor}
+                {getBuildingLabel(room.building)} ชั้น {room.floor}
               </p>
 
               <h2 id="room-modal-title" className="mt-1 font-display text-h3-sm font-bold text-ink">
@@ -107,7 +107,6 @@ export function RoomDetailModal({
                 </span>
                 {displayCapacity !== undefined && (
                   <>
-                    <span aria-hidden="true">·</span>
                     <span>ความจุ {displayCapacity} คน</span>
                   </>
                 )}

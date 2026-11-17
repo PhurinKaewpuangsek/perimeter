@@ -130,7 +130,7 @@ describe('ExamAgendaList', () => {
       </MemoryRouter>
     )
 
-    expect(screen.getByText(/Final - Network Programming · ห้อง LC3-105/)).toBeInTheDocument()
+    expect(screen.getByText(/Final - Network Programming, ห้อง LC3-105/)).toBeInTheDocument()
   })
 
   it('renders unannounced exams with fallback label', () => {

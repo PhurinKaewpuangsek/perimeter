@@ -64,7 +64,7 @@ describe('SearchResultList exam dates', () => {
 
     expect(screen.getByText('สอบ: BAS350')).toBeInTheDocument()
     expect(screen.getByText('จ. 18 พ.ค. 2569 09:00–12:00')).toBeInTheDocument()
-    expect(screen.getByText('อาคาร LC3 · ห้อง LC3-103 ชั้น 1')).toBeInTheDocument()
+    expect(screen.getByText('อาคาร LC3 ห้อง LC3-103 ชั้น 1')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'นำทางไปห้องสอบ LC3-103' }))
     expect(onNavigateToRoom).toHaveBeenCalledWith(room.id)
   })
@@ -169,8 +169,8 @@ describe('SearchResultList exam dates', () => {
     )
 
     expect(screen.getByText('Open House')).toBeInTheDocument()
-    expect(screen.getByText('อาคาร LC3 · ห้อง LC3-105 ชั้น 1')).toBeInTheDocument()
-    expect(screen.queryByText('อาคาร LC3 · ห้อง LC3-103 ชั้น 1')).not.toBeInTheDocument()
+    expect(screen.getByText('อาคาร LC3 ห้อง LC3-105 ชั้น 1')).toBeInTheDocument()
+    expect(screen.queryByText('อาคาร LC3 ห้อง LC3-103 ชั้น 1')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /ดูห้อง/ })).toBeInTheDocument()
     expect(screen.getByText('LC3-105')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'นำทางไปกิจกรรม Open House' }))
@@ -222,8 +222,8 @@ describe('SearchResultList exam dates', () => {
       />
     )
 
-    expect(screen.getByText(/MON 09:00-12:00 · 2026-05-18/)).toBeInTheDocument()
-    expect(screen.getByText(/MON 09:00-12:00 · date to be announced/)).toBeInTheDocument()
+    expect(screen.getByText(/MON 09:00-12:00, 2026-05-18/)).toBeInTheDocument()
+    expect(screen.getByText(/MON 09:00-12:00, date to be announced/)).toBeInTheDocument()
   })
 
   it('lists the exam before class rows in the room preview so it is not hidden (#192)', async () => {

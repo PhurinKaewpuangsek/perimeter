@@ -10,7 +10,14 @@ import {
   type PlacedSlot,
   type TimetableDay,
 } from '../services/timetableLayout'
-import { getExamDateLabel } from '../services/scheduleDisplay'
+import {
+  formatExamDateTime,
+  formatLocalDate,
+  getExamDateLabel,
+  getSlotDisplayLabel,
+  isActivitySchedule,
+} from '../services/scheduleDisplay'
+import { getBlockLabel, getSlotsForWeek, getWeekDays, getWeekStart } from '../services/roomWeek'
 import {
   THAI_DAY_COLORS,
   buildClassColorMap,
@@ -18,6 +25,7 @@ import {
   slotKey,
 } from '../services/timetableColors'
 import { TuRegTimetable, TuRegTimetableModal } from './TuRegTimetable'
+import { WeekNavigator } from './RoomWeekControls'
 
 export interface WeeklyTimetableProps {
   /** Entries to show. The grid never fetches data itself. */
@@ -38,6 +46,10 @@ export interface WeeklyTimetableProps {
   title?: string
   /** Optional room code */
   roomCode?: string
+  /** YYYY-MM-DD whose week the card opens on (e.g. a searched activity); defaults to today. */
+  focusDate?: string
+  /** YYYY-MM-DD; defaults to today. */
+  today?: string
 }
 
 const DAY_LABELS: Record<TimetableDay, { short: string; full: string }> = {
@@ -98,6 +110,7 @@ function examText(slot: ScheduleSlot): string | null {
 function entryLabel(item: PlacedSlot): string {
   const exam = examText(item.slot)
   return [
+    isActivitySchedule(item.slot) ? 'กิจกรรม' : '',
     item.slot.eventCode,
     item.slot.eventName && item.slot.eventName !== item.slot.eventCode ? item.slot.eventName : '',
     DAY_LABELS[item.day].full,
@@ -105,7 +118,7 @@ function entryLabel(item: PlacedSlot): string {
     exam ?? '',
   ]
     .filter(Boolean)
-    .join(' · ')
+    .join(' ')
 }
 
 /** Absolute position of one entry inside a day column. */
@@ -229,7 +242,7 @@ function GridView({ slots, renderActions, colorMap, onOpenWeekModal }: GridViewP
                     }`}
                     style={entryStyle(item, startMinute, endMinute, GRID_PX_PER_MINUTE)}
                   >
-                    <span className="block truncate font-mono text-[9px] font-bold text-white">{item.slot.eventCode}</span>
+                    <span className="block truncate font-mono text-[9px] font-bold text-white">{getSlotDisplayLabel(item.slot)}</span>
                     <span className="block truncate font-mono text-[8px] text-white/90">{formatMinutes(item.startMinute)}</span>
                   </button>
                 )
@@ -255,12 +268,17 @@ function EntryCard({ item, renderActions, colorMap }: { item: PlacedSlot; render
     <div data-testid="timetable-entry-card" className={`timetable-card rounded-xl p-3 shadow-xs ${entryColors(item.slot, colorMap)}`}>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="font-mono text-xs font-bold text-white">{item.slot.eventCode}</p>
+          <p className="font-mono text-xs font-bold text-white">
+            {isActivitySchedule(item.slot) ? 'กิจกรรม ' : ''}
+            {item.slot.eventCode}
+          </p>
           {item.slot.eventName && item.slot.eventName !== item.slot.eventCode && (
             <p className="truncate text-xs text-white/90">{item.slot.eventName}</p>
           )}
           <p className="mt-0.5 font-mono text-xs text-white/80">
-            {DAY_LABELS[item.day].full} {formatMinutes(item.startMinute)}–{formatMinutes(item.endMinute)}
+            {isActivitySchedule(item.slot) && item.slot.eventDate
+              ? formatExamDateTime(item.slot)
+              : `${DAY_LABELS[item.day].full} ${formatMinutes(item.startMinute)}–${formatMinutes(item.endMinute)}`}
           </p>
           {exam && <p className="mt-0.5 text-xs font-bold text-white">{exam}</p>}
         </div>
@@ -274,163 +292,179 @@ function EntryCard({ item, renderActions, colorMap }: { item: PlacedSlot; render
 const RAIL_HOURS = [8, 11, 14, 17, 20]
 
 interface CompactWeekSummaryProps {
+  /** The week's entries (getSlotsForWeek). */
   slots: ScheduleSlot[]
   colorMap?: Map<string, string>
+  /** Monday (YYYY-MM-DD) of the week shown. */
+  weekStart: string
+  thisWeekStart: string
+  /** YYYY-MM-DD */
+  today: string
+  onWeekChange: (weekStart: string) => void
   onOpenModal: () => void
 }
 
 /**
- * Compact Week Table Summary:
- * Sits right where the single-day table used to be. Acts as a large, inviting interactive button:
- * displays a 7-day miniature overview of all classes with their Google Calendar solid colors.
- * When clicked, it pops up the full, comprehensive Week Table modal in reg.tu.ac.th style.
+ * The room card's view of one week: everything that uses the room (classes, exams, activities)
+ * on a small 07:00–21:00 rail per dated day, with week arrows. Tapping the rail opens the full table.
  */
-function CompactWeekSummary({ slots, colorMap, onOpenModal }: CompactWeekSummaryProps) {
+function CompactWeekSummary({
+  slots,
+  colorMap,
+  weekStart,
+  thisWeekStart,
+  today,
+  onWeekChange,
+  onOpenModal,
+}: CompactWeekSummaryProps) {
   const layout = useMemo(() => buildTimetableLayout(slots), [slots])
+  const weekDays = useMemo(() => getWeekDays(weekStart), [weekStart])
 
   // Mini timeline spans from 07:00 to 21:00 (14 hours)
   const timelineStart = 7 * 60
   const timelineEnd = 21 * 60
   const totalMinutes = timelineEnd - timelineStart
+  const now = new Date()
+  const nowMinute = now.getHours() * 60 + now.getMinutes()
+  const nowPercent =
+    nowMinute >= timelineStart && nowMinute <= timelineEnd ? ((nowMinute - timelineStart) / totalMinutes) * 100 : null
 
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      data-testid="compact-week-summary-btn"
-      onClick={onOpenModal}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault()
-          onOpenModal()
-        }
-      }}
-      aria-label="เปิดดูตารางเรียนทั้งสัปดาห์"
-      className="group relative w-full text-left rounded-2xl border border-line-soft bg-white p-3.5 sm:p-4 shadow-xs transition-all duration-200 hover:border-line hover:shadow-md hover:scale-[1.008] cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent"
-    >
-      {/* Header bar of the compact summary button */}
-      <div className="flex items-center justify-between pb-2.5 border-b border-line-soft">
-        <div className="flex items-center gap-2">
-          <span className="font-display text-xs font-bold text-ink">
-            เทอม 1/2569
-          </span>
-          <span className="rounded-full bg-surface-2 border border-line-soft px-2 py-0.5 text-[10px] font-semibold text-ink-2">
-            {slots.length} คาบ
-          </span>
-        </div>
-
-        <div className="flex items-center gap-1 text-xs font-semibold text-accent group-hover:text-accent-hover">
+    <div className="rounded-2xl border border-line-soft bg-white p-3.5 sm:p-4 shadow-xs">
+      <div className="flex items-center justify-between gap-2 border-b border-line-soft pb-2">
+        <WeekNavigator weekStart={weekStart} thisWeekStart={thisWeekStart} onChange={onWeekChange} />
+        <button
+          type="button"
+          onClick={onOpenModal}
+          className="flex shrink-0 items-center gap-1 text-xs font-semibold text-accent hover:text-accent-hover"
+        >
           <span>ดูตารางเต็ม</span>
           <ArrowSquareOut size={14} weight="bold" />
-        </div>
+        </button>
       </div>
 
-      {/* Mini Time Rail Tick Marks */}
       <div
-        className="relative ml-9 mr-1 mt-2.5 h-3 text-[10px] font-mono text-ink-3 select-none"
-        aria-hidden="true"
+        role="button"
+        tabIndex={0}
+        data-testid="compact-week-summary-btn"
+        onClick={onOpenModal}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            onOpenModal()
+          }
+        }}
+        aria-label="เปิดตารางการใช้ห้องแบบเต็ม"
+        className="block w-full cursor-pointer rounded-xl text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
       >
-        {RAIL_HOURS.map((h) => (
-          <span
-            key={h}
-            className="absolute -translate-x-1/2"
-            style={{ left: `${((h * 60 - timelineStart) / totalMinutes) * 100}%` }}
-          >
-            {String(h).padStart(2, '0')}:00
-          </span>
-        ))}
-      </div>
+        {/* Mini Time Rail Tick Marks */}
+        <div className="relative ml-12 mr-1 mt-2.5 h-3 text-[10px] font-mono text-ink-3 select-none" aria-hidden="true">
+          {RAIL_HOURS.map((h) => (
+            <span
+              key={h}
+              className="absolute -translate-x-1/2"
+              style={{ left: `${((h * 60 - timelineStart) / totalMinutes) * 100}%` }}
+            >
+              {String(h).padStart(2, '0')}:00
+            </span>
+          ))}
+        </div>
 
-      {/* 7 Days Mini Timeline Rows (Monday to Sunday) */}
-      <div className="mt-1 space-y-1.5">
-        {TIMETABLE_DAYS.map((day) => {
-          const daySlots = layout.days[day]
-          const dayMeta = THAI_DAY_COLORS[day]
-          const maxLane = daySlots.length === 0 ? 0 : Math.max(...daySlots.map((s) => s.lane))
-          const laneCount = maxLane + 1
-          const hasSlots = daySlots.length > 0
+        {/* Monday to Sunday, each with its date */}
+        <div className="mt-1 space-y-1.5">
+          {weekDays.map(({ day, date }) => {
+            const daySlots = layout.days[day]
+            const dayMeta = THAI_DAY_COLORS[day]
+            const maxLane = daySlots.length === 0 ? 0 : Math.max(...daySlots.map((s) => s.lane))
+            const laneCount = maxLane + 1
+            const hasSlots = daySlots.length > 0
+            const isToday = date === today
 
-          return (
-            <div key={day} className="flex items-center gap-2">
-              {/* Day Label with Small Color Dot */}
-              <div className="flex w-8 shrink-0 items-center gap-1.5 select-none">
-                <span
-                  className="h-2 w-2 rounded-full shrink-0"
-                  style={{ backgroundColor: dayMeta.hex }}
-                  aria-hidden="true"
-                />
-                <span className="font-mono text-xs font-bold text-ink">
-                  {COMPACT_DAY_LABELS[day]}
-                </span>
-              </div>
-
-              {/* Timeline Track with multi-lane sub-rows if overlapping */}
-              <div className="flex-1 flex flex-col gap-0.5 min-w-0">
-                {Array.from({ length: laneCount }).map((_, laneIdx) => {
-                  const laneSlots = daySlots.filter((s) => s.lane === laneIdx)
-                  return (
-                    <div
-                      key={laneIdx}
-                      className="relative h-6.5 w-full rounded-md bg-surface-2/70 border border-line-soft/40 overflow-hidden"
+            return (
+              <div key={day} className="flex items-center gap-2" data-today={isToday ? 'true' : undefined}>
+                <div className="flex w-10 shrink-0 items-center gap-1.5 select-none">
+                  <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: dayMeta.hex }} aria-hidden="true" />
+                  <span className="flex flex-col items-start leading-none">
+                    <span className="font-mono text-xs font-bold text-ink">{COMPACT_DAY_LABELS[day]}</span>
+                    <span
+                      className={`mt-0.5 rounded-full px-1 font-mono text-[10px] ${
+                        isToday ? 'bg-[#d93025] font-semibold text-white' : 'text-ink-3'
+                      }`}
+                      title={isToday ? 'วันนี้' : undefined}
                     >
-                      {/* Subtle background hour tick lines */}
-                      <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
-                        {RAIL_HOURS.map((h) => (
-                          <div
-                            key={h}
-                            className="absolute top-0 h-full border-l border-line-soft/30"
-                            style={{ left: `${((h * 60 - timelineStart) / totalMinutes) * 100}%` }}
-                          />
-                        ))}
-                      </div>
+                      {Number(date.slice(8))}
+                    </span>
+                  </span>
+                </div>
 
-                      {/* Mini Course Blocks */}
-                      {hasSlots && laneSlots.length > 0 ? (
-                        laneSlots.map((item) => {
+                <div className="flex-1 flex flex-col gap-0.5 min-w-0">
+                  {Array.from({ length: laneCount }).map((_, laneIdx) => {
+                    const laneSlots = daySlots.filter((s) => s.lane === laneIdx)
+                    return (
+                      <div
+                        key={laneIdx}
+                        className="relative h-6.5 w-full rounded-md border border-line-soft/40 bg-surface-2/70 overflow-hidden"
+                      >
+                        <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
+                          {RAIL_HOURS.map((h) => (
+                            <div
+                              key={h}
+                              className="absolute top-0 h-full border-l border-line-soft/30"
+                              style={{ left: `${((h * 60 - timelineStart) / totalMinutes) * 100}%` }}
+                            />
+                          ))}
+                        </div>
+
+                        {laneSlots.map((item) => {
                           const leftPercent = Math.max(
                             0,
-                            Math.min(100, ((item.startMinute - timelineStart) / totalMinutes) * 100)
+                            Math.min(100, ((item.startMinute - timelineStart) / totalMinutes) * 100),
                           )
                           const widthPercent = Math.max(
                             8,
-                            Math.min(
-                              100 - leftPercent,
-                              ((item.endMinute - item.startMinute) / totalMinutes) * 100
-                            )
+                            Math.min(100 - leftPercent, ((item.endMinute - item.startMinute) / totalMinutes) * 100),
                           )
-
                           return (
                             <div
                               key={`${item.slot.eventCode}-${item.startMinute}`}
                               className={`absolute inset-y-0.5 rounded px-1 flex items-center justify-center font-mono text-[10px] font-bold text-white shadow-xs truncate select-none ${entryColors(
                                 item.slot,
-                                colorMap
+                                colorMap,
                               )}`}
-                              style={{
-                                left: `${leftPercent}%`,
-                                width: `${widthPercent}%`,
-                              }}
-                              title={`${item.slot.eventCode} (${formatMinutes(
-                                item.startMinute
+                              style={{ left: `${leftPercent}%`, width: `${widthPercent}%` }}
+                              title={`${getBlockLabel(item.slot)} (${formatMinutes(
+                                item.startMinute,
                               )}–${formatMinutes(item.endMinute)})`}
                             >
-                              <span className="truncate">{item.slot.eventCode}</span>
+                              <span className="truncate">{getBlockLabel(item.slot)}</span>
                             </div>
                           )
-                        })
-                      ) : !hasSlots ? (
-                        <div className="flex h-full items-center pl-2 select-none">
-                          <span className="text-[10px] text-ink-3/50 font-medium">ไม่มีคาบ</span>
-                        </div>
-                      ) : null}
-                    </div>
-                  )
-                })}
+                        })}
+
+                        {!hasSlots && (
+                          <div className="flex h-full items-center pl-2 select-none">
+                            <span className="text-[10px] text-ink-3/60 font-medium">ว่าง</span>
+                          </div>
+                        )}
+
+                        {isToday && nowPercent !== null && (
+                          <div
+                            aria-hidden="true"
+                            className="pointer-events-none absolute inset-y-0 z-10 w-0.5 bg-[#d93025]"
+                            style={{ left: `${nowPercent}%` }}
+                          />
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
-            </div>
-          )
-        })}
+            )
+          })}
+        </div>
       </div>
+
+      {slots.length === 0 && <p className="mt-2 text-center text-[11px] text-ink-3">ห้องว่างทั้งสัปดาห์</p>}
     </div>
   )
 }
@@ -446,7 +480,7 @@ function SkippedList({ slots, renderActions }: Pick<WeeklyTimetableProps, 'slots
         {skipped.map((slot, i) => (
           <li key={`${slot.eventCode}-${i}`} className="flex items-center justify-between gap-2">
             <span className="font-mono">
-              {slot.eventCode} · {slot.dayOfWeek || '-'} {slot.startTime || '-'}–{slot.endTime || '-'}
+              {slot.eventCode} {slot.dayOfWeek || '-'} {slot.startTime || '-'}–{slot.endTime || '-'}
             </span>
             {renderActions?.(slot)}
           </li>
@@ -463,10 +497,17 @@ export default function WeeklyTimetable({
   layout = 'auto',
   title,
   roomCode,
+  focusDate,
+  today,
 }: WeeklyTimetableProps) {
   const { ref } = useContainerWidth<HTMLDivElement>()
   const colorMap = useMemo(() => buildClassColorMap(slots), [slots])
   const [isWeekModalOpen, setIsWeekModalOpen] = useState(false)
+  const todayDate = today ?? formatLocalDate(new Date())
+  const thisWeekStart = getWeekStart(todayDate)
+  // The card and the full table share one week, so the table opens where the card is.
+  const [weekStart, setWeekStart] = useState(() => getWeekStart(focusDate ?? todayDate))
+  const weekSlots = useMemo(() => getSlotsForWeek(slots, weekStart), [slots, weekStart])
 
   if (slots.length === 0) {
     return (
@@ -477,6 +518,21 @@ export default function WeeklyTimetable({
       </div>
     )
   }
+
+  const modal = isWeekModalOpen && (
+    <TuRegTimetableModal
+      isOpen={isWeekModalOpen}
+      onClose={() => setIsWeekModalOpen(false)}
+      slots={slots}
+      title={title}
+      roomCode={roomCode}
+      renderActions={renderActions}
+      colorMap={colorMap}
+      weekStart={weekStart}
+      onWeekChange={setWeekStart}
+      today={todayDate}
+    />
+  )
 
   if (layout === 'tu-reg') {
     return (
@@ -498,41 +554,25 @@ export default function WeeklyTimetable({
           onOpenWeekModal={() => setIsWeekModalOpen(true)}
         />
         <SkippedList slots={slots} renderActions={renderActions} />
-
-        {isWeekModalOpen && (
-          <TuRegTimetableModal
-            isOpen={isWeekModalOpen}
-            onClose={() => setIsWeekModalOpen(false)}
-            slots={slots}
-            title={title}
-            roomCode={roomCode}
-            renderActions={renderActions}
-          />
-        )}
+        {modal}
       </div>
     )
   }
 
-  // Default ('auto', 'compact', or any room side panel): Compact Week Table summary (interactive button)
+  // Default ('auto', 'compact', or any room side panel): this week's room usage, tap for the full table
   return (
     <div ref={ref} className="space-y-3">
       <CompactWeekSummary
-        slots={slots}
+        slots={weekSlots}
         colorMap={colorMap}
+        weekStart={weekStart}
+        thisWeekStart={thisWeekStart}
+        today={todayDate}
+        onWeekChange={setWeekStart}
         onOpenModal={() => setIsWeekModalOpen(true)}
       />
       <SkippedList slots={slots} renderActions={renderActions} />
-
-      {isWeekModalOpen && (
-        <TuRegTimetableModal
-          isOpen={isWeekModalOpen}
-          onClose={() => setIsWeekModalOpen(false)}
-          slots={slots}
-          title={title}
-          roomCode={roomCode}
-          renderActions={renderActions}
-        />
-      )}
+      {modal}
     </div>
   )
 }

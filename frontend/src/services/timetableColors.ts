@@ -1,5 +1,9 @@
 import type { ScheduleSlot } from '../types/schedule'
 import { TIMETABLE_DAYS, type TimetableDay } from './timetableLayout'
+import { isActivitySchedule } from './scheduleDisplay'
+
+/** Activities never take a class colour, so they cannot be mistaken for a course. */
+export const ACTIVITY_COLOR = 'bg-[#5f6368] text-white'
 
 /**
  * Curated Google Calendar solid color palette for timetable entries.
@@ -93,6 +97,7 @@ export function buildClassColorMap(slots: ScheduleSlot[]): Map<string, string> {
 
 /** Tailwind colours for an entry: one solid colour per class, distinct across different classes. */
 export function entryColors(slot: ScheduleSlot, colorMap?: Map<string, string>): string {
+  if (isActivitySchedule(slot)) return ACTIVITY_COLOR
   const key = getSlotClassKey(slot)
   if (colorMap && colorMap.has(key)) {
     return colorMap.get(key)!

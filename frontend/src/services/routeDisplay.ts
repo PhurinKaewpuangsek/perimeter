@@ -518,7 +518,7 @@ export function calculateLegDistance(points: RoutePoint[]): {
   formatted: string
 } {
   if (points.length <= 1) {
-    return { meters: 0, minutes: 1, formatted: '~0 ม. · เดินไม่ถึง 1 นาที' }
+    return { meters: 0, minutes: 1, formatted: '~0 ม. (เดินไม่ถึง 1 นาที)' }
   }
 
   let totalSvgDist = 0
@@ -534,7 +534,7 @@ export function calculateLegDistance(points: RoutePoint[]): {
   return {
     meters,
     minutes,
-    formatted: `~${meters} ม. · เดินประมาณ ${minutes} นาที`,
+    formatted: `~${meters} ม. (เดินประมาณ ${minutes} นาที)`,
   }
 }
 
@@ -548,7 +548,7 @@ export function calculateRouteSummary(legs: { points: RoutePoint[]; floor: numbe
   formatted: string
 } {
   if (legs.length === 0) {
-    return { meters: 0, minutes: 1, formatted: 'เดิน ~0 ม. · ประมาณ 1 นาที' }
+    return { meters: 0, minutes: 1, formatted: 'เดิน ~0 ม. (ประมาณ 1 นาที)' }
   }
 
   let totalMeters = 0
@@ -561,7 +561,7 @@ export function calculateRouteSummary(legs: { points: RoutePoint[]; floor: numbe
   return {
     meters: totalMeters,
     minutes,
-    formatted: `เดิน ~${totalMeters} ม. · ประมาณ ${minutes} นาที`,
+    formatted: `เดิน ~${totalMeters} ม. (ประมาณ ${minutes} นาที)`,
   }
 }
 
@@ -778,5 +778,5 @@ export function formatArrivalNeighbours(neighbours: ArrivalNeighbour[]): string 
     .map(({ label, side }) =>
       side === 'left' ? `${label} อยู่ซ้ายมือ` : side === 'right' ? `${label} อยู่ขวามือ` : `${label} อยู่ใกล้ ๆ`,
     )
-    .join(' · ')
+    .join(', ')
 }

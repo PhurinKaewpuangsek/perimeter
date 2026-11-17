@@ -175,7 +175,7 @@ describe('calculateTurnAngle and generateLegInstructions', () => {
     const metrics = calculateLegDistance(legPoints)
     expect(metrics.meters).toBe(33)
     expect(metrics.minutes).toBe(1)
-    expect(metrics.formatted).toBe('~33 ม. · เดินประมาณ 1 นาที')
+    expect(metrics.formatted).toBe('~33 ม. (เดินประมาณ 1 นาที)')
   })
 
   it('extracts top physical milestones including bridge and fountain', () => {
@@ -243,7 +243,7 @@ describe('calculateTurnAngle and generateLegInstructions', () => {
     // Total = 53m, ~1 min
     expect(summary.meters).toBe(53)
     expect(summary.minutes).toBe(1)
-    expect(summary.formatted).toBe('เดิน ~53 ม. · ประมาณ 1 นาที')
+    expect(summary.formatted).toBe('เดิน ~53 ม. (ประมาณ 1 นาที)')
   })
 })
 
@@ -496,6 +496,6 @@ describe('getArrivalNeighbours (#194)', () => {
         { label: 'ห้อง 209', side: 'left' },
         { label: 'ห้องน้ำ', side: null },
       ])
-    ).toBe('ห้อง 209 อยู่ซ้ายมือ · ห้องน้ำ อยู่ใกล้ ๆ')
+    ).toBe('ห้อง 209 อยู่ซ้ายมือ, ห้องน้ำ อยู่ใกล้ ๆ')
   })
 })

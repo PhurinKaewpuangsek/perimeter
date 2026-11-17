@@ -151,7 +151,7 @@ describe('LandingPage', () => {
     })
 
     expect(screen.getByText('สอบ: BAS350')).toBeInTheDocument()
-    expect(screen.getByText('อาคาร LC3 · ห้อง LC3-103 ชั้น 1')).toBeInTheDocument()
+    expect(screen.getByText('อาคาร LC3 ห้อง LC3-103 ชั้น 1')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'นำทางไปห้องสอบ LC3-103' }))
     act(() => {
@@ -182,7 +182,7 @@ describe('LandingPage', () => {
     })
 
     expect(screen.getByRole('region', { name: 'ผลการค้นหากิจกรรม' })).toHaveTextContent('Open House')
-    expect(screen.getByText('อาคาร LC3 · ห้อง LC3-103 ชั้น 1')).toBeInTheDocument()
+    expect(screen.getByText('อาคาร LC3 ห้อง LC3-103 ชั้น 1')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'นำทางไปกิจกรรม Open House' }))
     act(() => {
       vi.advanceTimersByTime(500)
@@ -217,7 +217,7 @@ describe('LandingPage', () => {
     expect(screen.queryByRole('button', { name: /ดูแผนที่เต็มจอ/i })).not.toBeInTheDocument()
 
     // Copyright footer with C icon is present
-    expect(screen.getByText(/Perimeter Navigation System · Faculty Map/i)).toBeInTheDocument()
+    expect(screen.getByText(/Perimeter Navigation System, Faculty Map/i)).toBeInTheDocument()
     expect(screen.getByText('©')).toBeInTheDocument()
 
     // Clicking logo enters /map

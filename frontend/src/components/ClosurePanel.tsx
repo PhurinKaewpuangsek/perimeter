@@ -277,7 +277,7 @@ export function ClosurePanel({
         </h3>
         {editing && (
           <p className="text-xs text-ink-2">
-            กำลังแก้ไข <span className="font-bold text-ink">{editing.label}</span> · บันทึกแล้วเวลาและเหตุผลเดิมจะถูกแทนที่
+            กำลังแก้ไข <span className="font-bold text-ink">{editing.label}</span> บันทึกแล้วเวลาและเหตุผลเดิมจะถูกแทนที่
           </p>
         )}
 
@@ -335,7 +335,7 @@ export function ClosurePanel({
               {/* Phones show the panel full width over the map, so the map hint is for wider screens. */}
               <span className="hidden sm:inline">
                 {' '}
-                · ชี้ที่รายการเพื่อดูตำแหน่งบนแผนที่ · เส้นน้ำเงิน = ที่เลือก, เส้นประ = ปิดอยู่
+                ชี้ที่รายการเพื่อดูตำแหน่งบนแผนที่ เส้นน้ำเงิน = ที่เลือก, เส้นประ = ปิดอยู่
               </span>
             </p>
             <ul className="max-h-56 overflow-y-auto thin-scrollbar border border-line-soft divide-y divide-line-soft" aria-label="รายการทางเดิน">
@@ -424,7 +424,7 @@ export function ClosurePanel({
           <p data-testid="closure-window-preview" className="text-button font-medium text-ink">
             {describeFormWindow(fromValue, untilValue)}
           </p>
-          <p className="-mt-1 text-xs text-ink-3">เวลาประเทศไทย · ว่าง "เปิดอีกครั้ง" = ปิดจนกว่าจะยกเลิก</p>
+          <p className="-mt-1 text-xs text-ink-3">เวลาประเทศไทย ถ้าเว้น "เปิดอีกครั้ง" ว่างไว้ จะปิดจนกว่าจะยกเลิก</p>
           <div>
             <label className="label" htmlFor="closure-reason">
               เหตุผล
@@ -481,7 +481,7 @@ export function ClosurePanel({
               <li key={c.elementId} className={`card p-3 ${editing?.elementId === c.elementId ? 'border-ink' : ''}`}>
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="chip">{c.kind === 'room' ? 'ห้อง' : `ทางเดิน · ชั้น ${c.floor}`}</span>
+                    <span className="chip">{c.kind === 'room' ? 'ห้อง' : `ทางเดิน ชั้น ${c.floor}`}</span>
                     <span className="chip">{c.activeNow ? 'ปิดอยู่ตอนนี้' : 'กำหนดไว้'}</span>
                   </div>
                   <p className="mt-1 text-button font-bold text-ink">{c.label}</p>

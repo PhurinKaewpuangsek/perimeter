@@ -234,7 +234,7 @@ export default function LandingPage() {
             </h1>
             <p className="mt-1 max-w-xs text-button text-ink-2 sm:mt-3 sm:max-w-none sm:text-body">
               <span className="sm:hidden">
-                ผังอาคารเรียนรวม 3 (LC3) · ระบบแผนที่และสืบค้นห้องเรียน
+                ผังอาคารเรียนรวม 3 (LC3) ระบบแผนที่และสืบค้นห้องเรียน
               </span>
               <span className="hidden sm:inline">
                 ผังอาคารเรียนรวม 3 (LC3) ค้นหาตามเลขห้องหรือชื่อสถานที่ (ตารางเรียนดูได้ในโหมดแผนที่เต็ม)
@@ -345,7 +345,7 @@ export default function LandingPage() {
           <div className="border-t border-line-soft pt-4 pb-1">
             <p className="flex items-center justify-center gap-1.5 text-center text-xs text-ink-3 select-none">
               <span>©</span>
-              <span>Perimeter Navigation System · Faculty Map (Public Access)</span>
+              <span>Perimeter Navigation System, Faculty Map (Public Access)</span>
             </p>
           </div>
         </aside>
@@ -369,7 +369,7 @@ export default function LandingPage() {
           {/* Header */}
           <div className="flex items-center justify-between border-b border-line-soft pb-2">
             <span className="text-xs font-bold text-ink-3 uppercase">
-              {getBuildingLabel(selectedRoom.building)} · ชั้น {selectedRoom.floor}
+              {getBuildingLabel(selectedRoom.building)} ชั้น {selectedRoom.floor}
             </span>
             <button
               type="button"
@@ -393,7 +393,6 @@ export default function LandingPage() {
               {selectedRoom.code && <span>({selectedRoom.code})</span>}
               {selectedRoom.capacity !== undefined && (
                 <>
-                  <span>·</span>
                   <span className="inline-flex items-center gap-1">
                     <Users size={12} />
                     {selectedRoom.capacity} คน
@@ -414,8 +413,7 @@ export default function LandingPage() {
               </p>
               <ul className="mt-1.5 space-y-1">
                 {selectedRoom.landmarks.map((landmark, idx) => (
-                  <li key={idx} className="flex items-start gap-1 text-xs text-ink-2">
-                    <span className="text-ink-3">·</span>
+                  <li key={idx} className="text-xs text-ink-2">
                     <span>{getLandmarkText(landmark)}</span>
                   </li>
                 ))}

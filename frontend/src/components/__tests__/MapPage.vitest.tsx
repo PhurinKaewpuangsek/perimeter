@@ -6,6 +6,7 @@ import { PinsContext, defaultContextValue } from '../../hooks/usePins'
 import { MODAL_OVERLAY_Z, rootZIndex } from '../../test/stacking'
 import type { Room } from '../../types/room'
 import type { ScheduleSlot } from '../../types/schedule'
+import type { PinnedSchedule } from '../../types/pin'
 import type { UseRouteResult } from '../../hooks/useRoute'
 import type { FoundRoute } from '../../types/route'
 import type { Graph } from '../../types/graph'
@@ -29,6 +30,7 @@ const ROOMS: Room[] = [
   room('LC3-F1-R121', 'LC3-121', 408, 531),
   room('LC3-F1-R122', 'LC3-122', 408, 458),
   room('LC3-F1-R201', 'LC3-201', 440, 400, 'laboratory'),
+  room('LC3-F1-WC1', 'LC3-WC1', 200, 300, 'toilet'),
 ]
 
 const slot = (roomCode: string, dayOfWeek: string): ScheduleSlot => ({
@@ -158,17 +160,19 @@ describe('MapPage course search (issue #91)', () => {
     schedulesForTest = [
       { ...slot('LC3-121', 'MON'), eventCode: 'LEC-101', startTime: '09:00', endTime: '10:30', eventType: 'lecture' },
       { ...slot('LC3-121', 'MON'), eventCode: 'LAB-102', startTime: '11:00', endTime: '12:30', eventType: 'lab' },
-      { ...slot('LC3-121', 'MON'), eventCode: 'EVT-103', startTime: '13:00', endTime: '14:30', eventType: 'other' },
+      { ...slot('LC3-121', 'MON'), eventCode: 'EVT-103', eventName: 'Orientation', startTime: '13:00', endTime: '14:30', eventType: 'other' },
       { ...slot('LC3-121', 'MON'), eventCode: 'EXM-104', startTime: '15:00', endTime: '16:30', eventType: 'exam', eventDate: '2026-10-26' },
     ]
     mockViewport(true)
     renderMap('/map?room=LC3-F1-R121')
 
-    expect(screen.getByRole('button', { name: /ตารางเรียน\s*\(3\)/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'รายสัปดาห์' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /ตารางสอบ\s*\(1\)/ })).toBeInTheDocument()
     expect(screen.getByText('LEC-101')).toBeInTheDocument()
     expect(screen.getByText('LAB-102')).toBeInTheDocument()
-    expect(screen.getByText('EVT-103')).toBeInTheDocument()
+    // An activity without a date repeats weekly, so it stays on the rail, shown by its name.
+    expect(screen.getByText('Orientation')).toBeInTheDocument()
+    expect(screen.queryByText('EVT-103')).not.toBeInTheDocument()
     expect(screen.queryByText('EXM-104')).not.toBeInTheDocument()
   })
 
@@ -195,40 +199,53 @@ describe('MapPage course search (issue #91)', () => {
       schedulesForTest = SCHEDULES
     })
 
-    it('on desktop, tapping it in the full timetable shows its details', async () => {
-      // Two entries, so the modal does not open one by itself and the tap is what selects it.
+    afterEach(() => vi.useRealTimers())
+
+    it('shows it by name on its own date in the room week', () => {
+      // Monday 26 October 2026; the workshop is on Wednesday 28 October.
+      vi.useFakeTimers({ now: new Date('2026-10-26T08:00:00'), toFake: ['Date'] })
       schedulesForTest = [ACTIVITY, { ...slot('LC3-121', 'MON'), eventCode: 'CS101' }]
+      mockViewport(true)
+      renderMap('/map?room=LC3-F1-R121')
+
+      const rail = screen.getByTestId('compact-week-summary-btn')
+      expect(rail).toHaveTextContent('Data Science Workshop')
+      expect(rail).not.toHaveTextContent('ACT-DS01')
+    })
+
+    it('shows it only in its own week', async () => {
+      vi.useFakeTimers({ now: new Date('2026-10-20T08:00:00'), toFake: ['Date'] })
+      schedulesForTest = [ACTIVITY]
       mockViewport(true)
       const user = userEvent.setup()
       renderMap('/map?room=LC3-F1-R121')
 
-      await user.click(screen.getByTestId('compact-week-summary-btn'))
-      const modal = screen.getByRole('dialog')
-      expect(within(modal).queryByTestId('tu-reg-selected-card')).not.toBeInTheDocument()
-      await user.click(within(modal).getByRole('button', { name: /ACT-DS01/ }))
-
-      const card = within(modal).getByTestId('tu-reg-selected-card')
-      expect(card).toHaveTextContent('ACT-DS01')
-      expect(card).toHaveTextContent('Data Science Workshop')
-      expect(card).toHaveTextContent('13:00')
+      const rail = screen.getByTestId('compact-week-summary-btn')
+      expect(rail).not.toHaveTextContent('Data Science Workshop')
+      await user.click(screen.getByRole('button', { name: 'สัปดาห์หน้า' }))
+      expect(rail).toHaveTextContent('Data Science Workshop')
     })
 
-    it('on mobile, the full timetable lists it with its name and time', async () => {
-      const originalInnerWidth = window.innerWidth
-      window.innerWidth = 375
-      try {
-        schedulesForTest = [ACTIVITY]
-        mockViewport(false)
-        const user = userEvent.setup()
-        renderMap('/map?room=LC3-F1-R121')
+    it('opens the room on the week of a reminder it was opened from', async () => {
+      vi.useFakeTimers({ now: new Date('2026-11-18T08:00:00'), toFake: ['Date'] })
+      const later = { ...ACTIVITY, eventDate: '2026-12-02' }
+      schedulesForTest = [later]
+      mockViewport(true)
+      const user = userEvent.setup()
+      render(
+        <PinsContext.Provider
+          value={{ ...defaultContextValue, pins: [{ ...later, userId: 'u1', pinKey: 'p1', scheduleSlot: 's1' }] }}
+        >
+          <MemoryRouter initialEntries={['/map']}>
+            <MapPage />
+          </MemoryRouter>
+        </PinsContext.Provider>,
+      )
 
-        await user.click(screen.getAllByTestId('compact-week-summary-btn')[0])
-        const timetable = within(screen.getByRole('dialog')).getByTestId('tu-great-timetable')
-        expect(timetable).toHaveTextContent('Data Science Workshop')
-        expect(timetable).toHaveTextContent('13:00')
-      } finally {
-        window.innerWidth = originalInnerWidth
-      }
+      const reminders = screen.getByRole('region', { name: 'ถัดไปในตารางของฉัน' })
+      await user.click(within(reminders).getByRole('button', { name: /Data Science Workshop/ }))
+      expect(screen.getByText('30 พ.ย. – 6 ธ.ค. 2569')).toBeInTheDocument()
+      expect(screen.getByTestId('compact-week-summary-btn')).toHaveTextContent('Data Science Workshop')
     })
   })
 
@@ -540,6 +557,84 @@ describe('MapPage course search (issue #91)', () => {
   })
 })
 
+describe('MapPage reminders and facilities', () => {
+  afterEach(() => {
+    window.matchMedia = originalMatchMedia
+    schedulesForTest = SCHEDULES
+    vi.useRealTimers()
+  })
+
+  it('reminds the user what is next in their pinned schedule, and opens the room on tap', async () => {
+    // Wednesday 18 November 2026, 09:00.
+    vi.useFakeTimers({ now: new Date('2026-11-18T09:00:00'), toFake: ['Date'] })
+    const pin = (overrides: Partial<PinnedSchedule>): PinnedSchedule => ({
+      ...slot('LC3-121', 'MON'),
+      userId: 'u1',
+      pinKey: `pin#${overrides.eventCode}`,
+      scheduleSlot: `slot#${overrides.eventCode}`,
+      ...overrides,
+    })
+    const pins = [
+      pin({ eventCode: 'CS101', dayOfWeek: 'MON', startTime: '11:00', endTime: '12:30', eventType: 'class' }),
+      pin({
+        eventCode: 'CS102',
+        roomCode: 'LC3-122',
+        eventType: 'exam',
+        dayOfWeek: 'THU',
+        eventDate: '2026-11-19',
+        startTime: '09:00',
+        endTime: '12:00',
+      }),
+      pin({
+        eventCode: 'EV1',
+        eventName: 'Open House',
+        eventType: 'other',
+        dayOfWeek: 'WED',
+        eventDate: '2026-11-18',
+        startTime: '08:00',
+        endTime: '16:00',
+      }),
+      pin({ eventCode: 'OLD', eventType: 'exam', dayOfWeek: 'SUN', eventDate: '2026-11-01', startTime: '09:00', endTime: '12:00' }),
+    ]
+    mockViewport(true)
+    const user = userEvent.setup()
+    render(
+      <PinsContext.Provider value={{ ...defaultContextValue, pins }}>
+        <MemoryRouter initialEntries={['/map']}>
+          <MapPage />
+        </MemoryRouter>
+      </PinsContext.Provider>,
+    )
+
+    const reminders = screen.getByRole('region', { name: 'ถัดไปในตารางของฉัน' })
+    const rows = within(reminders).getAllByRole('listitem').map((row) => row.textContent ?? '')
+    expect(rows).toHaveLength(3)
+    expect(rows[0]).toContain('ตอนนี้ ถึง 16:00')
+    expect(rows[0]).toContain('Open House')
+    expect(rows[1]).toContain('พรุ่งนี้ 09:00–12:00')
+    expect(rows[1]).toContain('CS102')
+    expect(rows[2]).toContain('จ. 23 พ.ย. 2569 11:00–12:30')
+    expect(reminders).not.toHaveTextContent('OLD')
+
+    await user.click(within(reminders).getByRole('button', { name: /CS102/ }))
+    expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent('122')
+  })
+
+  it('shows no reminders and no activity feed to someone with nothing pinned', () => {
+    mockViewport(true)
+    renderMap()
+    expect(screen.queryByRole('region', { name: 'ถัดไปในตารางของฉัน' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'กิจกรรมที่กำลังจะมีขึ้น' })).not.toBeInTheDocument()
+  })
+
+  it('shows no class or exam timetable on a restroom card', () => {
+    mockViewport(true)
+    renderMap('/map?room=LC3-F1-WC1')
+    expect(screen.queryByRole('group', { name: 'ประเภทตาราง' })).not.toBeInTheDocument()
+    expect(screen.queryByText('ตารางการใช้ห้อง')).not.toBeInTheDocument()
+  })
+})
+
 describe('MapPage layering with My Schedule open (issue #139)', () => {
   afterEach(() => {
     window.matchMedia = originalMatchMedia
@@ -642,12 +737,12 @@ describe('MapPage navigation (issue #145)', () => {
     expect(screen.queryByRole('textbox', { name: 'ค้นหาห้อง' })).not.toBeInTheDocument()
   })
 
-  it('says which side of the building the entrance is on and what is beside the destination (#194)', async () => {
+  it('says which side of the building the entrance is on (#194)', async () => {
     mockViewport(true)
     await startNavigation()
     const steps = screen.getByRole('list', { name: 'ขั้นตอนเส้นทาง' })
     expect(within(steps).getByText('เริ่มที่ทางเข้าฝั่งทิศใต้ (ลานน้ำพุ)')).toBeInTheDocument()
-    expect(screen.getByTestId('arrival-hint')).toHaveTextContent('ห้องบรรยายเรียนรวม อยู่ใกล้ ๆ')
+    expect(screen.queryByTestId('arrival-hint')).not.toBeInTheDocument()
   })
 
   it('swaps origin and destination when the swap button is clicked', async () => {
@@ -739,7 +834,7 @@ describe('MapPage navigation (issue #145)', () => {
 
     const activityCard = screen.getByRole('region', { name: 'ผลการค้นหากิจกรรม' })
     expect(within(activityCard).getByText('Open House')).toBeInTheDocument()
-    expect(within(activityCard).getByText('อาคาร LC3 · ห้อง LC3-105 ชั้น 1')).toBeInTheDocument()
+    expect(within(activityCard).getByText('อาคาร LC3 ห้อง LC3-105 ชั้น 1')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'นำทางไปกิจกรรม Open House' }))
 
     expect(lastRouteCall()).toEqual(['LC3_Junction_SM', 'LC3-F1-R105'])

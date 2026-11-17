@@ -168,7 +168,7 @@ export default function ExamAgendaList({
                   <p className="truncate text-[11px] text-ink-3" title={slot.eventName}>
                     {[extra, otherRoom && `ห้อง ${otherRoom}`, !slot.eventDate && getExamDateLabel(slot)]
                       .filter(Boolean)
-                      .join(' · ')}
+                      .join(', ')}
                   </p>
                 )}
               </div>

@@ -151,7 +151,7 @@ describe('ClosurePanel', () => {
     g.nodes[0] = { ...g.nodes[0], closed: true, closedUntil: '2026-10-29T12:00:00+07:00', closedReason: 'ซ่อมแอร์' }
     const { user, reload } = setup(g)
     const list = within(screen.getByRole('region', { name: 'ที่ปิดอยู่หรือกำหนดไว้' }))
-    expect(list.getByText('ห้อง 104 · LC3-104')).toBeInTheDocument()
+    expect(list.getByText('ห้อง 104 (LC3-104)')).toBeInTheDocument()
     expect(list.getByText('ปิดอยู่ตอนนี้')).toBeInTheDocument()
     expect(list.getByText('เหตุผล: ซ่อมแอร์')).toBeInTheDocument()
 

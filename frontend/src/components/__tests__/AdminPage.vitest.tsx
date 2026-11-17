@@ -685,14 +685,14 @@ describe('AdminPage move schedule to another room (#153)', () => {
     ).not.toBeInTheDocument()
 
     await editCs101(user)
-    expect(roomBox()).toHaveValue('LC3-101 · ห้องบรรยาย 101')
+    expect(roomBox()).toHaveValue('LC3-101 ห้องบรรยาย 101')
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
 
     await user.click(roomBox())
     expect(roomBox()).toHaveAttribute('aria-expanded', 'true')
     expect(optionTexts()).toEqual([
-      'LC3-101 · ห้องบรรยาย 101 (ห้องปัจจุบัน)',
-      'LC3-201 · ห้องปฏิบัติการ 201',
+      'LC3-101 ห้องบรรยาย 101 (ห้องปัจจุบัน)',
+      'LC3-201 ห้องปฏิบัติการ 201',
     ])
     expect(screen.queryByText(/จะถูกย้ายจาก/)).not.toBeInTheDocument()
   })
@@ -703,7 +703,7 @@ describe('AdminPage move schedule to another room (#153)', () => {
     await user.click(roomBox())
     await user.type(roomBox(), '201')
 
-    expect(optionTexts()).toEqual(['LC3-201 · ห้องปฏิบัติการ 201'])
+    expect(optionTexts()).toEqual(['LC3-201 ห้องปฏิบัติการ 201'])
   })
 
   it('searches by Thai name too, and says when nothing matches', async () => {
@@ -711,7 +711,7 @@ describe('AdminPage move schedule to another room (#153)', () => {
     await editCs101(user)
     await user.click(roomBox())
     await user.type(roomBox(), 'ปฏิบัติ')
-    expect(optionTexts()).toEqual(['LC3-201 · ห้องปฏิบัติการ 201'])
+    expect(optionTexts()).toEqual(['LC3-201 ห้องปฏิบัติการ 201'])
 
     await user.clear(roomBox())
     await user.type(roomBox(), '999')
@@ -725,11 +725,11 @@ describe('AdminPage move schedule to another room (#153)', () => {
 
     await user.click(roomBox())
     await user.type(roomBox(), '20{Escape}')
-    expect(roomBox()).toHaveValue('LC3-101 · ห้องบรรยาย 101')
+    expect(roomBox()).toHaveValue('LC3-101 ห้องบรรยาย 101')
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
 
     await user.type(roomBox(), '201{Enter}')
-    expect(roomBox()).toHaveValue('LC3-201 · ห้องปฏิบัติการ 201')
+    expect(roomBox()).toHaveValue('LC3-201 ห้องปฏิบัติการ 201')
     expect(
       screen.getByText(/จะถูกย้ายจาก LC3-101 ไป LC3-201/),
     ).toBeInTheDocument()
@@ -821,7 +821,7 @@ describe('AdminPage move schedule to another room (#153)', () => {
     expect(
       await screen.findByText('มีรายการเวลา/รหัสเดียวกันในห้องนั้นแล้ว'),
     ).toBeInTheDocument()
-    expect(roomBox()).toHaveValue('LC3-201 · ห้องปฏิบัติการ 201')
+    expect(roomBox()).toHaveValue('LC3-201 ห้องปฏิบัติการ 201')
     expect(screen.queryByText(/ไปห้อง LC3-201 แล้ว/)).not.toBeInTheDocument()
   })
 })
