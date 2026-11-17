@@ -66,6 +66,17 @@ const form = () => within(screen.getByRole('form', { name: 'ปิดชั่�
 describe('ClosurePanel', () => {
   beforeEach(() => updateClosures.mockClear())
 
+  it('shows the window in Thai and sets it with a quick preset (#195)', async () => {
+    const { user } = setup()
+    await user.click(form().getByRole('button', { name: 'ตั้งแต่ตอนนี้ 1 ชม.' }))
+    expect(form().getByLabelText('เริ่มปิด')).toHaveValue('2026-10-28T09:00')
+    expect(form().getByLabelText('เปิดอีกครั้ง')).toHaveValue('2026-10-28T10:00')
+    expect(form().getByTestId('closure-window-preview')).toHaveTextContent('(1 ชม.)')
+
+    await user.click(form().getByRole('button', { name: 'ถึงสิ้นวัน' }))
+    expect(form().getByLabelText('เปิดอีกครั้ง')).toHaveValue('2026-10-28T23:59')
+  })
+
   it('closes a room with a window and reason, then refreshes the graph', async () => {
     const { user, reload } = setup()
     await user.click(form().getByRole('combobox'))
