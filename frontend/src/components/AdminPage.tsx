@@ -610,11 +610,12 @@ function ScheduleRow({ slot, onDelete, onEdit, rooms }: ScheduleRowProps) {
         <button
           type="button"
           onClick={() => setEditing(true)}
-          className="btn btn-ghost btn-icon-sm"
+          className="btn btn-ghost btn-sm"
           title="แก้ไขตาราง"
           aria-label="แก้ไขตาราง"
         >
           <PencilSimple size={14} />
+          <span>แก้ไข</span>
         </button>
         <button
           type="button"
@@ -694,7 +695,7 @@ function CreateScheduleForm({ roomCode, onCreated, onCancel }: CreateScheduleFor
       <div className="flex items-center justify-between">
         <h4 className="text-button font-bold text-ink flex items-center gap-1.5">
           <Plus size={14} weight="bold" />
-          เพิ่มตารางสอนใหม่
+          เพิ่มตาราง/กิจกรรมใหม่
         </h4>
         <button
           type="button"
@@ -859,6 +860,13 @@ function RoomEditPanel({
   const [deleting, setDeleting] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [isAddingSchedule, setIsAddingSchedule] = useState(false)
+  const scheduleSectionRef = useRef<HTMLDivElement>(null)
+  // Staff in the real-user test could not find where to add an activity (#196): the schedule
+  // section sits below the room form, so the header offers it straight away.
+  function openAddSchedule() {
+    setIsAddingSchedule(true)
+    scheduleSectionRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
+  }
   const [selectedDayFilter, setSelectedDayFilter] = useState<string>('all')
 
   // Filter schedule slots for this room
@@ -1010,6 +1018,11 @@ function RoomEditPanel({
             <span className="leading-snug">{landmarkText}</span>
           </div>
         )}
+
+        <button type="button" onClick={openAddSchedule} className="btn btn-primary btn-sm w-full">
+          <Plus size={14} weight="bold" />
+          <span>เพิ่มตาราง/กิจกรรมในห้องนี้</span>
+        </button>
       </div>
 
       {/* Section 1: Room Details Form */}
@@ -1088,7 +1101,7 @@ function RoomEditPanel({
       </div>
 
       {/* Section 2: Room Schedule Management */}
-      <div className="card p-4 space-y-3">
+      <div ref={scheduleSectionRef} className="card p-4 space-y-3 scroll-mt-4">
         <div className="flex items-center justify-between">
           <div>
             <h3 className="font-display text-h3-sm font-bold text-ink">
@@ -1104,7 +1117,7 @@ function RoomEditPanel({
               className="btn btn-tertiary btn-sm"
             >
               <Plus size={14} weight="bold" />
-              <span>เพิ่มตาราง</span>
+              <span>เพิ่มตาราง/กิจกรรม</span>
             </button>
           )}
         </div>
@@ -1186,14 +1199,14 @@ function RoomEditPanel({
         {/* Schedules list */}
         {displayedSchedules.length === 0 ? (
           <div className="card border-dashed p-6 text-center">
-            <p className="text-button text-ink-3">ยังไม่มีตารางสอนสำหรับห้องนี้</p>
+            <p className="text-button text-ink-3">ยังไม่มีตารางหรือกิจกรรมในห้องนี้</p>
             {!isAddingSchedule && (
               <button
                 type="button"
                 onClick={() => setIsAddingSchedule(true)}
                 className="btn btn-ghost btn-sm mt-2"
               >
-                + เพิ่มตารางสอนแรก
+                + เพิ่มตาราง/กิจกรรมแรก
               </button>
             )}
           </div>
