@@ -10,6 +10,7 @@ import {
   Users,
 } from '@phosphor-icons/react'
 import { useRooms } from '../hooks/useRooms'
+import CategoryBadge from './CategoryBadge'
 import { useSchedules } from '../hooks/useSchedules'
 import { useGraph } from '../hooks/useGraph'
 import { useIsDesktop } from '../hooks/useIsDesktop'
@@ -26,13 +27,7 @@ import {
   DEFAULT_CATEGORY_KEY,
 } from '../services/filterRooms'
 import { useExamSearch } from '../hooks/useExamSearch'
-import {
-  getBuildingLabel,
-  getCategoryLabel,
-  getLandmarkText,
-  getCategoryColor,
-} from '../services/roomDisplay'
-import { getCategoryIcon } from './categoryIcon'
+import { getBuildingLabel, getLandmarkText } from '../services/roomDisplay'
 import perimeterLogoNoBg from '../assets/perimeter_logo_negative_nobg.png'
 
 const FLOOR_PLAN_ASSETS = FLOOR_CONFIGS.map((config) => config.asset)
@@ -407,19 +402,7 @@ export default function LandingPage() {
               )}
             </div>
 
-            {/* Category Pill (data colour, paired with icon + label) */}
-            {(() => {
-              const color = getCategoryColor(selectedRoom.category)
-              const Icon = getCategoryIcon(selectedRoom.category, selectedRoom.nameThai)
-              return (
-                <span
-                  className={`mt-2.5 inline-flex items-center gap-1.5 rounded-full border ${color.border} ${color.bg} px-3 py-1 text-xs font-medium ${color.text}`}
-                >
-                  <Icon size={14} weight="duotone" />
-                  <span>{getCategoryLabel(selectedRoom.category)}</span>
-                </span>
-              )
-            })()}
+            <CategoryBadge category={selectedRoom.category} className="mt-2.5" />
           </div>
 
           {/* Nearby Landmarks */}
