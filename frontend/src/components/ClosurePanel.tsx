@@ -15,7 +15,10 @@ import type { UseGraphResult } from '../hooks/useGraph'
 import type { MapOverlaySegment } from './map/MapContainer'
 import { updateClosures } from '../services/adminService'
 import {
+  addHoursToInputValue,
   buildWalkways,
+  describeFormWindow,
+  endOfDayInputValue,
   formatWindow,
   fromBangkokInputValue,
   listClosures,
@@ -388,6 +391,39 @@ export function ClosurePanel({
               className="input-boxed"
             />
           </div>
+          <div className="-mt-0.5 flex flex-wrap items-center gap-1.5" role="group" aria-label="ตั้งช่วงเวลาปิดแบบเร็ว">
+            {[
+              { label: 'ตั้งแต่ตอนนี้ 1 ชม.', hours: 1 },
+              { label: '2 ชม.', hours: 2 },
+            ].map(({ label, hours }) => (
+              <button
+                key={label}
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => {
+                  const start = toBangkokInputValue(now())
+                  setFromValue(start)
+                  setUntilValue(addHoursToInputValue(start, hours))
+                }}
+              >
+                {label}
+              </button>
+            ))}
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={() => {
+                const start = fromValue || toBangkokInputValue(now())
+                setFromValue(start)
+                setUntilValue(endOfDayInputValue(start))
+              }}
+            >
+              ถึงสิ้นวัน
+            </button>
+          </div>
+          <p data-testid="closure-window-preview" className="text-button font-medium text-ink">
+            {describeFormWindow(fromValue, untilValue)}
+          </p>
           <p className="-mt-1 text-xs text-ink-3">เวลาประเทศไทย · ว่าง "เปิดอีกครั้ง" = ปิดจนกว่าจะยกเลิก</p>
           <div>
             <label className="label" htmlFor="closure-reason">
