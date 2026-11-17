@@ -172,6 +172,66 @@ describe('MapPage course search (issue #91)', () => {
     expect(screen.queryByText('EXM-104')).not.toBeInTheDocument()
   })
 
+  it('the empty sidebar offers example searches that fill the search box', async () => {
+    mockViewport(true)
+    const user = userEvent.setup()
+    renderMap()
+    const examples = screen.getByRole('list', { name: 'ตัวอย่างการค้นหา' })
+    await user.click(within(examples).getByRole('button', { name: /ES357/ }))
+    expect(screen.getByRole('textbox', { name: 'ค้นหาห้อง' })).toHaveValue('ES357')
+  })
+
+  describe('an activity in the room timetable can be opened for details (#198)', () => {
+    const ACTIVITY: ScheduleSlot = {
+      ...slot('LC3-121', 'WED'),
+      eventCode: 'ACT-DS01',
+      eventName: 'Data Science Workshop',
+      startTime: '13:00',
+      endTime: '15:00',
+      eventType: 'other',
+      eventDate: '2026-10-28',
+    }
+    afterEach(() => {
+      schedulesForTest = SCHEDULES
+    })
+
+    it('on desktop, tapping it in the full timetable shows its details', async () => {
+      // Two entries, so the modal does not open one by itself and the tap is what selects it.
+      schedulesForTest = [ACTIVITY, { ...slot('LC3-121', 'MON'), eventCode: 'CS101' }]
+      mockViewport(true)
+      const user = userEvent.setup()
+      renderMap('/map?room=LC3-F1-R121')
+
+      await user.click(screen.getByTestId('compact-week-summary-btn'))
+      const modal = screen.getByRole('dialog')
+      expect(within(modal).queryByTestId('tu-reg-selected-card')).not.toBeInTheDocument()
+      await user.click(within(modal).getByRole('button', { name: /ACT-DS01/ }))
+
+      const card = within(modal).getByTestId('tu-reg-selected-card')
+      expect(card).toHaveTextContent('ACT-DS01')
+      expect(card).toHaveTextContent('Data Science Workshop')
+      expect(card).toHaveTextContent('13:00')
+    })
+
+    it('on mobile, the full timetable lists it with its name and time', async () => {
+      const originalInnerWidth = window.innerWidth
+      window.innerWidth = 375
+      try {
+        schedulesForTest = [ACTIVITY]
+        mockViewport(false)
+        const user = userEvent.setup()
+        renderMap('/map?room=LC3-F1-R121')
+
+        await user.click(screen.getAllByTestId('compact-week-summary-btn')[0])
+        const timetable = within(screen.getByRole('dialog')).getByTestId('tu-great-timetable')
+        expect(timetable).toHaveTextContent('Data Science Workshop')
+        expect(timetable).toHaveTextContent('13:00')
+      } finally {
+        window.innerWidth = originalInnerWidth
+      }
+    })
+  })
+
   it('filters search results by room category', async () => {
     mockViewport(true)
     const user = userEvent.setup()
@@ -201,6 +261,15 @@ describe('MapPage course search (issue #91)', () => {
 
     expect(screen.getByRole('button', { name: 'แสดงตัวกรอง' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'ซ่อนตัวกรอง' })).not.toBeInTheDocument()
+  })
+
+  it('on mobile, the search placeholder says course codes can be searched too (#193)', () => {
+    mockViewport(false)
+    renderMap()
+    expect(screen.getByRole('textbox', { name: 'ค้นหาห้อง' })).toHaveAttribute(
+      'placeholder',
+      'ค้นหาห้องหรือรหัสวิชา เช่น 116, ES357'
+    )
   })
 
   it('on desktop, choosing a result keeps the sidebar filter open', async () => {
@@ -277,7 +346,8 @@ describe('MapPage course search (issue #91)', () => {
         eventCode: 'EXAM-A',
         eventName: 'Exam A',
         eventType: 'exam',
-        eventDate: '2026-05-18',
+        // Far in the future so it is upcoming whenever the test runs.
+        eventDate: '2099-05-18',
       },
       {
         ...slot('LC3-103', 'MON'),
@@ -291,12 +361,12 @@ describe('MapPage course search (issue #91)', () => {
 
     await user.click(screen.getByRole('button', { name: /ตารางสอบ/ }))
 
-    // Dated exam should display date once (not duplicate)
-    expect(screen.getByText('วันสอบ: 2026-05-18')).toBeInTheDocument()
-    expect(screen.queryAllByText(/2026-05-18/)).toHaveLength(1)
+    // Dated exam shows its date once, in the group header (not again on the row)
+    expect(screen.queryAllByText(/18 พฤษภาคม/)).toHaveLength(1)
+    expect(screen.queryByText(/วันสอบ:/)).not.toBeInTheDocument()
 
     // Undated exam should display fallback
-    expect(screen.getByText('date to be announced')).toBeInTheDocument()
+    expect(screen.getByText(/date to be announced/)).toBeInTheDocument()
   })
 
   describe('MapPage navigation and clear/dismiss behavior (issue #99)', () => {
@@ -572,6 +642,14 @@ describe('MapPage navigation (issue #145)', () => {
     expect(screen.queryByRole('textbox', { name: 'ค้นหาห้อง' })).not.toBeInTheDocument()
   })
 
+  it('says which side of the building the entrance is on and what is beside the destination (#194)', async () => {
+    mockViewport(true)
+    await startNavigation()
+    const steps = screen.getByRole('list', { name: 'ขั้นตอนเส้นทาง' })
+    expect(within(steps).getByText('เริ่มที่ทางเข้าฝั่งทิศใต้ (ลานน้ำพุ)')).toBeInTheDocument()
+    expect(screen.getByTestId('arrival-hint')).toHaveTextContent('ห้องบรรยายเรียนรวม อยู่ใกล้ ๆ')
+  })
+
   it('swaps origin and destination when the swap button is clicked', async () => {
     mockViewport(true)
     const user = await startNavigation()
@@ -766,6 +844,51 @@ describe('MapPage navigation (issue #145)', () => {
       .find((marker) => marker.getAttribute('transform')?.startsWith('translate(318, 148)'))
     await user.click(room105!)
     expect(lastRouteCall()?.[1]).toBe('LC3-F1-R105')
+  })
+
+  it('shows that the start field can be changed while it is the entrance (#191)', async () => {
+    mockViewport(true)
+    const user = await startNavigation()
+    const panel = screen.getByRole('region', { name: 'นำทาง' })
+    expect(within(panel).getByText(/แตะเพื่อเปลี่ยน/)).toBeInTheDocument()
+
+    await user.click(within(panel).getByRole('button', { name: 'ไม่ได้อยู่ที่ทางเข้า? แตะเพื่อเลือกห้องที่คุณอยู่' }))
+    expect(within(panel).getByRole('textbox', { name: 'จุดเริ่มต้น' })).toHaveFocus()
+    expect(within(panel).getByRole('list', { name: 'ตัวเลือกจุดเริ่มต้น' })).toBeInTheDocument()
+  })
+
+  it('the next route starts from the last destination instead of the entrance (#191)', async () => {
+    mockViewport(true)
+    const user = await startNavigation()
+    expect(lastRouteCall()).toEqual(['LC3_Junction_SM', 'LC3-F1-R121'])
+    await user.click(screen.getByRole('button', { name: 'ล้างเส้นทาง' }))
+
+    const room105 = screen
+      .getAllByRole('button', { name: 'ห้องบรรยายเรียนรวม' })
+      .find((marker) => marker.getAttribute('transform')?.startsWith('translate(318, 148)'))
+    await user.click(room105!)
+    await user.click(screen.getByRole('button', { name: 'นำทางมาที่นี่' }))
+
+    expect(lastRouteCall()).toEqual(['LC3-F1-R121', 'LC3-F1-R105'])
+    const panel = screen.getByRole('region', { name: 'นำทาง' })
+    expect(within(panel).getByRole('textbox', { name: 'จุดเริ่มต้น' })).toHaveValue('ห้อง 121')
+
+    // The entrance is still one tap away, and the last destination is offered first.
+    await user.click(within(panel).getByRole('textbox', { name: 'จุดเริ่มต้น' }))
+    const options = within(screen.getByRole('list', { name: 'ตัวเลือกจุดเริ่มต้น' })).getAllByRole('button')
+    expect(options[0]).toHaveTextContent('ทางเข้าอาคาร 1')
+
+    // After switching to the entrance, room 121 is offered first as the last destination.
+    await user.click(options[0])
+    expect(lastRouteCall()).toEqual(['LC3_Junction_SM', 'LC3-F1-R105'])
+    await user.click(within(panel).getByRole('textbox', { name: 'จุดเริ่มต้น' }))
+    const reopened = within(screen.getByRole('list', { name: 'ตัวเลือกจุดเริ่มต้น' })).getAllByRole('button')
+    expect(reopened[0]).toHaveTextContent('ห้อง 121')
+    expect(reopened[0]).toHaveTextContent('ปลายทางล่าสุด')
+
+    await user.click(reopened[0])
+    expect(lastRouteCall()).toEqual(['LC3-F1-R121', 'LC3-F1-R105'])
+    expect(within(panel).getByRole('textbox', { name: 'จุดเริ่มต้น' })).toHaveValue('ห้อง 121')
   })
 
   it('"ล้างเส้นทาง" stops navigating and returns to the room details', async () => {
