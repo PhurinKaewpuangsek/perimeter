@@ -14,7 +14,7 @@
  * 5. Bottom-Left Collapsed Pill: Repositioned floating pinned room pill to bottom-left
  *    (bottom-6 left-6) for unobstructed map exploration.
  */
-import { useState, useCallback, useMemo, useRef, useId, createElement } from 'react'
+import { useState, useCallback, useMemo, useRef, useId } from 'react'
 import { Link } from 'react-router-dom'
 import {
   CaretLeft,
@@ -43,6 +43,7 @@ import { FLOOR_CONFIGS } from './map/floorConfig'
 import LoadingScreen from './LoadingScreen'
 import TopBar from './TopBar'
 import RoomCombobox from './RoomCombobox'
+import CategoryBadge from './CategoryBadge'
 import ClosureTab from './ClosurePanel'
 import type { MapOverlaySegment } from './map/MapContainer'
 import type { Room } from '../types/room'
@@ -58,14 +59,8 @@ import {
   updateSchedule,
   deleteSchedule,
 } from '../services/adminService'
-import {
-  getCategoryLabel,
-  getLandmarkText,
-  CATEGORY_COLORS,
-  DEFAULT_CATEGORY_COLOR,
-} from '../services/roomDisplay'
+import { getLandmarkText } from '../services/roomDisplay'
 import { CATEGORY_FILTERS } from '../services/filterRooms'
-import { getCategoryIcon } from './categoryIcon'
 
 // ---------------------------------------------------------------------------
 // Constants & Day Color Configurations (mirrors /map standard)
@@ -110,21 +105,6 @@ function getDayInfo(rawDay: string): DayConfig {
       dotColor: 'bg-current',
       bgLight: 'bg-surface-2 border-line-soft',
     }
-  )
-}
-
-function RoomCategoryBadge({ category, nameThai }: { category: string; nameThai?: string }) {
-  const label = getCategoryLabel(category)
-  const color = CATEGORY_COLORS[category] ?? DEFAULT_CATEGORY_COLOR
-  const Icon = getCategoryIcon(category, nameThai)
-
-  return (
-    <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${color.bg} ${color.text} border ${color.border}`}
-    >
-      {createElement(Icon, { size: 13, weight: 'duotone' })}
-      <span>{label}</span>
-    </span>
   )
 }
 
@@ -340,7 +320,7 @@ function RoomListItem({
 
       {/* Badges Row: Category + Capacity + Schedule Count */}
       <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-        <RoomCategoryBadge category={room.category} nameThai={room.nameThai} />
+        <CategoryBadge category={room.category} />
         {room.capacity !== undefined && (
           <span className="chip">
             <Users size={11} />
@@ -1006,7 +986,7 @@ function RoomEditPanel({
 
         {/* Category & Landmark */}
         <div className="flex flex-wrap items-center gap-2">
-          <RoomCategoryBadge category={room.category} nameThai={room.nameThai} />
+          <CategoryBadge category={room.category} />
           {room.capacity !== undefined && (
             <span className="chip">
               <Users size={12} weight="regular" />

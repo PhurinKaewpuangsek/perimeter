@@ -172,6 +172,15 @@ describe('MapPage course search (issue #91)', () => {
     expect(screen.queryByText('EXM-104')).not.toBeInTheDocument()
   })
 
+  it('the empty sidebar offers example searches that fill the search box', async () => {
+    mockViewport(true)
+    const user = userEvent.setup()
+    renderMap()
+    const examples = screen.getByRole('list', { name: 'ตัวอย่างการค้นหา' })
+    await user.click(within(examples).getByRole('button', { name: /ES357/ }))
+    expect(screen.getByRole('textbox', { name: 'ค้นหาห้อง' })).toHaveValue('ES357')
+  })
+
   describe('an activity in the room timetable can be opened for details (#198)', () => {
     const ACTIVITY: ScheduleSlot = {
       ...slot('LC3-121', 'WED'),
