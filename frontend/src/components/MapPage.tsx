@@ -75,6 +75,9 @@ const FLOOR_PLAN_ASSETS = FLOOR_CONFIGS.map((config) => config.asset)
  * cancel, or one that starts or ends, shows up without a page reload.
  */
 const CLOSURE_CLOCK_MS = 60_000
+// Short enough for a 375px screen, but still says course codes work: a tester on Android
+// was unsure the search found courses when it only said "ค้นหาห้อง" (#193).
+const MOBILE_SEARCH_PLACEHOLDER = 'ค้นหาห้องหรือรหัสวิชา เช่น 116, ES357'
 
 /** Shown in the room panel when closures failed to load, so the room may be closed. */
 function ClosureStatusUnavailable({ onRetry }: { onRetry: () => void }) {
@@ -437,6 +440,9 @@ export default function MapPage() {
   // GPS, so the start is picked by hand and defaults to the building entrance.
   const [routeFrom, setRouteFrom] = useState(BUILDING_ENTRANCE_ID)
   const [routeTo, setRouteTo] = useState<string | null>(initialDestinationId)
+  // The last room the user navigated to (#191). After arriving, the next route starts
+  // there instead of the entrance, since that is where the user is now standing.
+  const [lastDestinationId, setLastDestinationId] = useState<string | null>(null)
   const isNavigating = routeTo !== null
   const [isNavCollapsed, setIsNavCollapsed] = useState(false)
   const routeState = useRoute(isNavigating ? routeFrom : null, routeTo)
@@ -564,13 +570,16 @@ export default function MapPage() {
   }
 
   function handleNavigate(roomId: string) {
+    let nextFrom = lastDestinationId && lastDestinationId !== roomId ? lastDestinationId : routeFrom
+    if (nextFrom === roomId) nextFrom = BUILDING_ENTRANCE_ID
+    setRouteFrom(nextFrom)
     setRouteTo(roomId)
     setSelectedRoomId(roomId)
     setIsNavCollapsed(false)
     setIsDropdownOpen(false)
     setIsSidebarCollapsed(false)
     if (!isDesktop) setIsFilterExpanded(false)
-    setCurrentFloor(getStartFloor(routeFrom))
+    setCurrentFloor(getStartFloor(nextFrom))
   }
 
   function handleChangeRouteFrom(fromId: string) {
@@ -599,6 +608,7 @@ export default function MapPage() {
   }
 
   function handleClearRoute() {
+    if (routeTo && rooms.some((r) => r.id === routeTo)) setLastDestinationId(routeTo)
     setRouteTo(null)
     setIsNavCollapsed(false)
   }
@@ -939,6 +949,7 @@ export default function MapPage() {
       fromId={routeFrom}
       toId={routeTo}
       onChangeFrom={handleChangeRouteFrom}
+      recentFromId={lastDestinationId}
       destination={rooms.find((r) => r.id === routeTo)}
       routeState={routeState}
       currentFloor={currentFloor}
@@ -1114,7 +1125,7 @@ export default function MapPage() {
                   <SearchBar
                     inputRef={inputRef}
                     value={query}
-                    placeholder={isDesktop ? 'ค้นหาห้องหรือรหัสวิชา เช่น 109, CS361' : 'ค้นหาห้อง เช่น 105, CS341'}
+                    placeholder={isDesktop ? 'ค้นหาห้องหรือรหัสวิชา เช่น 109, CS361' : MOBILE_SEARCH_PLACEHOLDER}
                     onChange={(newQuery) => {
                       setQuery(newQuery)
                       setIsDropdownOpen(true)

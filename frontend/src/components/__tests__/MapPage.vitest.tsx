@@ -203,6 +203,15 @@ describe('MapPage course search (issue #91)', () => {
     expect(screen.queryByRole('button', { name: 'ซ่อนตัวกรอง' })).not.toBeInTheDocument()
   })
 
+  it('on mobile, the search placeholder says course codes can be searched too (#193)', () => {
+    mockViewport(false)
+    renderMap()
+    expect(screen.getByRole('textbox', { name: 'ค้นหาห้อง' })).toHaveAttribute(
+      'placeholder',
+      'ค้นหาห้องหรือรหัสวิชา เช่น 116, ES357'
+    )
+  })
+
   it('on desktop, choosing a result keeps the sidebar filter open', async () => {
     mockViewport(true)
     const user = userEvent.setup()
@@ -572,6 +581,14 @@ describe('MapPage navigation (issue #145)', () => {
     expect(screen.queryByRole('textbox', { name: 'ค้นหาห้อง' })).not.toBeInTheDocument()
   })
 
+  it('says which side of the building the entrance is on and what is beside the destination (#194)', async () => {
+    mockViewport(true)
+    await startNavigation()
+    const steps = screen.getByRole('list', { name: 'ขั้นตอนเส้นทาง' })
+    expect(within(steps).getByText('เริ่มที่ทางเข้าฝั่งทิศใต้ (ลานน้ำพุ)')).toBeInTheDocument()
+    expect(screen.getByTestId('arrival-hint')).toHaveTextContent('ห้องบรรยายเรียนรวม อยู่ใกล้ ๆ')
+  })
+
   it('swaps origin and destination when the swap button is clicked', async () => {
     mockViewport(true)
     const user = await startNavigation()
@@ -766,6 +783,51 @@ describe('MapPage navigation (issue #145)', () => {
       .find((marker) => marker.getAttribute('transform')?.startsWith('translate(318, 148)'))
     await user.click(room105!)
     expect(lastRouteCall()?.[1]).toBe('LC3-F1-R105')
+  })
+
+  it('shows that the start field can be changed while it is the entrance (#191)', async () => {
+    mockViewport(true)
+    const user = await startNavigation()
+    const panel = screen.getByRole('region', { name: 'นำทาง' })
+    expect(within(panel).getByText(/แตะเพื่อเปลี่ยน/)).toBeInTheDocument()
+
+    await user.click(within(panel).getByRole('button', { name: 'ไม่ได้อยู่ที่ทางเข้า? แตะเพื่อเลือกห้องที่คุณอยู่' }))
+    expect(within(panel).getByRole('textbox', { name: 'จุดเริ่มต้น' })).toHaveFocus()
+    expect(within(panel).getByRole('list', { name: 'ตัวเลือกจุดเริ่มต้น' })).toBeInTheDocument()
+  })
+
+  it('the next route starts from the last destination instead of the entrance (#191)', async () => {
+    mockViewport(true)
+    const user = await startNavigation()
+    expect(lastRouteCall()).toEqual(['LC3_Junction_SM', 'LC3-F1-R121'])
+    await user.click(screen.getByRole('button', { name: 'ล้างเส้นทาง' }))
+
+    const room105 = screen
+      .getAllByRole('button', { name: 'ห้องบรรยายเรียนรวม' })
+      .find((marker) => marker.getAttribute('transform')?.startsWith('translate(318, 148)'))
+    await user.click(room105!)
+    await user.click(screen.getByRole('button', { name: 'นำทางมาที่นี่' }))
+
+    expect(lastRouteCall()).toEqual(['LC3-F1-R121', 'LC3-F1-R105'])
+    const panel = screen.getByRole('region', { name: 'นำทาง' })
+    expect(within(panel).getByRole('textbox', { name: 'จุดเริ่มต้น' })).toHaveValue('ห้อง 121')
+
+    // The entrance is still one tap away, and the last destination is offered first.
+    await user.click(within(panel).getByRole('textbox', { name: 'จุดเริ่มต้น' }))
+    const options = within(screen.getByRole('list', { name: 'ตัวเลือกจุดเริ่มต้น' })).getAllByRole('button')
+    expect(options[0]).toHaveTextContent('ทางเข้าอาคาร 1')
+
+    // After switching to the entrance, room 121 is offered first as the last destination.
+    await user.click(options[0])
+    expect(lastRouteCall()).toEqual(['LC3_Junction_SM', 'LC3-F1-R105'])
+    await user.click(within(panel).getByRole('textbox', { name: 'จุดเริ่มต้น' }))
+    const reopened = within(screen.getByRole('list', { name: 'ตัวเลือกจุดเริ่มต้น' })).getAllByRole('button')
+    expect(reopened[0]).toHaveTextContent('ห้อง 121')
+    expect(reopened[0]).toHaveTextContent('ปลายทางล่าสุด')
+
+    await user.click(reopened[0])
+    expect(lastRouteCall()).toEqual(['LC3-F1-R121', 'LC3-F1-R105'])
+    expect(within(panel).getByRole('textbox', { name: 'จุดเริ่มต้น' })).toHaveValue('ห้อง 121')
   })
 
   it('"ล้างเส้นทาง" stops navigating and returns to the room details', async () => {
