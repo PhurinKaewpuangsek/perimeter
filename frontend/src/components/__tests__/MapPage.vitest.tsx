@@ -581,6 +581,14 @@ describe('MapPage navigation (issue #145)', () => {
     expect(screen.queryByRole('textbox', { name: 'ค้นหาห้อง' })).not.toBeInTheDocument()
   })
 
+  it('says which side of the building the entrance is on and what is beside the destination (#194)', async () => {
+    mockViewport(true)
+    await startNavigation()
+    const steps = screen.getByRole('list', { name: 'ขั้นตอนเส้นทาง' })
+    expect(within(steps).getByText('เริ่มที่ทางเข้าฝั่งทิศใต้ (ลานน้ำพุ)')).toBeInTheDocument()
+    expect(screen.getByTestId('arrival-hint')).toHaveTextContent('ห้องบรรยายเรียนรวม อยู่ใกล้ ๆ')
+  })
+
   it('swaps origin and destination when the swap button is clicked', async () => {
     mockViewport(true)
     const user = await startNavigation()

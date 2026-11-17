@@ -719,3 +719,64 @@ export function generateLegInstructions(
 
   return steps
 }
+
+export interface ArrivalNeighbour {
+  label: string
+  /** Side of the neighbour for someone facing the destination door; null when it is straight ahead or behind. */
+  side: 'left' | 'right' | null
+}
+
+/** How far (SVG units, ~10 m) a room may be from the destination to count as a neighbour. */
+export const ARRIVAL_NEIGHBOUR_RADIUS = 150
+
+/**
+ * Rooms next to the destination, with the side they are on when you face its door (#194).
+ * Many LC3 doors have no room-number sign, so naming the rooms beside the destination is
+ * how a user confirms they have arrived. The facing direction is the last route segment.
+ */
+export function getArrivalNeighbours(
+  path: RoutePoint[],
+  destination: Room,
+  rooms: Room[],
+  max = 2,
+): ArrivalNeighbour[] {
+  const end = path[path.length - 1]
+  if (!end) return []
+  const before = [...path].reverse().find((p) => Math.hypot(p.x - end.x, p.y - end.y) > 1e-3)
+  const heading = before ? { x: end.x - before.x, y: end.y - before.y } : null
+
+  const candidates: { label: string; distance: number; side: ArrivalNeighbour['side'] }[] = []
+  for (const room of rooms) {
+    if (room.id === destination.id || room.floor !== destination.floor || !room.coordinates) continue
+    const label = getMilestoneDisplayName(room)
+    if (!label || candidates.some((c) => c.label === label)) continue
+    const dx = room.coordinates.x - end.x
+    const dy = room.coordinates.y - end.y
+    const distance = Math.hypot(dx, dy)
+    if (distance > ARRIVAL_NEIGHBOUR_RADIUS || distance < 1e-3) continue
+
+    let side: ArrivalNeighbour['side'] = null
+    if (heading) {
+      // SVG y points down, so a positive cross product means the room is on the right.
+      const cross = heading.x * dy - heading.y * dx
+      const sine = cross / (Math.hypot(heading.x, heading.y) * distance)
+      if (sine > 0.5) side = 'right'
+      else if (sine < -0.5) side = 'left'
+    }
+    candidates.push({ label, distance, side })
+  }
+
+  return candidates
+    .sort((a, b) => a.distance - b.distance)
+    .slice(0, max)
+    .map(({ label, side }) => ({ label, side }))
+}
+
+/** "ห้อง 205 อยู่ซ้ายมือ · ห้องน้ำอยู่ใกล้ ๆ" for the arrival hint. */
+export function formatArrivalNeighbours(neighbours: ArrivalNeighbour[]): string {
+  return neighbours
+    .map(({ label, side }) =>
+      side === 'left' ? `${label} อยู่ซ้ายมือ` : side === 'right' ? `${label} อยู่ขวามือ` : `${label} อยู่ใกล้ ๆ`,
+    )
+    .join(' · ')
+}
