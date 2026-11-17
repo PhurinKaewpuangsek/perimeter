@@ -219,6 +219,17 @@ export default function TopBar({
 
           {/* My Schedule + account / sign in */}
           <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+            {/* Staff testing found the way back to the public map hard to spot (#197). */}
+            {(pathname === '/staff' || pathname === '/admin') && (
+              <Link
+                to="/map"
+                data-testid="view-public-map"
+                className="btn btn-on-dark hidden shrink-0 sm:inline-flex"
+              >
+                <MapTrifold size={16} weight="bold" aria-hidden="true" />
+                <span>ดูแผนที่ (มุมมองผู้ใช้)</span>
+              </Link>
+            )}
             <MyScheduleDrawer />
             {session ? (
               <AccountMenu />

@@ -3,6 +3,7 @@ import { ArrowDown, ArrowUp } from '@phosphor-icons/react'
 import type { FoundRoute } from '../../types/route'
 import type { FloorConfig } from './floorConfig'
 import { useTransformScale } from './useTransformScale'
+import { PIN_DOT, PIN_ICON_PATH, PIN_RED, PIN_RED_DARK, PIN_TIP, START_RING_COLOR } from './routeGlyphs'
 import {
   getDisplayRoutePoints,
   getFloorChangeLabel,
@@ -124,8 +125,9 @@ export default function RouteOverlay({
         })}
         {start?.floor === currentFloor && (
           <g data-testid="route-start" transform={`translate(${start.x}, ${start.y}) scale(${invScale})`}>
-            <circle r={11} fill={LINE_COLOR} stroke={CASING_COLOR} strokeWidth={2.5} />
-            <circle r={4.5} fill={CASING_COLOR} />
+            {/* Google Maps-style start: a white ring with a dark outline and a white casing. */}
+            <circle r={10} fill={CASING_COLOR} />
+            <circle r={6.5} fill={CASING_COLOR} stroke={START_RING_COLOR} strokeWidth={3.5} />
           </g>
         )}
         {end && route.path.length > 1 && end.floor === currentFloor && (
@@ -134,8 +136,11 @@ export default function RouteOverlay({
             className={drawing ? 'animate-route-reveal' : undefined}
             transform={`translate(${end.x}, ${end.y}) scale(${invScale})`}
           >
-            <rect x={-10} y={-10} width={20} height={20} rx={2} fill={LINE_COLOR} stroke={CASING_COLOR} strokeWidth={2.5} />
-            <rect x={-4} y={-4} width={8} height={8} fill={CASING_COLOR} />
+            {/* Pin stands on the last route point: its tip is at (0, 0). */}
+            <g transform={`scale(0.12) translate(${-PIN_TIP.x}, ${-PIN_TIP.y})`}>
+              <circle cx={PIN_DOT.cx} cy={PIN_DOT.cy} r={PIN_DOT.r} fill={PIN_RED_DARK} />
+              <path d={PIN_ICON_PATH} fill={PIN_RED} stroke={CASING_COLOR} strokeWidth={18} paintOrder="stroke" />
+            </g>
           </g>
         )}
       </svg>

@@ -107,6 +107,31 @@ describe('RoomMarkers', () => {
     expect(marker.querySelector('[data-testid="room-selected-halo"]')).not.toBeNull()
   })
 
+  it('draws the route destination as a red pin, Google Maps style', () => {
+    const { rerender } = render(
+      <RoomMarkers
+        rooms={[rooms[0]]}
+        currentFloor={1}
+        floorConfig={getFloorConfig(1)}
+        selectedRoomId="LC3-F1-R101"
+        onSelectRoom={vi.fn()}
+      />
+    )
+    expect(screen.getByTestId('room-selected-pin').querySelector('path')).toHaveAttribute('fill', '#000000')
+
+    rerender(
+      <RoomMarkers
+        rooms={[rooms[0]]}
+        currentFloor={1}
+        floorConfig={getFloorConfig(1)}
+        selectedRoomId="LC3-F1-R101"
+        destinationRoomId="LC3-F1-R101"
+        onSelectRoom={vi.fn()}
+      />
+    )
+    expect(screen.getByTestId('room-selected-pin').querySelector('path')).toHaveAttribute('fill', '#EA4335')
+  })
+
   it('draws only the selected room as a pointed pin; every other room is a round badge', () => {
     render(
       <RoomMarkers

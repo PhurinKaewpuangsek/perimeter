@@ -267,7 +267,9 @@ describe('AdminPage', () => {
     // Room deletion Danger Zone remains restricted to admin
     expect(screen.queryByText('Danger Zone')).not.toBeInTheDocument()
     // Staff can both edit and delete schedule rows (BUG-09)
-    expect(screen.getByRole('button', { name: 'แก้ไขตาราง' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'แก้ไขตาราง' })).toHaveTextContent('แก้ไข')
+    // The add-activity action is offered at the top of the room, not only below the form (#196)
+    expect(screen.getByRole('button', { name: 'เพิ่มตาราง/กิจกรรมในห้องนี้' })).toBeInTheDocument()
     const deleteBtn = screen.getByRole('button', { name: 'ลบตาราง' })
     expect(deleteBtn).toBeInTheDocument()
     await user.click(deleteBtn)
@@ -341,8 +343,8 @@ describe('AdminPage exam date (event_date)', () => {
       </MemoryRouter>,
     )
     await user.click(screen.getByText('ห้อง 101').closest('button')!)
-    await user.click(screen.getByRole('button', { name: /เพิ่มตาราง/ }))
-    const form = screen.getByText('เพิ่มตารางสอนใหม่').closest('form')!
+    await user.click(screen.getByRole('button', { name: 'เพิ่มตาราง/กิจกรรมในห้องนี้' }))
+    const form = screen.getByText('เพิ่มตาราง/กิจกรรมใหม่').closest('form')!
     return { user, form: within(form) }
   }
 
@@ -405,6 +407,15 @@ describe('AdminPage exam date (event_date)', () => {
     expect(adminServiceMock.createSchedule).toHaveBeenCalledWith(
       expect.objectContaining({ event_code: 'BAS350', event_type: 'exam', event_date: '2026-05-18' }),
     )
+  })
+
+  it('offers a link to check the saved schedule on the public map (#197)', async () => {
+    const { user, form } = await openCreateForm()
+    await fillRequired(user, form)
+    await user.click(form.getByRole('button', { name: /บันทึกตารางสอน/ }))
+
+    const link = await screen.findByRole('link', { name: 'ดูผลบนแผนที่' })
+    expect(link.getAttribute('href')).toMatch(/^\/map\?room=/)
   })
 
   it('does not send event_date for a lecture', async () => {

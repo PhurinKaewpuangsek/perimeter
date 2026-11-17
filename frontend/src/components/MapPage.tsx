@@ -9,7 +9,7 @@
  * 3. Chronological Day-Grouped Schedule: Fixed 3-letter day codes (MON-SUN), Thai day badges with
  *    standard day colors, quick day filter pills, and cleaned non-redundant schedule cards.
  */
-import { useState, useMemo, useRef, useEffect, createElement } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   X,
@@ -18,7 +18,6 @@ import {
   BookOpen,
   GraduationCap,
   NavigationArrow,
-  Sparkle,
   Users,
   Prohibit,
 } from '@phosphor-icons/react'
@@ -37,6 +36,7 @@ import { FLOOR_CONFIGS } from './map/floorConfig'
 import LoadingScreen from './LoadingScreen'
 import TopBar from './TopBar'
 import SearchBar from './SearchBar'
+import CategoryBadge from './CategoryBadge'
 import NavigationPanel from './NavigationPanel'
 import CategoryFilter from './CategoryFilter'
 import SearchResultList from './SearchResultList'
@@ -53,13 +53,7 @@ import {
   resolveScheduleTabOnRoomSelect,
 } from '../services/filterRooms'
 import { useExamSearch } from '../hooks/useExamSearch'
-import {
-  getBuildingLabel,
-  getCategoryLabel,
-  getLandmarkText,
-  getCategoryColor,
-} from '../services/roomDisplay'
-import { getCategoryIcon } from './categoryIcon'
+import { getBuildingLabel, getLandmarkText } from '../services/roomDisplay'
 import { buildGoogleCalendarUrl } from '../services/calendarExport'
 import { computeScheduleSlot } from '../hooks/usePins'
 import { formatLocalDate, isExamSchedule } from '../services/scheduleDisplay'
@@ -75,6 +69,16 @@ const FLOOR_PLAN_ASSETS = FLOOR_CONFIGS.map((config) => config.asset)
  * cancel, or one that starts or ends, shows up without a page reload.
  */
 const CLOSURE_CLOCK_MS = 60_000
+// Example searches for the empty sidebar: one of each kind the search understands.
+const EXPLORE_EXAMPLES = [
+  { query: '116', hint: 'เลขห้อง' },
+  { query: 'ES357', hint: 'รหัสวิชา' },
+  { query: 'ห้องน้ำ', hint: 'สิ่งอำนวยความสะดวก' },
+] as const
+
+// Short enough for a 375px screen, but still says course codes work: a tester on Android
+// was unsure the search found courses when it only said "ค้นหาห้อง" (#193).
+const MOBILE_SEARCH_PLACEHOLDER = 'ค้นหาห้องหรือรหัสวิชา เช่น 116, ES357'
 
 /** Shown in the room panel when closures failed to load, so the room may be closed. */
 function ClosureStatusUnavailable({ onRetry }: { onRetry: () => void }) {
@@ -99,19 +103,6 @@ function RoomClosureNotice({ closure }: { closure: Closure }) {
         {closure.closedReason && <p className="mt-0.5 break-words">เหตุผล: {closure.closedReason}</p>}
       </div>
     </div>
-  )
-}
-
-function RoomCategoryBadge({ category, nameThai }: { category: string; nameThai?: string }) {
-  const color = getCategoryColor(category)
-  const Icon = getCategoryIcon(category, nameThai)
-  return (
-    <span
-      className={`inline-flex items-center gap-1.5 rounded-full border ${color.border} ${color.bg} px-2.5 py-1 text-xs font-medium ${color.text}`}
-    >
-      {createElement(Icon, { size: 14, weight: 'duotone' })}
-      <span>{getCategoryLabel(category)}</span>
-    </span>
   )
 }
 
@@ -240,7 +231,7 @@ function RoomDetailContent({
 
         {/* Quick Meta Chips: Category + Capacity */}
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <RoomCategoryBadge category={room.category} nameThai={room.nameThai} />
+          <CategoryBadge category={room.category} />
 
           {room.capacity !== undefined && (
             <span className="chip">
@@ -437,6 +428,9 @@ export default function MapPage() {
   // GPS, so the start is picked by hand and defaults to the building entrance.
   const [routeFrom, setRouteFrom] = useState(BUILDING_ENTRANCE_ID)
   const [routeTo, setRouteTo] = useState<string | null>(initialDestinationId)
+  // The last room the user navigated to (#191). After arriving, the next route starts
+  // there instead of the entrance, since that is where the user is now standing.
+  const [lastDestinationId, setLastDestinationId] = useState<string | null>(null)
   const isNavigating = routeTo !== null
   const [isNavCollapsed, setIsNavCollapsed] = useState(false)
   const routeState = useRoute(isNavigating ? routeFrom : null, routeTo)
@@ -564,13 +558,16 @@ export default function MapPage() {
   }
 
   function handleNavigate(roomId: string) {
+    let nextFrom = lastDestinationId && lastDestinationId !== roomId ? lastDestinationId : routeFrom
+    if (nextFrom === roomId) nextFrom = BUILDING_ENTRANCE_ID
+    setRouteFrom(nextFrom)
     setRouteTo(roomId)
     setSelectedRoomId(roomId)
     setIsNavCollapsed(false)
     setIsDropdownOpen(false)
     setIsSidebarCollapsed(false)
     if (!isDesktop) setIsFilterExpanded(false)
-    setCurrentFloor(getStartFloor(routeFrom))
+    setCurrentFloor(getStartFloor(nextFrom))
   }
 
   function handleChangeRouteFrom(fromId: string) {
@@ -599,6 +596,7 @@ export default function MapPage() {
   }
 
   function handleClearRoute() {
+    if (routeTo && rooms.some((r) => r.id === routeTo)) setLastDestinationId(routeTo)
     setRouteTo(null)
     setIsNavCollapsed(false)
   }
@@ -939,6 +937,7 @@ export default function MapPage() {
       fromId={routeFrom}
       toId={routeTo}
       onChangeFrom={handleChangeRouteFrom}
+      recentFromId={lastDestinationId}
       destination={rooms.find((r) => r.id === routeTo)}
       routeState={routeState}
       currentFloor={currentFloor}
@@ -1088,14 +1087,26 @@ export default function MapPage() {
                     </div>
                   ) : (
                     /* STATE 3: DEFAULT EMPTY / EXPLORE STATE */
-                    <div className="flex flex-col items-center justify-center py-10 text-center">
-                      <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-tertiary text-ink">
-                        <Sparkle size={24} weight="bold" />
-                      </div>
-                      <h3 className="font-display text-h3-sm font-bold text-ink">สำรวจอาคารเรียนรวม 3 (LC3)</h3>
-                      <p className="mt-1 max-w-xs text-button text-ink-2">
-                        คลิกที่ห้องบนผัง หรือค้นหาห้องเรียนด้านบนเพื่อดูข้อมูล จุดสังเกต และตารางเวลา
-                      </p>
+                    <div className="space-y-3">
+                      <p className="text-button text-ink-2">แตะห้องบนแผนที่ หรือลองค้นหา</p>
+                      <ul aria-label="ตัวอย่างการค้นหา" className="flex flex-wrap gap-2">
+                        {EXPLORE_EXAMPLES.map(({ query: example, hint }) => (
+                          <li key={example}>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setQuery(example)
+                                setIsDropdownOpen(true)
+                                inputRef.current?.focus()
+                              }}
+                              className="btn btn-secondary btn-sm"
+                            >
+                              <span className="text-ink">{example}</span>
+                              <span className="font-normal text-ink-3">{hint}</span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
                     </div>
                   )}
                 </div>
@@ -1114,7 +1125,7 @@ export default function MapPage() {
                   <SearchBar
                     inputRef={inputRef}
                     value={query}
-                    placeholder={isDesktop ? 'ค้นหาห้องหรือรหัสวิชา เช่น 109, CS361' : 'ค้นหาห้อง เช่น 105, CS341'}
+                    placeholder={isDesktop ? 'ค้นหาห้องหรือรหัสวิชา เช่น 109, CS361' : MOBILE_SEARCH_PLACEHOLDER}
                     onChange={(newQuery) => {
                       setQuery(newQuery)
                       setIsDropdownOpen(true)
