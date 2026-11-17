@@ -329,6 +329,11 @@ export default function SearchResultList({
           const roomSchedules = schedules
             .filter((schedule) => schedule.roomCode.toLowerCase() === room.code.toLowerCase())
             .sort((a, b) => {
+              // Exams first, so a course with both a class and an exam here never hides
+              // the exam behind its class rows in the two-row preview (#192).
+              const examA = isExamSchedule(a) ? 0 : 1
+              const examB = isExamSchedule(b) ? 0 : 1
+              if (examA !== examB) return examA - examB
               const orderA = DAY_ORDER[a.dayOfWeek.toUpperCase()] ?? 99
               const orderB = DAY_ORDER[b.dayOfWeek.toUpperCase()] ?? 99
               if (orderA !== orderB) return orderA - orderB
