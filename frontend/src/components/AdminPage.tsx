@@ -15,6 +15,7 @@
  *    (bottom-6 left-6) for unobstructed map exploration.
  */
 import { useState, useCallback, useMemo, useRef, useId, createElement } from 'react'
+import { Link } from 'react-router-dom'
 import {
   CaretLeft,
   CaretRight,
@@ -860,6 +861,8 @@ function RoomEditPanel({
   const [deleting, setDeleting] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [isAddingSchedule, setIsAddingSchedule] = useState(false)
+  // Room id whose schedule was just saved, so staff get a direct link to check it on /map (#197).
+  const [savedScheduleRoomId, setSavedScheduleRoomId] = useState<string | null>(null)
   const scheduleSectionRef = useRef<HTMLDivElement>(null)
   // Staff in the real-user test could not find where to add an activity (#196): the schedule
   // section sits below the room form, so the header offers it straight away.
@@ -1128,10 +1131,20 @@ function RoomEditPanel({
             roomCode={room.code}
             onCreated={() => {
               setIsAddingSchedule(false)
+              setSavedScheduleRoomId(room.id)
               onSchedulesMutated()
             }}
             onCancel={() => setIsAddingSchedule(false)}
           />
+        )}
+
+        {savedScheduleRoomId === room.id && !isAddingSchedule && (
+          <div role="status" className="surface flex items-center justify-between gap-2 p-3 text-button text-ink">
+            <span>บันทึกตาราง/กิจกรรมแล้ว</span>
+            <Link to={`/map?room=${encodeURIComponent(room.id)}`} className="btn btn-secondary btn-sm">
+              ดูผลบนแผนที่
+            </Link>
+          </div>
         )}
 
         {/* Day filter pills for room (with visible thin-scrollbar and mouse-wheel horizontal scrolling) */}
