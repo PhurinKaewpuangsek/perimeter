@@ -440,6 +440,9 @@ export default function MapPage() {
   // GPS, so the start is picked by hand and defaults to the building entrance.
   const [routeFrom, setRouteFrom] = useState(BUILDING_ENTRANCE_ID)
   const [routeTo, setRouteTo] = useState<string | null>(initialDestinationId)
+  // The last room the user navigated to (#191). After arriving, the next route starts
+  // there instead of the entrance, since that is where the user is now standing.
+  const [lastDestinationId, setLastDestinationId] = useState<string | null>(null)
   const isNavigating = routeTo !== null
   const [isNavCollapsed, setIsNavCollapsed] = useState(false)
   const routeState = useRoute(isNavigating ? routeFrom : null, routeTo)
@@ -567,13 +570,16 @@ export default function MapPage() {
   }
 
   function handleNavigate(roomId: string) {
+    let nextFrom = lastDestinationId && lastDestinationId !== roomId ? lastDestinationId : routeFrom
+    if (nextFrom === roomId) nextFrom = BUILDING_ENTRANCE_ID
+    setRouteFrom(nextFrom)
     setRouteTo(roomId)
     setSelectedRoomId(roomId)
     setIsNavCollapsed(false)
     setIsDropdownOpen(false)
     setIsSidebarCollapsed(false)
     if (!isDesktop) setIsFilterExpanded(false)
-    setCurrentFloor(getStartFloor(routeFrom))
+    setCurrentFloor(getStartFloor(nextFrom))
   }
 
   function handleChangeRouteFrom(fromId: string) {
@@ -602,6 +608,7 @@ export default function MapPage() {
   }
 
   function handleClearRoute() {
+    if (routeTo && rooms.some((r) => r.id === routeTo)) setLastDestinationId(routeTo)
     setRouteTo(null)
     setIsNavCollapsed(false)
   }
@@ -942,6 +949,7 @@ export default function MapPage() {
       fromId={routeFrom}
       toId={routeTo}
       onChangeFrom={handleChangeRouteFrom}
+      recentFromId={lastDestinationId}
       destination={rooms.find((r) => r.id === routeTo)}
       routeState={routeState}
       currentFloor={currentFloor}
