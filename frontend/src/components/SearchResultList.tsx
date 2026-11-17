@@ -106,8 +106,8 @@ export default function SearchResultList({
                   <p className="mt-1 text-button text-ink-2">{formatExamDateTime(schedule)}</p>
                   <p className="mt-1 text-xs text-ink-3">
                     {room
-                      ? `อาคาร ${room.building} · ห้อง ${room.code} ชั้น ${room.floor}`
-                      : `ห้อง ${schedule.roomCode} · ไม่พบข้อมูลตำแหน่งห้อง`}
+                      ? `อาคาร ${room.building} ห้อง ${room.code} ชั้น ${room.floor}`
+                      : `ห้อง ${schedule.roomCode} (ไม่พบข้อมูลตำแหน่งห้อง)`}
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -194,8 +194,8 @@ export default function SearchResultList({
                 </p>
                 <p className="mt-1 text-xs text-ink-3">
                   {room
-                    ? `อาคาร ${room.building} · ห้อง ${room.code} ชั้น ${room.floor}`
-                    : `ห้อง ${schedule.roomCode} · ไม่พบข้อมูลตำแหน่งห้อง`}
+                    ? `อาคาร ${room.building} ห้อง ${room.code} ชั้น ${room.floor}`
+                    : `ห้อง ${schedule.roomCode} (ไม่พบข้อมูลตำแหน่งห้อง)`}
                 </p>
                 {closed && (
                   <div role="status" className="mt-2 border border-ink bg-surface-2 p-2 text-xs text-ink">
@@ -294,10 +294,10 @@ export default function SearchResultList({
                       key={`${schedule.roomCode}-${schedule.dayOfWeek}-${schedule.startTime}-${schedule.eventCode}`}
                       className="text-xs text-ink-3"
                     >
-                      {schedule.eventCode} · {schedule.eventName || 'ไม่มีชื่อวิชา'} ·{' '}
+                      {schedule.eventCode} {schedule.eventName || 'ไม่มีชื่อวิชา'},{' '}
                       {schedule.dayOfWeek} {schedule.startTime}-{schedule.endTime}
-                      {getExamDateLabel(schedule) && ` · ${getExamDateLabel(schedule)}`}
-                      {' · '}{room.code}
+                      {getExamDateLabel(schedule) && `, ${getExamDateLabel(schedule)}`}
+                      {', '}{room.code}
                     </span>
                   ))}
               </button>
@@ -424,7 +424,7 @@ export default function SearchResultList({
                     {remainingCount > 0 && (
                       <div className="flex items-center gap-1 pt-0.5 pl-0.5 text-xs font-medium text-ink">
                         <span>+ อีก {remainingCount} คาบที่ตรงกัน</span>
-                        <span className="font-normal text-ink-3">· คลิกดูตารางเต็ม</span>
+                        <span className="font-normal text-ink-3">(คลิกดูตารางเต็ม)</span>
                       </div>
                     )}
                   </div>

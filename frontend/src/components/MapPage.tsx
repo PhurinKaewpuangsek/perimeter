@@ -15,7 +15,7 @@ import {
   X,
   MapPin,
   CalendarPlus,
-  BookOpen,
+  CalendarBlank,
   GraduationCap,
   NavigationArrow,
   Users,
@@ -55,14 +55,19 @@ import {
 import { useExamSearch } from '../hooks/useExamSearch'
 import { getBuildingLabel, getLandmarkText } from '../services/roomDisplay'
 import { buildGoogleCalendarUrl } from '../services/calendarExport'
-import { computeScheduleSlot } from '../hooks/usePins'
+import { computeScheduleSlot, usePins } from '../hooks/usePins'
 import { formatLocalDate, isExamSchedule } from '../services/scheduleDisplay'
+import { getUpcomingReminders } from '../services/scheduleReminders'
+import MyScheduleReminders from './MyScheduleReminders'
 import { useRoomSchedules } from '../hooks/useRoomSchedules'
 import type { Room } from '../types/room'
 import type { ScheduleSlot } from '../types/schedule'
 import type { PinnedSchedule } from '../types/pin'
 
 const FLOOR_PLAN_ASSETS = FLOOR_CONFIGS.map((config) => config.asset)
+
+/** Restrooms and stairs are never booked, so their cards have no class or exam timetable. */
+const NO_TIMETABLE_CATEGORIES = new Set(['toilet', 'stairs'])
 
 /**
  * How often /map refetches closures and re-checks their windows, so a closure staff add or
@@ -112,8 +117,11 @@ interface RoomDetailContentProps {
   onNavigate: () => void
   activeScheduleTab: 'class' | 'exam'
   setActiveScheduleTab: (tab: 'class' | 'exam') => void
-  classSchedules: ScheduleSlot[]
   examSchedules: ScheduleSlot[]
+  /** Everything booked in the room, for the week calendar. */
+  roomSchedules: ScheduleSlot[]
+  /** YYYY-MM-DD whose week the calendar opens on, e.g. a reminder's date. */
+  focusDate?: string | null
   schedulesLoading: boolean
   schedulesError: Error | null
   reloadSchedules: () => void
@@ -130,8 +138,9 @@ function RoomDetailContent({
   onNavigate,
   activeScheduleTab,
   setActiveScheduleTab,
-  classSchedules,
   examSchedules,
+  roomSchedules,
+  focusDate,
   schedulesLoading,
   schedulesError,
   reloadSchedules,
@@ -186,7 +195,6 @@ function RoomDetailContent({
           <div className="min-w-0 flex-1">
             <div className="mb-1.5 inline-flex items-center gap-1.5 text-xs font-medium text-ink-3 uppercase">
               <span>{getBuildingLabel(room.building)}</span>
-              <span aria-hidden="true">·</span>
               <span>ชั้น {room.floor}</span>
             </div>
 
@@ -247,7 +255,7 @@ function RoomDetailContent({
             <MapPin size={15} weight="fill" className="mt-0.5 shrink-0 text-ink" />
             <div className="text-xs text-ink-2">
               <span className="font-medium text-ink">จุดสังเกต: </span>
-              {room.landmarks.map((l) => getLandmarkText(l)).join(' · ')}
+              {room.landmarks.map((l) => getLandmarkText(l)).join(', ')}
             </div>
           </div>
         )}
@@ -259,6 +267,7 @@ function RoomDetailContent({
       </div>
 
       {/* SCHEDULE SECTION */}
+      {!NO_TIMETABLE_CATEGORIES.has(room.category) && (
       <div className="border-t border-line-soft pt-4">
         {/* Schedule Tabs Header */}
         <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -299,9 +308,8 @@ function RoomDetailContent({
                 activeScheduleTab === 'class' ? 'text-white' : 'text-ink-2 hover:text-ink'
               }`}
             >
-              <BookOpen size={13} weight="bold" />
-              <span>ตารางเรียน</span>
-              <span className="text-xs">({classSchedules.length})</span>
+              <CalendarBlank size={13} weight="bold" />
+              <span>รายสัปดาห์</span>
             </button>
             <button
               type="button"
@@ -336,8 +344,11 @@ function RoomDetailContent({
         ) : (
           <div key={activeScheduleTab} className="animate-gooey-content-swap">
             {activeScheduleTab === 'class' ? (
+              // Classes, exams and activities together, one dated week at a time.
               <WeeklyTimetable
-                slots={classSchedules}
+                key={`${room.id}#${focusDate ?? ''}`}
+                slots={roomSchedules}
+                focusDate={focusDate ?? undefined}
                 renderActions={renderScheduleActions}
                 layout="compact"
                 title={`ห้อง ${room.roomNumber || room.code || ''}${room.nameThai ? ` (${room.nameThai})` : ''}`}
@@ -354,6 +365,7 @@ function RoomDetailContent({
           </div>
         )}
       </div>
+      )}
     </div>
   )
 }
@@ -410,6 +422,8 @@ export default function MapPage() {
     Boolean(initialQuery && !initialRoomId && !initialDestinationId)
   )
   const [isFilterExpanded, setIsFilterExpanded] = useState(false)
+  // Date of the dated entry a room was opened for, so its week calendar starts on that week.
+  const [focusDate, setFocusDate] = useState<string | null>(null)
   const [targetExamCode, setTargetExamCode] = useState<string | null>(() => {
     if (!initialQuery) return null
     const parsed = parseExamQuery(initialQuery).courseCode
@@ -469,11 +483,7 @@ export default function MapPage() {
     reload: reloadRoomSchedules,
   } = useRoomSchedules(selectedRoom?.code)
 
-  // Split schedules into class and exam
-  const classSchedules = useMemo(
-    () => roomSchedules.filter((s) => !isExamSchedule(s)),
-    [roomSchedules]
-  )
+  // Exams also get their own list tab
   const examSchedules = useMemo(
     () => roomSchedules.filter(isExamSchedule),
     [roomSchedules]
@@ -482,6 +492,13 @@ export default function MapPage() {
   const hasActiveFilter = categoryKey !== DEFAULT_CATEGORY_KEY
   const hasActiveQueryOrFilter = query.trim() !== '' || hasActiveFilter
   const isShowingSearchResults = isDropdownOpen && hasActiveQueryOrFilter && !isNavigating
+  // What is next in the user's pinned schedule; `now` ticks every minute, so it rolls over on its own.
+  const { pins, setIsDrawerOpen } = usePins()
+  const reminders = useMemo(() => getUpcomingReminders(pins, now), [pins, now])
+  const today = formatLocalDate(now)
+  // Mobile has no empty sidebar, so focusing the empty search box shows the reminders instead.
+  const isShowingMobileExplore =
+    !isDesktop && isDropdownOpen && !hasActiveQueryOrFilter && !isNavigating && reminders.length > 0
   const isDetailOpen = Boolean(selectedRoom) && !isShowingSearchResults && !isNavigating
 
   const searchResults = useMemo(
@@ -526,6 +543,9 @@ export default function MapPage() {
 
     setActiveScheduleTab(resolution.tab)
     setTargetExamCode(resolution.targetCode)
+    const today = formatLocalDate(new Date())
+    const dated = eventCode ? targetRoomSchedules.filter((s) => s.eventCode === eventCode && s.eventDate) : []
+    setFocusDate((dated.find((s) => s.eventDate! >= today) ?? dated[0])?.eventDate ?? null)
 
     if (targetRoom && targetRoom.floor !== currentFloor) {
       setCurrentFloor(targetRoom.floor)
@@ -549,6 +569,7 @@ export default function MapPage() {
   function handleUnpinRoom() {
     setSelectedRoomId(null)
     setTargetExamCode(null)
+    setFocusDate(null)
   }
 
   /** The floor a route starts on, so the map opens where the user is standing. */
@@ -1053,8 +1074,9 @@ export default function MapPage() {
                       onNavigate={() => handleNavigate(selectedRoom.id)}
                       activeScheduleTab={activeScheduleTab}
                       setActiveScheduleTab={setActiveScheduleTab}
-                      classSchedules={classSchedules}
                       examSchedules={examSchedules}
+                      roomSchedules={roomSchedules}
+                      focusDate={focusDate}
                       schedulesLoading={roomSchedulesLoading}
                       schedulesError={roomSchedulesError}
                       reloadSchedules={reloadRoomSchedules}
@@ -1107,6 +1129,15 @@ export default function MapPage() {
                           </li>
                         ))}
                       </ul>
+                      <MyScheduleReminders
+                        reminders={reminders}
+                        rooms={rooms}
+                        today={today}
+                        onSelect={(roomId, slot) =>
+                          handleSelectRoom(roomId, slot.eventCode, isExamSchedule(slot) ? 'exam' : 'class')
+                        }
+                        onOpenAll={() => setIsDrawerOpen(true)}
+                      />
                     </div>
                   )}
                 </div>
@@ -1171,6 +1202,31 @@ export default function MapPage() {
                   search bar. Both layers here must opt back in with pointer-events-auto:
                   otherwise a tap on a result falls through to the map underneath and selects
                   whichever room pin happens to sit under the finger (issue #91). */}
+              {isShowingMobileExplore && (
+                <>
+                  <div
+                    className="pointer-events-auto fixed inset-0 z-1 bg-black/25"
+                    onClick={() => setIsDropdownOpen(false)}
+                  />
+                  <div
+                    data-testid="mobile-explore"
+                    className="card no-scrollbar pointer-events-auto relative z-20 mt-2 max-h-[65dvh] overflow-y-auto p-3 shadow-modal animate-fade-in"
+                  >
+                    <MyScheduleReminders
+                      reminders={reminders}
+                      rooms={rooms}
+                      today={today}
+                      onSelect={(roomId, slot) =>
+                        handleSelectRoom(roomId, slot.eventCode, isExamSchedule(slot) ? 'exam' : 'class')
+                      }
+                      onOpenAll={() => {
+                        setIsDropdownOpen(false)
+                        setIsDrawerOpen(true)
+                      }}
+                    />
+                  </div>
+                </>
+              )}
               {isShowingSearchResults && (
                 <>
                   <div
@@ -1355,8 +1411,9 @@ export default function MapPage() {
                     onNavigate={() => handleNavigate(selectedRoom.id)}
                     activeScheduleTab={activeScheduleTab}
                     setActiveScheduleTab={setActiveScheduleTab}
-                    classSchedules={classSchedules}
                     examSchedules={examSchedules}
+                    roomSchedules={roomSchedules}
+                    focusDate={focusDate}
                     schedulesLoading={roomSchedulesLoading}
                     schedulesError={roomSchedulesError}
                     reloadSchedules={reloadRoomSchedules}

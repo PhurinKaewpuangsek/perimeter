@@ -114,107 +114,97 @@ describe('WeeklyTimetable', () => {
   })
 
   describe('compact week summary layout (interactive button replacing days table)', () => {
-    it('renders the compact week summary with all courses and opens the full reg.tu modal on click', async () => {
+    // Wednesday 13 May 2026: the week is 11–17 May, with ST326's exam on Friday 15 May.
+    it('shows this week with dates and everything that uses the room, and moves between weeks', async () => {
       const user = userEvent.setup()
-      render(<WeeklyTimetable slots={SLOTS} layout="compact" title="ห้อง LC3-103" />)
+      render(<WeeklyTimetable slots={SLOTS} layout="compact" title="ห้อง LC3-103" today="2026-05-13" />)
 
-      const summaryBtn = screen.getByTestId('compact-week-summary-btn')
-      expect(summaryBtn).toBeInTheDocument()
-      expect(summaryBtn).toHaveTextContent('เทอม 1/2569')
-      expect(summaryBtn).toHaveTextContent('5 คาบ')
+      expect(screen.getByText('สัปดาห์นี้')).toBeInTheDocument()
+      expect(screen.getByText('11–17 พ.ค. 2569')).toBeInTheDocument()
+      const rail = screen.getByTestId('compact-week-summary-btn')
+      expect(within(rail).getByText('CS101')).toBeInTheDocument()
+      expect(within(rail).getByText('สอบ ST326')).toBeInTheDocument()
+      expect(rail).not.toHaveTextContent('BAS350')
+      expect(rail).not.toHaveTextContent('CS140')
+      expect(rail.querySelector('[data-today="true"]')).toHaveTextContent('13')
 
-      // Shows day labels จ, อ, พ, พฤ, ศ, ส, อา
-      for (const day of ['จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส', 'อา']) {
-        expect(within(summaryBtn).getByText(day)).toBeInTheDocument()
-      }
+      await user.click(screen.getByRole('button', { name: 'สัปดาห์หน้า' }))
+      expect(screen.getByText('18–24 พ.ค. 2569')).toBeInTheDocument()
+      expect(within(rail).getByText('สอบ BAS350')).toBeInTheDocument()
+      expect(rail).not.toHaveTextContent('ST326')
 
-      // Shows course codes on the mini horizontal bars
-      expect(within(summaryBtn).getByText('CS101')).toBeInTheDocument()
-      expect(within(summaryBtn).getByText('MA624')).toBeInTheDocument()
-      expect(within(summaryBtn).getByText('BAS350')).toBeInTheDocument()
-
-      // Modal should not be open initially
-      expect(screen.queryByTestId('tu-reg-timetable')).not.toBeInTheDocument()
-
-      // Click anywhere on the summary button to open full modal
-      await user.click(summaryBtn)
-
-      // On PC (default JSDOM viewport >= 640px), modal displays full grid exclusively
-      const modal = screen.getByRole('dialog')
-      expect(screen.getByTestId('tu-reg-timetable')).toBeInTheDocument()
-      expect(screen.getByText('วัน/เวลา')).toBeInTheDocument()
-      expect(screen.queryByTestId('tu-great-timetable')).not.toBeInTheDocument()
-      expect(within(modal).getByText('ตารางเรียนทั้งสัปดาห์')).toBeInTheDocument()
-
-      // Quick jump bar and switcher buttons should NOT exist
-      expect(screen.queryByText(/ข้ามเวลา/)).not.toBeInTheDocument()
-      expect(screen.queryByTestId('view-mode-tu-great')).not.toBeInTheDocument()
-      expect(screen.queryByTestId('view-mode-full-grid')).not.toBeInTheDocument()
-
-      // Close modal
-      const closeBtn = screen.getByTestId('close-tu-reg-modal')
-      await user.click(closeBtn)
-      expect(screen.queryByTestId('tu-reg-timetable')).not.toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'สัปดาห์นี้' }))
+      expect(screen.getByText('11–17 พ.ค. 2569')).toBeInTheDocument()
     })
 
-    it('opens full week modal with TU Great layout exclusively on mobile layout', async () => {
+    it('opens the full table on the same week, with a date on each day', async () => {
+      const user = userEvent.setup()
+      render(
+        <WeeklyTimetable slots={SLOTS} layout="compact" title="ห้อง LC3-103" today="2026-05-13" renderActions={actions} />,
+      )
+      await user.click(screen.getByRole('button', { name: 'สัปดาห์หน้า' }))
+      await user.click(screen.getByTestId('compact-week-summary-btn'))
+
+      const modal = screen.getByRole('dialog')
+      expect(within(modal).getByText('ตารางการใช้ห้อง')).toBeInTheDocument()
+      expect(within(modal).getByText('18–24 พ.ค. 2569')).toBeInTheDocument()
+      expect(within(modal).getByRole('group', { name: 'วันจันทร์ 18 พ.ค.' })).toBeInTheDocument()
+      await user.click(within(modal).getByRole('button', { name: /BAS350 สอบ/ }))
+      const card = within(modal).getByTestId('tu-reg-selected-card')
+      expect(card).toHaveTextContent('จ. 18 พ.ค. 2569 13:00–16:00')
+      expect(within(card).getByRole('button', { name: 'pin BAS350' })).toBeInTheDocument()
+
+      // Going back a week in the table moves the card back too.
+      await user.click(within(modal).getByRole('button', { name: 'สัปดาห์ก่อน' }))
+      await user.click(screen.getByTestId('close-tu-reg-modal'))
+      expect(screen.getByText('สัปดาห์นี้')).toBeInTheDocument()
+    })
+
+    it('lists the week day by day on a phone, with details on tap', async () => {
       const originalInnerWidth = window.innerWidth
       window.innerWidth = 375
       try {
         const user = userEvent.setup()
         render(
-          <WeeklyTimetable
-            slots={[
-              ...SLOTS,
-              slot({ eventCode: 'NP310', eventName: 'NP 310', dayOfWeek: 'MON', startTime: '09:30', endTime: '11:30' }),
-            ]}
-            layout="compact"
-            roomCode="LC3-103"
-          />
+          <WeeklyTimetable slots={SLOTS} layout="compact" roomCode="LC3-103" today="2026-05-13" renderActions={actions} />,
         )
+        await user.click(screen.getByTestId('compact-week-summary-btn'))
 
-        const summaryBtn = screen.getByTestId('compact-week-summary-btn')
-        await user.click(summaryBtn)
+        const agenda = within(screen.getByRole('dialog')).getByTestId('week-agenda')
+        const wednesday = within(agenda).getByRole('region', { name: 'วันพุธ 13 พ.ค.' })
+        expect(wednesday).toHaveTextContent('วันนี้')
+        expect(wednesday).toHaveTextContent('MA624')
+        expect(within(agenda).getByRole('region', { name: 'วันอาทิตย์ 17 พ.ค.' })).toHaveTextContent('ว่าง')
 
-        // On mobile (< 640px), modal displays TU Great view exclusively
-        const modal = screen.getByRole('dialog')
-        expect(screen.getByTestId('tu-great-timetable')).toBeInTheDocument()
-        expect(screen.queryByTestId('tu-reg-timetable')).not.toBeInTheDocument()
-
-        // 5 collision-free major marks rendered without text collision
-        expect(within(modal).getByText('08:00')).toBeInTheDocument()
-        expect(within(modal).getByText('11:00')).toBeInTheDocument()
-        expect(within(modal).getByText('14:00')).toBeInTheDocument()
-        expect(within(modal).getByText('17:00')).toBeInTheDocument()
-        expect(within(modal).getByText('20:00')).toBeInTheDocument()
-        expect(within(modal).queryByText('09:30')).not.toBeInTheDocument()
-        expect(within(modal).queryByText('18:30')).not.toBeInTheDocument()
-
-        // Semester badge is in top modal header
-        expect(within(modal).getByText('1/2569')).toBeInTheDocument()
-
-        // No redundant inner header
-        expect(within(modal).queryByRole('heading', { level: 3, name: 'ตารางเรียน' })).not.toBeInTheDocument()
-
-        // Duplicate code subtitle NP 310 is suppressed for NP310
-        const npCard = modal.querySelector('#tu-course-NP310')
-        expect(npCard).not.toBeNull()
-        expect(within(npCard as HTMLElement).getByText('NP310')).toBeInTheDocument()
-        expect(within(npCard as HTMLElement).queryByText('NP 310')).not.toBeInTheDocument()
-
-        // Switcher buttons should NOT exist
-        expect(screen.queryByTestId('view-mode-tu-great')).not.toBeInTheDocument()
-        expect(screen.queryByTestId('view-mode-full-grid')).not.toBeInTheDocument()
+        const friday = within(agenda).getByRole('region', { name: 'วันศุกร์ 15 พ.ค.' })
+        await user.click(within(friday).getByRole('button', { name: /ST326/ }))
+        expect(friday).toHaveTextContent('ศ. 15 พ.ค. 2569 09:00–12:00')
+        expect(within(friday).getByRole('button', { name: 'pin ST326' })).toBeInTheDocument()
       } finally {
         window.innerWidth = originalInnerWidth
       }
     })
 
-    it('shows "ไม่มีคาบ" on days without any classes', () => {
-      render(<WeeklyTimetable slots={SLOTS} layout="compact" />)
-      const summaryBtn = screen.getByTestId('compact-week-summary-btn')
-      expect(within(summaryBtn).getAllByText('ไม่มีคาบ').length).toBeGreaterThan(0)
+    it('shows a weekly activity by its name, not its code', () => {
+      render(
+        <WeeklyTimetable
+          layout="compact"
+          slots={[
+            slot({ eventCode: 'CS101', eventName: 'Intro', dayOfWeek: 'MON' }),
+            slot({ eventCode: 'CLUB1', eventName: 'Robotics Club', eventType: 'other', dayOfWeek: 'WED' }),
+          ]}
+        />,
+      )
+      const summary = screen.getByTestId('compact-week-summary-btn')
+      expect(summary).toHaveTextContent('Robotics Club')
+      expect(summary).not.toHaveTextContent('CLUB1')
     })
+
+    it('marks days with nothing booked as free', () => {
+      render(<WeeklyTimetable slots={SLOTS} layout="compact" today="2026-05-13" />)
+      const summaryBtn = screen.getByTestId('compact-week-summary-btn')
+      expect(within(summaryBtn).getAllByText('ว่าง').length).toBeGreaterThan(0)
+  })
   })
 
   it('lists entries with malformed times instead of hiding them', () => {
@@ -227,7 +217,7 @@ describe('WeeklyTimetable', () => {
     )
     const skipped = screen.getByTestId('timetable-skipped')
     expect(skipped).toBeInTheDocument()
-    expect(within(skipped).getByText(/CS345 · MON/)).toBeInTheDocument()
+    expect(within(skipped).getByText(/CS345 MON/)).toBeInTheDocument()
     expect(within(skipped).getByRole('button', { name: 'pin CS345' })).toBeInTheDocument()
   })
 

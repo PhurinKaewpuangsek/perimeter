@@ -40,6 +40,8 @@ type MapState = Omit<MapContainerProps, "onFloorChange"> & {
 const ROUTE_HEIGHT = 0.54;
 // Route draw-in length; matches the 2D .animate-route-draw in index.css.
 const ROUTE_DRAW_MS = 800;
+// Pixels between a stairs point and a floor-change button that hangs below it.
+const ROUTE_LABEL_BELOW_GAP = 10;
 export const CONTEXT_RESTORE_TIMEOUT = 3000;
 
 /**
@@ -293,6 +295,8 @@ function buildMapScene(
   let routeLabels: {
     button: HTMLElement;
     point: THREE.Vector3;
+    // Hangs below its point because the route's start or destination pill stands above it.
+    below: boolean;
   }[] = [];
 
   function stopIdleDemo() {
@@ -475,7 +479,9 @@ function buildMapScene(
         y < height;
       // Stairs labels wait until the line has drawn in to them.
       label.button.hidden = !(inView && !routeDraw);
-      label.button.style.transform = `translate(${x}px,${y}px) translate(-50%,-100%)`;
+      label.button.style.transform = label.below
+        ? `translate(${x}px,${y}px) translate(-50%,${ROUTE_LABEL_BELOW_GAP}px)`
+        : `translate(${x}px,${y}px) translate(-50%,-100%)`;
       if (!inView) continue;
 
       const labelWidth =
@@ -484,7 +490,8 @@ function buildMapScene(
       const labelHeight = label.button.offsetHeight || 36;
       occupied.push({
         x,
-        y,
+        // Occupied boxes are keyed by their bottom edge, like the labels above their points.
+        y: label.below ? y + ROUTE_LABEL_BELOW_GAP + labelHeight : y,
         width: labelWidth,
         height: labelHeight,
         isRoute: true,
@@ -977,6 +984,19 @@ function buildMapScene(
     routeLabels = [];
     if (!next.route) return;
     const legs = splitRouteByFloor(next.route.path);
+    // When the route starts or ends at the stairs (e.g. navigating to "บันได 2"), that pill and
+    // this button share one spot; the button then hangs below the point so neither covers the other.
+    const path = next.route.path;
+    const pinnedIds = new Set(
+      [path[0]?.locationId, path[path.length - 1]?.locationId, next.selectedRoomId].filter(Boolean),
+    );
+    const pinnedRooms = (next.rooms ?? []).filter((room) => pinnedIds.has(room.id));
+    const sharesSpotWithPin = (floor: number, point: { x: number; y: number }) =>
+      pinnedRooms.some(
+        (room) =>
+          room.floor === floor &&
+          Math.hypot(room.coordinates.x - point.x, room.coordinates.y - point.y) < 25,
+      );
     legs.forEach((leg, index) => {
       if (leg.floor !== next.currentFloor) return;
       const prev = legs[index - 1];
@@ -1000,6 +1020,7 @@ function buildMapScene(
         routeLabels.push({
           button,
           point: new THREE.Vector3(stairs.x, stairs.y, stairs.z),
+          below: sharesSpotWithPin(leg.floor, stairsPt),
         });
       }
 
@@ -1020,6 +1041,7 @@ function buildMapScene(
         routeLabels.push({
           button,
           point: new THREE.Vector3(stairs.x, stairs.y, stairs.z),
+          below: sharesSpotWithPin(leg.floor, stairsPt),
         });
       }
     });

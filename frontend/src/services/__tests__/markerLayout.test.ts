@@ -43,7 +43,7 @@ describe('getMarkerLabel', () => {
 describe('getMarkerText', () => {
   it('ห้องที่ปิดอยู่ต่อท้ายป้ายด้วย "ปิดชั่วคราว" (#147)', () => {
     assert.equal(getMarkerText(makeRoom('105', 0, 0)), '105')
-    assert.equal(getMarkerText(makeRoom('105', 0, 0), true), '105 · ปิดชั่วคราว')
+    assert.equal(getMarkerText(makeRoom('105', 0, 0), true), '105 (ปิดชั่วคราว)')
   })
 })
 

@@ -255,12 +255,13 @@
   background: #000000;
 }
 /* Route floor change ("ขึ้นบันไดไปชั้น 2"): a primary pill, like the 2D button.
-   Higher z-index than markers so the floor change call-to-action is never occluded. */
+   Above every marker state, hovered start/destination pills (27) included, so the floor
+   change call-to-action is never occluded; below the map controls (30). */
 .map3d-route-floor {
   position: absolute;
   left: 0;
   top: 0;
-  z-index: 25;
+  z-index: 28;
   pointer-events: auto;
   cursor: pointer;
   white-space: nowrap;

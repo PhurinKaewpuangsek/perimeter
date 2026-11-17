@@ -284,7 +284,7 @@ describe('RoomMarkers', () => {
 
     const marker = screen.getByRole('button', { name: 'ห้อง 101 (ปิดชั่วคราว)' })
     expect(marker).toHaveAttribute('data-closed', 'true')
-    expect(marker).toHaveTextContent('101 · ปิดชั่วคราว')
+    expect(marker).toHaveTextContent('101 (ปิดชั่วคราว)')
     expect(marker.querySelector('circle[fill="#757575"]')).not.toBeNull()
   })
 
@@ -301,7 +301,7 @@ describe('RoomMarkers', () => {
     )
 
     expect(screen.getByRole('button', { name: 'ห้อง 101 (ปิดชั่วคราว)', pressed: true })).toHaveTextContent(
-      '101 · ปิดชั่วคราว',
+      '101 (ปิดชั่วคราว)',
     )
   })
 

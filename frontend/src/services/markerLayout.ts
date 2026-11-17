@@ -89,7 +89,7 @@ export const CLOSED_PIN_COLOR = '#757575'
 /** Pin label with the closed status appended, e.g. "105 · ปิดชั่วคราว". */
 export function getMarkerText(room: Pick<Room, 'roomNumber' | 'nameThai' | 'code'>, closed = false): string {
   const label = getMarkerLabel(room)
-  return closed ? `${label} · ${CLOSED_MARKER_STATUS}` : label
+  return closed ? `${label} (${CLOSED_MARKER_STATUS})` : label
 }
 
 export function getMarkerPriority(room: Pick<Room, 'category'>): number {

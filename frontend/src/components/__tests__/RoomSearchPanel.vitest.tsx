@@ -142,7 +142,7 @@ describe('RoomSearchPanel Component', () => {
 
     await user.type(screen.getByPlaceholderText(/ค้นหาห้อง/i), 'CS361')
 
-    expect(screen.getByText('CS361 · CS 361 · TUE 08:00-11:00 · LC3-103')).toBeInTheDocument()
+    expect(screen.getByText('CS361 CS 361, TUE 08:00-11:00, LC3-103')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /CS 361/ }))
 
     expect(handleSelectRoom).toHaveBeenCalledWith('LC3-F1-R103')
@@ -160,8 +160,8 @@ describe('RoomSearchPanel Component', () => {
 
     await user.type(screen.getByPlaceholderText(/ค้นหาห้อง/i), 'CS361')
 
-    expect(screen.getByText('CS361 · CS 361 · TUE 08:00-11:00 · LC3-103')).toBeInTheDocument()
-    expect(screen.queryByText('BAS350 · BAS 350 · MON 13:00-16:00 · LC3-103')).not.toBeInTheDocument()
+    expect(screen.getByText('CS361 CS 361, TUE 08:00-11:00, LC3-103')).toBeInTheDocument()
+    expect(screen.queryByText('BAS350 BAS 350, MON 13:00-16:00, LC3-103')).not.toBeInTheDocument()
   })
 
   it('shows an exam card and navigates directly to its room', () => {
@@ -183,7 +183,7 @@ describe('RoomSearchPanel Component', () => {
 
     expect(screen.getByText('สอบ: BAS350')).toBeInTheDocument()
     expect(screen.getByText('อ. 18 พ.ค. 2570 13:00–16:00')).toBeInTheDocument()
-    expect(screen.getByText('อาคาร LC3 · ห้อง LC3-103 ชั้น 1')).toBeInTheDocument()
+    expect(screen.getByText('อาคาร LC3 ห้อง LC3-103 ชั้น 1')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'นำทางไปห้องสอบ LC3-103' }))
     expect(onNavigateToRoom).toHaveBeenCalledWith('LC3-F1-R103')
   })
@@ -212,7 +212,7 @@ describe('RoomSearchPanel Component', () => {
 
     expect(screen.getByText('ไม่พบการสอบที่กำลังจะมาถึง')).toBeInTheDocument()
     expect(screen.getByText('LC3-103')).toBeInTheDocument()
-    expect(screen.getByText('BAS350 · Exam - BAS350 · TUE 13:00-16:00 · LC3-103')).toBeInTheDocument()
+    expect(screen.getByText('BAS350 Exam - BAS350, TUE 13:00-16:00, LC3-103')).toBeInTheDocument()
   })
 
   it('shows the exam-specific empty state for an unknown course code', async () => {

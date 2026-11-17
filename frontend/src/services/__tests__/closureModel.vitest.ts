@@ -88,8 +88,8 @@ describe('buildWalkways', () => {
       edges: [...graph.edges, { elementId: 'EDGE#J3|LC3_104', from: 'J3', to: 'LC3_104', edgeType: 'walk', distance: 40, closed: false }],
     }
     const labels = Object.fromEntries(buildWalkways(g, rooms, 1).map((w) => [w.elementId, w.label]))
-    expect(labels['EDGE#J3|LC3_104']).toBe('ทางเดินหน้าห้อง 104 · ช่วง 1')
-    expect(labels['EDGE#LC3_104|J1']).toBe('ทางเดินหน้าห้อง 104 · ช่วง 2')
+    expect(labels['EDGE#J3|LC3_104']).toBe('ทางเดินหน้าห้อง 104 ช่วง 1')
+    expect(labels['EDGE#LC3_104|J1']).toBe('ทางเดินหน้าห้อง 104 ช่วง 2')
     expect(labels['EDGE#J1|J2']).toBe('ทางเดิน ห้อง 104 ↔ ห้อง 105')
     // The shown suffix is searchable too.
     const walkways = buildWalkways(g, rooms, 1)
@@ -136,7 +136,7 @@ describe('listClosures', () => {
   it('lists rooms first, then walkways, marking what is closed right now', () => {
     const items = listClosures(g, rooms, new Date('2026-10-29T10:00:00+07:00'))
     expect(items.map((i) => [i.kind, i.label, i.activeNow])).toEqual([
-      ['room', 'ห้อง 105 · LC3-105', false],
+      ['room', 'ห้อง 105 (LC3-105)', false],
       ['walkway', 'ทางเดินหน้าห้อง 104', true],
     ])
   })
