@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
+import { createPinSvg } from "./routeGlyphs";
 import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { SSAOPass } from "three/addons/postprocessing/SSAOPass.js";
@@ -1075,9 +1076,7 @@ function buildMapScene(
     const glyph = document.createElement("span");
     glyph.className = "map3d-glyph-dest";
     glyph.setAttribute("aria-hidden", "true");
-    const inner = document.createElement("span");
-    inner.className = "map3d-glyph-dest-inner";
-    glyph.append(inner);
+    glyph.append(createPinSvg("map3d-glyph-dest-inner", 18));
     return glyph;
   }
 

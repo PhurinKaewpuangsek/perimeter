@@ -18,6 +18,7 @@ import {
   layoutMarkers,
 } from '../../services/markerLayout'
 import type { LabelSide } from '../../services/markerLayout'
+import { PIN_RED, PIN_RED_DARK } from './routeGlyphs'
 
 export interface RoomMarkersProps {
   rooms: Room[]
@@ -27,6 +28,8 @@ export interface RoomMarkersProps {
   onSelectRoom: (roomId: string) => void
   /** Rooms staff have closed right now (#147): grey pin and "ปิดชั่วคราว" beside it. */
   closedRoomIds?: ReadonlySet<string>
+  /** Route destination: its pin is drawn as the red destination pin (Google Maps style). */
+  destinationRoomId?: string | null
 }
 
 const NO_CLOSED_ROOMS: ReadonlySet<string> = new Set()
@@ -136,6 +139,7 @@ function RoomMarkers({
   selectedRoomId,
   onSelectRoom,
   closedRoomIds = NO_CLOSED_ROOMS,
+  destinationRoomId = null,
 }: RoomMarkersProps) {
   const scale = useTransformScale()
   const invScale = 1 / (scale || 1)
@@ -262,6 +266,7 @@ function RoomMarkers({
 
       {selected.map((room) => {
         const side = layout.get(room.id)?.label ?? 'right'
+        const isDestination = room.id === destinationRoomId
         return (
           <g
             key={room.id}
@@ -285,8 +290,8 @@ function RoomMarkers({
             >
               <path
                 d={SELECTED_PIN_PATH}
-                fill={SELECTED_PIN_COLOR}
-                stroke={SELECTED_PIN_BORDER_COLOR}
+                fill={isDestination ? PIN_RED : SELECTED_PIN_COLOR}
+                stroke={isDestination ? PIN_RED_DARK : SELECTED_PIN_BORDER_COLOR}
                 strokeWidth={0.8}
                 strokeLinejoin="round"
               />
@@ -294,7 +299,7 @@ function RoomMarkers({
                 cx={0}
                 cy={-SELECTED_PIN_HEAD_Y}
                 r={SELECTED_PIN_DOT_RADIUS}
-                fill={SELECTED_PIN_DOT_COLOR}
+                fill={isDestination ? PIN_RED_DARK : SELECTED_PIN_DOT_COLOR}
               />
             </g>
             <MarkerLabel
