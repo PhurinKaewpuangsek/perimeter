@@ -21,6 +21,7 @@ import {
   Clock,
   DoorOpen,
   MapPin,
+  PencilSimple,
   Prohibit,
   WarningCircle,
   X,
@@ -35,6 +36,8 @@ import {
   ROUTE_FAILURE_MESSAGES,
   calculateLegDistance,
   calculateRouteSummary,
+  formatArrivalNeighbours,
+  getArrivalNeighbours,
   getEntranceLabel,
   getFloorChangeLabel,
   getLegKeyMilestones,
@@ -50,6 +53,8 @@ interface NavigationPanelProps {
   fromId: string
   toId?: string | null
   onChangeFrom: (fromId: string) => void
+  /** The last room the user navigated to; offered first as a start point (#191). */
+  recentFromId?: string | null
   destination: Room | undefined
   routeState: UseRouteResult
   currentFloor: number
@@ -182,6 +187,7 @@ export default function NavigationPanel({
   fromId,
   toId,
   onChangeFrom,
+  recentFromId,
   destination,
   routeState,
   currentFloor,
@@ -197,6 +203,11 @@ export default function NavigationPanel({
   const entranceLabel = getEntranceLabel(fromId)
   const fromRoom = entranceLabel ? undefined : rooms.find((room) => room.id === fromId)
   const fromLabel = entranceLabel ?? (fromRoom ? getPlaceLabel(fromRoom) : BUILDING_ENTRANCE_LABEL)
+
+  const recentRoom =
+    recentFromId && recentFromId !== fromId && recentFromId !== toId
+      ? rooms.find((room) => room.id === recentFromId)
+      : undefined
 
   const toEntranceLabel = toId ? getEntranceLabel(toId) : undefined
   const destinationLabel = toEntranceLabel ?? (destination ? getPlaceLabel(destination) : 'ปลายทาง')
@@ -220,6 +231,13 @@ export default function NavigationPanel({
 
   const legs = routeState.route ? splitRouteByFloor(routeState.route.path) : []
   const routeSummary = calculateRouteSummary(legs)
+  // Orientation cues (#194): which side of the building the start entrance is on, and the
+  // rooms beside the destination door, since many doors have no room-number sign.
+  const fromEntrance = BUILDING_ENTRANCES.find((entrance) => entrance.id === fromId)
+  const arrivalHint =
+    destination && routeState.route
+      ? formatArrivalNeighbours(getArrivalNeighbours(routeState.route.path, destination, rooms))
+      : ''
 
   return (
     <section aria-label="นำทาง" className="space-y-3">
@@ -257,7 +275,12 @@ export default function NavigationPanel({
                 if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setQuery(null)
               }}
             >
-              <span className="mb-0.5 block text-[11px] sm:text-xs text-ink-3">จุดเริ่มต้น (From)</span>
+              <span className="mb-0.5 flex items-center gap-1 text-[11px] sm:text-xs text-ink-3">
+                <span>จุดเริ่มต้น (From)</span>
+                <span aria-hidden="true" className="inline-flex items-center gap-0.5 text-accent">
+                  · <PencilSimple size={11} weight="bold" /> แตะเพื่อเปลี่ยน
+                </span>
+              </span>
               <SearchBar
                 inputRef={inputRef}
                 value={query ?? fromLabel}
@@ -273,13 +296,38 @@ export default function NavigationPanel({
                   }
                 }}
               />
+              {!isPickingStart && entranceLabel && (
+                <button
+                  type="button"
+                  onClick={() => inputRef.current?.focus()}
+                  className="mt-1 text-left text-xs text-ink-2 underline underline-offset-2 hover:text-ink"
+                >
+                  ไม่ได้อยู่ที่ทางเข้า? แตะเพื่อเลือกห้องที่คุณอยู่
+                </button>
+              )}
               {isPickingStart && (
                 <ul
                   aria-label="ตัวเลือกจุดเริ่มต้น"
                   className="no-scrollbar mt-1 max-h-56 overflow-y-auto border border-line-soft bg-white shadow-floating"
                 >
+                  {recentRoom && (
+                    <li>
+                      <button
+                        type="button"
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => pickStart(recentRoom.id)}
+                        className="flex min-h-10 sm:min-h-11 w-full items-center gap-3 px-3 py-2 text-left hover:bg-surface-2"
+                      >
+                        <Clock size={18} weight="bold" className="shrink-0 text-ink" aria-hidden="true" />
+                        <span className="min-w-0">
+                          <span className="block text-button font-medium text-ink">{getPlaceLabel(recentRoom)}</span>
+                          <span className="block truncate text-xs text-ink-3">ปลายทางล่าสุด · ชั้น {recentRoom.floor}</span>
+                        </span>
+                      </button>
+                    </li>
+                  )}
                   {BUILDING_ENTRANCES.map((entrance, index) => (
-                    <li key={entrance.id} className={index > 0 ? 'border-t border-line-soft' : ''}>
+                    <li key={entrance.id} className={index > 0 || recentRoom ? 'border-t border-line-soft' : ''}>
                       <button
                         type="button"
                         onMouseDown={(event) => event.preventDefault()}
@@ -483,6 +531,9 @@ export default function NavigationPanel({
                               {walk}
                               {to}
                             </span>
+                            {index === 0 && fromEntrance?.description && (
+                              <p className="mt-1 text-xs text-ink-3">เริ่มที่{fromEntrance.description}</p>
+                            )}
 
                             {/* In multi-floor routes, show individual leg distance */}
                             {legs.length > 1 && (
@@ -536,6 +587,19 @@ export default function NavigationPanel({
                     )
                   })}
                 </ol>
+
+                {arrivalHint && (
+                  <p
+                    data-testid="arrival-hint"
+                    className="flex items-start gap-2 border-t border-line-soft bg-white px-4 py-2.5 text-xs text-ink-2"
+                  >
+                    <DoorOpen size={16} weight="bold" className="mt-px shrink-0 text-ink" aria-hidden="true" />
+                    <span>
+                      <span className="font-semibold text-ink">ถึง{destinationLabel}เมื่อหันหน้าเข้าห้องแล้วเห็น: </span>
+                      {arrivalHint}
+                    </span>
+                  </p>
+                )}
               </div>
             </div>
           )}
