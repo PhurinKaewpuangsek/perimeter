@@ -94,7 +94,7 @@
   "parts": [
     {
       "name": "LC3_Floor_1",
-      "source_objects": 320,
+      "source_objects": 313,
       "materials": 33,
       "room_metadata": [
         {
@@ -1171,7 +1171,7 @@
     },
     {
       "name": "Surrounding_Buildings",
-      "source_objects": 155,
+      "source_objects": 114,
       "materials": 10,
       "room_metadata": []
     }
